@@ -1,0 +1,10 @@
+[package]
+name = "forest_prot"
+version = "0.1.0"
+authors = ["boris"]
+
+[dependencies]
+rand = "0.3"
+gnuplot = {git = 'https://github.com/SiegeLord/RustGnuplot'}
+[dependencies.rustml]
+git = "https://github.com/daniel-e/rustml/"
