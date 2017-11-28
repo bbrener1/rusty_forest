@@ -3,6 +3,7 @@ use std::env;
 use std::io;
 use std::sync::Arc;
 // use std::rc::Weak;
+use std::cmp::min;
 use std::sync::Weak;
 use std::fs::File;
 use std::io::prelude::*;
@@ -17,6 +18,9 @@ use std::time;
 #[macro_use] extern crate rustml;
 extern crate rand;
 use rand::Rng;
+use std::collections::HashSet;
+
+
 extern crate gnuplot;
 
 mod online_madm;
@@ -27,79 +31,108 @@ use online_madm::slow_description_test;
 
 fn main() {
 
-    // let filename = "/Users/boris/taylor/vision/rust_prototype/raw_data/counts.txt";
-    //
-    // println!("Reading data");
-    //
-    // let count_array_file = File::open(filename).expect("File error!");
-    // let mut count_array_lines = io::BufReader::new(&count_array_file).lines();
-    //
-    // let mut count_array: Vec<Vec<f64>> = Vec::new();
-    //
-    // for line in count_array_lines.by_ref().enumerate() {
+    let filename = "/Users/boris/taylor/vision/rust_prototype/raw_data/iris.drop";
 
-        // count_array.push(Vec::new());
+    println!("Reading data");
 
-        // for gene in line.1.expect("Readline error").split_whitespace().enumerate() {
-        //
-        //     // println!("{}", gene.0);
-        //     //
-        //     // println!("{}", gene.1.parse::<f64>().unwrap() );
-        //
-        //     match gene.1.parse::<f64>() {
-        //         Ok(exp_val) => {
-        //             match count_array.last_mut() {
-        //                 Some(last_vec) => last_vec.push(exp_val),
-        //                 None => {
-        //                     println!("0th Dimension of count array empty! ln 31");
-        //                     panic!("Check count array creation rules or input file!")
-        //                 }
-        //             }
-        //
-        //         },
-        //         Err(msg) => {
-        //             println!("Couldn't parse a cell in the text file, Rust sez: {:?}",msg);
-        //             match count_array.last_mut() {
-        //                 Some(last_vec) => last_vec.push(0f64),
-        //                 None => {
-        //                     println!("0th Dimension of count array empty! ln 31");
-        //                     panic!("Check count array creation rules or input file!")
-        //                 }
-        //             }
-        //         }
-        //     }
-        //
-        //     // if let Result::Ok(exp_val) = gene.1.parse::<f64>() {
-        //     //     match count_array.last() {
-        //     //         Some(last_vec) => last_vec.push(exp_val),
-        //     //         None => None
-        //     //     }
-        //     }
-        // if line.0 % 100 == 0 {
-        //     println!("{}", line.0);
-        // };
-        //
+    let count_array_file = File::open(filename).expect("File error!");
+    let mut count_array_lines = io::BufReader::new(&count_array_file).lines();
+
+    let mut count_array: Vec<Vec<f64>> = Vec::new();
+
+    for line in count_array_lines.by_ref().enumerate() {
+
+        count_array.push(Vec::new());
+
+        let gene_line = line.1.expect("Readline error");
+
+        for gene in gene_line.split_whitespace().enumerate() {
+
+            // println!("{}", gene.0);
+            //
+            // println!("{}", gene.1.parse::<f64>().unwrap() );
+
+            match gene.1.parse::<f64>() {
+                Ok(exp_val) => {
+                    match count_array.last_mut() {
+                        Some(last_vec) => last_vec.push(exp_val),
+                        None => {
+                            println!("0th Dimension of count array empty!");
+                            panic!("Check count array creation rules or input file!")
+                        }
+                    }
+
+                },
+                Err(msg) => {
+                    println!("Couldn't parse a cell in the text file, Rust sez: {:?}",msg);
+                    match count_array.last_mut() {
+                        Some(last_vec) => last_vec.push(0f64),
+                        None => {
+                            println!("0th Dimension of count array empty! ln 31");
+                            panic!("Check count array creation rules or input file!")
+                        }
+                    }
+                }
+            }
+        }
+
+            // if let Result::Ok(exp_val) = gene.1.parse::<f64>() {
+            //     match count_array.last() {
+            //         Some(last_vec) => last_vec.push(exp_val),
+            //         None => None
+            //     }
+
+        if line.0 % 100 == 0 {
+            println!("{}", line.0);
+        }
+
         // count_array.push(
-        //     line.1.expect("Readline error!").split_whitespace()
+        //     gene_line.split_whitespace()
         //         .map(|x| {x.parse::<f64>().unwrap()}).collect::<Vec<f64>>());
 
 
 
-        // if line.0%3 == 0 && line.0 > 0 {
-        //
+        if line.0%3 == 0 && line.0 > 0 {
+
         //     println!("===========");
-        //     println!("{}",line.0);
-        //     // println!("{:?}", &count_array[..3].iter().map(|x| {x[..3]}));
-        //
-        // };
-        //
-        // }
+            println!("{}",line.0);
+        //     println!("{:?}", &count_array.iter().take(3).map(|x| x.iter().take(3)));
+        }
 
+    };
 
+    println!("===========");
+    //
+    // for i in 0..100 {
+    //     for j in 0..100 {
+    //         print!("{}, ", count_array[i][j]);
+    //     }
+    //     print!("\n");
+    // }
+    //
+    // let model = OnlineMADM::new(count_array);
+    //
+    // for i in 0..100 {
+    //     for j in 0..100 {
+    //         print!("{}, ", model.counts[i][j]);
+    //     }
+    //     print!("\n");
+    // }
+    //
+    // for i in 0..10 {
+    //     for j in 0..10 {
+    //         print!("{:?}, ", model.upper_sorted_rank_table[i][j]);
+    //     }
+    //     print!("\n");
+    // }
+    //
+    // for i in 0..10 {
+    //     for j in 0..10 {
+    //         print!("{:?}, ", model.dispersion_history[i][j]);
+    //     }
+    //     print!("\n");
+    // }
 
-    println!("##############################################################################################################");
-    println!("##############################################################################################################");
-    println!("##############################################################################################################");
 
     // let temp = tree {nodes: Vec::new(),counts: Vec::new()};
     // for cell in &mut count_array.into_iter() {
@@ -110,40 +143,68 @@ fn main() {
 
     // let mut forest = Forest::grow_forest(count_array, 10, 1000);
     // forest.test();
+    //
+    // println!("Argmin test: {},{}", argmin(&vec![1.,3.,0.,5.]).0,argmin(&vec![1.,3.,0.,5.]).1);
+    //
+    // println!("Argsort test: {:?}", argsort(&vec![1.,3.,0.,5.]));
+    //
+    // let mut axis_sum_test: Vec<Vec<f64>> = Vec::new();
 
-    println!("Argmin test: {},{}", argmin(&vec![1.,3.,0.,5.]).0,argmin(&vec![1.,3.,0.,5.]).1);
+    println!("##############################################################################################################");
+    println!("##############################################################################################################");
+    println!("##############################################################################################################");
 
-    println!("Argsort test: {:?}", argsort(&vec![1.,3.,0.,5.]));
-
-    let mut axis_sum_test: Vec<Vec<f64>> = Vec::new();
 
     // axis_sum_test.push(vec![1.,2.,3.]);
     // axis_sum_test.push(vec![4.,5.,6.]);
     // axis_sum_test.push(vec![0.,1.,0.]);
-    let temp: [f64;7] = [-3.,-2.,-1.,0.,10.,15.,20.];
-    let temp2 = temp.into_iter().cloned().collect();
-    let temp3 = vec![temp2];
-    let temp4 = matrix_flip(&temp3);
+    // let temp: [f64;7] = [-3.,-2.,-1.,0.,10.,15.,20.];
+    // let temp2 = temp.into_iter().cloned().collect();
+    // let temp3 = vec![temp2];
+    // let temp4 = matrix_flip(&temp3);
+
 
     let mut thr_rng = rand::thread_rng();
-    let rng = thr_rng.gen_iter::<f64>();
-    let temp5: Vec<f64> = rng.take(49).collect();
-    let temp6 = matrix_flip(&(vec![temp5.clone()]));
+
+    let mut counts = Vec::new();
+
+    for feature in 0..3 {
+
+        let mut rng = thr_rng.gen_iter::<f64>();
+
+        counts.push(rng.take(6).collect());
+    }
+
+    counts = matrix_flip(&counts);
+
+    let model = OnlineMADM::new(counts.clone(),true);
+
+    let second_model = OnlineMADM::new(counts.clone(),false);
+
+    println!("{:?}", model);
+    println!("{:?}", second_model);
+
+    // let temp6 = matrix_flip(&counts);
+
+    // let mut thr_rng = rand::thread_rng();
+    // let rng = thr_rng.gen_iter::<f64>();
+    // let temp5: Vec<f64> = rng.take(49).collect();
+    // let temp6 = matrix_flip(&(vec![temp5.clone()]));
 
     // axis_sum_test.push(vec![1.,2.,3.]);
     // axis_sum_test.push(vec![4.,5.,6.]);
     // axis_sum_test.push(vec![7.,8.,9.]);
 
-    println!("Source floats: {:?}", temp5);
+    // println!("Source floats: {:?}", matrix_flip(&counts));
 
-    let mut forest = Forest::grow_forest(temp6,10,1);
+    let mut forest = Forest::grow_forest(count_array,1,1);
     forest.test();
 
     // println!("Inner axist test! {:?}", inner_axis_mean(&axis_sum_test));
     // println!("Matrix flip test! {:?}", matrix_flip(&axis_sum_test));
 
-    slow_description_test();
-    slow_vs_fast();
+    // slow_description_test();
+    // slow_vs_fast();
 
 }
 
@@ -190,8 +251,11 @@ impl Forest {
 
         };
         // self.trees.push(Tree::plant_tree(vec![627],vec![3964],self.counts.clone()));
-        let split = self.trees[2].nodes[0].find_split(0);
-        println!("Best split for feature 627 is found to be {},{}", split.0,split.1);
+
+        let split_feature = 0;
+
+        let split = self.trees[0].nodes[0].find_split(split_feature);
+        println!("Best split for feature {} is found to be {},{}", split_feature, split.0,split.1);
     }
 }
 
@@ -235,36 +299,49 @@ impl Node {
 
     fn first(counts:Weak<Vec<Vec<f64>>>, samples:Vec<usize>, output_features:Vec<usize>) -> Node {
 
-        let loc_counts: Vec<Vec<f64>> = samples.iter().map(|x| counts.upgrade().expect("Dead tree!")[x.clone()].clone()).collect();
+        let out_f_set : HashSet<usize> = output_features.iter().cloned().collect();
 
-        let means: Vec<f64> = loc_counts.iter().fold(vec![0f64;loc_counts[0].len()], |acc, x|
-            {
-                x.iter().zip(acc.iter()).map(|y| y.0 + y.1).collect::<Vec<f64>>()
-            }).iter().map(|z| z/(loc_counts.len() as f64)).collect();
+        let mut loc_counts: Vec<Vec<f64>> = samples.iter().cloned().map(|x| counts.upgrade().expect("Dead tree!")[x].clone()).collect();
 
-        let variance = loc_counts.iter().fold(vec![0f64;loc_counts[0].len()], |acc,x| {
-                x.iter().enumerate().zip(acc.iter()).map(|y| ((y.0).1 - means[(y.0).0]).powi(2) + y.1).collect()
-            }
-            ).iter().map(|z| z/(loc_counts.len() as f64)).collect();
+        loc_counts = matrix_flip(&loc_counts).iter().cloned().enumerate().filter(|x| out_f_set.contains(&x.0)).map(|y| y.1).collect();
+
+        loc_counts = matrix_flip(&loc_counts);
+
+        let fmadm = OnlineMADM::new(loc_counts.clone(),true);
+
+        let medians = fmadm.median_history[0].clone();
+        let dispersion = fmadm.dispersion_history[0].iter().enumerate().map(|(i,x)| {
+            x.1/medians[i].1
+        }).collect();
+
+        let rmadm = fmadm.reverse();
+
+        let madm = (fmadm,rmadm);
+        // let means: Vec<f64> = loc_counts.iter().fold(vec![0f64;loc_counts[0].len()], |acc, x|
+        //     {
+        //         x.iter().zip(acc.iter()).map(|y| y.0 + y.1).collect::<Vec<f64>>()
+        //     }).iter().map(|z| z/(loc_counts.len() as f64)).collect();
+
+        // let variance = loc_counts.iter().fold(vec![0f64;loc_counts[0].len()], |acc,x| {
+        //         x.iter().enumerate().zip(acc.iter()).map(|y| ((y.0).1 - medians[(y.0).0]).powi(2) + y.1).collect()
+        //     }
+        //     ).iter().map(|z| z/(loc_counts.len() as f64)).collect();
 
 
 
         let mut result = Node {
             feature:None,
             split: None,
-            means: means,
+            medians: medians,
             output_features: output_features,
             indecies: samples,
-            variance:variance,
+            dispersion:dispersion,
             weights:vec![1.;loc_counts[0].len()],
             children:Vec::new(),
             parent:None,
-            counts:counts
+            counts:counts,
+            madm:madm
         };
-
-        result.means.push(0.);
-        result.weights.push(0.);
-        result.variance.push(0.);
 
         result
     }
@@ -293,17 +370,82 @@ impl Node {
 
     fn find_split(&mut self, feature:usize) -> (usize,f64) {
 
-        let global_counts = self.counts.upgrade().expect("Missing counts?");
+        println!("Finding split");
 
-        let node_counts: Vec<Vec<f64>> = self.indecies.iter().map(|x| self.output_features.iter().map(|y| global_counts[*x][*y]).collect()).collect();
+        let mut forward_dispersions = Vec::new();
 
-        println!("Testing Online MADM");
+        // println!("{:?}" ,self.madm.0);
 
-        let mut online = OnlineMADM::new(node_counts);
+        while let Some(x) = self.madm.0.next() {
 
-        online.test();
+            let mut individual_dispersions = Vec::new();
 
-        (0,0.)
+            for (i,(med,disp)) in x.0.iter().zip(x.1.iter()).enumerate() {
+                individual_dispersions.push((disp.1/med.1)*self.weights[i]);
+            }
+
+            forward_dispersions.push(individual_dispersions.iter().sum::<f64>() / self.weights.iter().sum::<f64>());
+
+            println!("{:?}",individual_dispersions);
+
+        }
+
+        println!("Forward split found");
+
+        let mut reverse_dispersions: Vec<f64> = Vec::new();
+
+        // println!("{:?}" ,self.madm.1);
+
+        while let Some(x) = self.madm.1.next() {
+
+            let mut individual_dispersions = Vec::new();
+
+            for (i,(med,disp)) in x.0.iter().zip(x.1.iter()).enumerate() {
+                individual_dispersions.push((disp.1/med.1)*self.weights[self.weights.len()-(i+1)]);
+            }
+
+            println!("{:?}",individual_dispersions);
+
+            reverse_dispersions.push(individual_dispersions.iter().sum::<f64>() / self.weights.iter().sum::<f64>());
+
+        }
+
+        reverse_dispersions = reverse_dispersions.iter().cloned().rev().collect();
+
+        for (fw,rv) in forward_dispersions.iter().zip(reverse_dispersions.clone()) {
+            println!("fw/rv: {},{}",fw,rv);
+        }
+
+        let mut minimum = (0,forward_dispersions[0]*2.);
+
+        for (i,(fw,rv)) in forward_dispersions.iter().zip(reverse_dispersions.clone()).enumerate() {
+
+            // let proportion = (0.5 - ((i as f64) / (forward_dispersions.len() as f64))).abs();
+            let proportion = 1.;
+
+            println!("{}", (fw+rv)*proportion);
+
+            if (0 < i) && (i < (forward_dispersions.len()-1)) {
+                if minimum.1 > (fw+rv)*proportion {
+                    minimum = (i,(fw+rv)*proportion);
+                }
+            }
+
+            // let f_adj_disp = fw / (1. - proportion);
+            // let r_adj_disp = rv / proportion
+            //
+            // println!("{},{}",f_adj_disp,r_adj_disp);
+            //
+            // if (0 < i) && (i < (forward_dispersions.len()-1)) {
+            //     if minimum.1 > f_adj_disp.min(r_adj_disp) {
+            //         minimum = (i,f_adj_disp.min(r_adj_disp));
+            //     }
+            // }
+        }
+
+        println!("{:?}", self.madm.0.counts[0]);
+
+        minimum
     }
 
 }
@@ -313,12 +455,13 @@ struct Node {
     split: Option<f64>,
     output_features: Vec<usize>,
     indecies: Vec<usize>,
-    means: Vec<f64>,
+    medians: Vec<(usize,f64)>,
     weights: Vec<f64>,
-    variance: Vec<f64>,
+    dispersion: Vec<f64>,
     children: Vec<Node>,
     parent: Option<Arc<Node>>,
-    counts: Weak<Vec<Vec<f64>>>
+    counts: Weak<Vec<Vec<f64>>>,
+    madm: (OnlineMADM,OnlineMADM)
 }
 
 
@@ -454,3 +597,26 @@ fn argsort(input: &Vec<f64>) -> Vec<(usize,f64)> {
 //     out.sort_unstable_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Greater));
 //     out
 // }
+
+fn median(input: &Vec<f64>) -> (usize,f64) {
+    let mut index = 0;
+    let mut value = 0.;
+
+    let mut sorted_input = input.clone();
+    sorted_input.sort_unstable_by(|a,b| a.partial_cmp(&b).unwrap_or(Ordering::Greater));
+
+    if sorted_input.len() % 2 == 0 {
+        index = sorted_input.len()/2;
+        value = (sorted_input[index-1] + sorted_input[index]) / 2.
+    }
+    else {
+        if sorted_input.len() % 2 == 1 {
+            index = (sorted_input.len()-1)/2;
+            value = sorted_input[index]
+        }
+        else {
+            panic!("Median failed!");
+        }
+    }
+    (index,value)
+}

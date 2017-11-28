@@ -1,5 +1,8 @@
+use std;
 use std::cmp::PartialOrd;
 use std::cmp::Ordering;
+use std::collections::HashSet;
+use std::collections::HashMap;
 
 extern crate rand;
 use rand::Rng;
@@ -30,39 +33,79 @@ fn median(input: &Vec<f64>) -> (usize,f64) {
     (index,value)
 }
 
-fn sort_upper(input: &Vec<f64>) -> (Vec<usize>, Vec<(usize,usize,usize,f64,usize)>,usize,f64) {
+fn sort_upper(input: &Vec<f64>, drop_zeroes: bool) -> (Vec<usize>, Vec<(usize,usize,usize,f64,usize)>,usize,f64) {
 
     let mut median_index = 0;
     let mut median_value = 0.;
 
-    println!("Sorting upper, trying to find median");
+    // println!("Sorting upper, trying to find median");
 
-    println!("Feature size: {}", input.len());
+    // println!("Feature size: {}", input.len());
 
     let mut sorted_rank_table: Vec<(usize,usize,usize,f64,usize)> = Vec::new();
 
     let mut intermediate = input.iter().enumerate().collect::<Vec<(usize,&f64)>>();
     intermediate.sort_unstable_by(|a,b| a.1.partial_cmp(b.1).unwrap_or(Ordering::Greater));
 
-    println!("Feature sorted!");
+    // println!("Feature sorted!");
 
-    if intermediate.len() % 2 == 0 {
-        median_index = intermediate.len()/2;
-        median_value = (intermediate[median_index].1 + intermediate[median_index-1].1) / 2.
+
+    if drop_zeroes {
+        let mut zeroes = 0;
+        for sample in intermediate.clone() {
+            if *sample.1 == 0. {
+                zeroes += 1;
+            }
+        }
+        let mut non_zero_samples = 0;
+        let mut previous_sample = 0.;
+        let target = intermediate.len()-zeroes;
+        for (i,sample) in intermediate.iter().enumerate() {
+            if *sample.1 != 0. {
+                non_zero_samples += 1;
+            }
+            if non_zero_samples > (target - (target%2))/2 {
+                median_index = i;
+                if target%2 == 0 {
+                    median_value = (sample.1+previous_sample)/2.;
+                }
+                else {
+                    median_value = *sample.1;
+                }
+                break
+            }
+            if *sample.1 != 0. {
+                previous_sample = *sample.1;
+            }
+        }
+        // if (intermediate.len() - zero_boundary) % 2 == 0 {
+        //     median_index = zeroes + ((intermediate.len()-zeroes)/2);
+        //     median_value = (intermediate[median_index].1 + intermediate[median_index-1].1) / 2.
+        // }
+        // else {
+        //     median_index = zeroes + (((intermediate.len()-zeroes)-1)/2);
+        //     median_value = *intermediate[median_index].1;
+        // }
     }
     else {
-        if intermediate.len() % 2 == 1 {
-            median_index = (intermediate.len()-1)/2;
-            median_value = *intermediate[median_index].1;
+        if intermediate.len() % 2 == 0 {
+            median_index = intermediate.len()/2;
+            median_value = (intermediate[median_index].1 + intermediate[median_index-1].1) / 2.
         }
         else {
-            panic!("Median failed!");
+            if intermediate.len() % 2 == 1 {
+                median_index = (intermediate.len()-1)/2;
+                median_value = *intermediate[median_index].1;
+            }
+            else {
+                panic!("Median failed!");
+            }
         }
     }
 
     median_index = intermediate[median_index].0;
 
-    println!("Median computed! {}", median_value);
+    // println!("Median computed! {}", median_value);
 
     for (i,sample) in intermediate.iter().enumerate() {
 
@@ -79,22 +122,22 @@ fn sort_upper(input: &Vec<f64>) -> (Vec<usize>, Vec<(usize,usize,usize,f64,usize
         }
     }
 
-    println!("Sorting back into correct order!");
+    // println!("Sorting back into correct order!");
 
     sorted_rank_table.sort_unstable_by(|a,b| a.1.cmp(&b.1));
 
     let order_of_samples = intermediate.iter().map(|x| x.0).collect();
 
-    println!("Returning ranking table:");
+    // println!("Returning ranking table:");
 
     (order_of_samples,sorted_rank_table,median_index,median_value)
 }
 
 // fn madm_ranking(sorted_rank_table: &Vec<(usize,usize,usize,f64,usize)>, sorted_samples: &Vec<usize>, current_median:&(usize,f64)) -> (Vec<(usize,usize,usize,f64,usize)>,(usize,f64,usize,f64)) {
 
-fn madm_ranking(sorted_rank_table: &Vec<Vec<(usize,usize,usize,f64,usize)>>,feature:usize, current_median:&(usize,f64)) -> (usize,f64,usize,f64) {
+fn madm_ranking(sorted_rank_table: &Vec<Vec<(usize,usize,usize,f64,usize)>>,feature:usize, current_median:&(usize,f64),drop_zeroes:bool) -> (usize,f64,usize,f64) {
 
-    println!("Computing MADM rankings!");
+    // println!("Computing MADM rankings!");
 
     let mut new_median_distance = (0,0.,0,0.);
 
@@ -102,7 +145,18 @@ fn madm_ranking(sorted_rank_table: &Vec<Vec<(usize,usize,usize,f64,usize)>>,feat
     let mut left_sample = sorted_rank_table[feature][sorted_rank_table[feature][current_median.0].0];
     let mut right_sample = sorted_rank_table[feature][sorted_rank_table[feature][current_median.0].4];
 
-    let size = sorted_rank_table[feature].len();
+
+    let mut size = sorted_rank_table[feature].len();
+    let mut zeroes = 0;
+
+    if drop_zeroes{
+        for sample in sorted_rank_table[feature].iter().cloned() {
+            if sample.3 == 0. {
+                size -=1;
+                zeroes += 1;
+            }
+        }
+    }
 
     let mut current_samples = 1;
 
@@ -111,7 +165,7 @@ fn madm_ranking(sorted_rank_table: &Vec<Vec<(usize,usize,usize,f64,usize)>>,feat
     let mut closest_left_sample = sorted_rank_table[feature][current_median.0];
     let mut closest_right_sample = sorted_rank_table[feature][current_median.0];
 
-    println!("Target samples: {}", target_samples);
+    // println!("Target samples: {}", target_samples);
 
     loop {
 
@@ -127,8 +181,27 @@ fn madm_ranking(sorted_rank_table: &Vec<Vec<(usize,usize,usize,f64,usize)>>,feat
 
         current_samples += 1;
 
-        println!("{},{:?},{:?},{},{}", current_samples, left_sample,right_sample, left_sample.3-current_median.1,right_sample.3-current_median.1);
-        println!("{:?},{:?},{},{}",closest_left_sample,closest_right_sample,closest_left_sample.3-current_median.1,closest_right_sample.3-current_median.1);
+        // if drop_zeroes {
+        //     for i in 0..zeroes {
+        //         if left_sample.3 == 0. {
+        //             left_sample = sorted_rank_table[feature][left_sample.0]
+        //         }
+        //         else {
+        //             break
+        //         }
+        //     }
+        //     for i in 0..zeroes {
+        //         if right_sample.3 == 0. {
+        //             right_sample = sorted_rank_table[feature][right_sample.4]
+        //         }
+        //         else {
+        //             break
+        //         }
+        //     }
+        // }
+
+        // println!("{},{:?},{:?},{},{}", current_samples, left_sample,right_sample, left_sample.3-current_median.1,right_sample.3-current_median.1);
+        // println!("{:?},{:?},{},{}",closest_left_sample,closest_right_sample,closest_left_sample.3-current_median.1,closest_right_sample.3-current_median.1);
 
     }
 
@@ -136,7 +209,7 @@ fn madm_ranking(sorted_rank_table: &Vec<Vec<(usize,usize,usize,f64,usize)>>,feat
         let mut closer = closer_sample(closest_left_sample, closest_right_sample, *current_median, feature, sorted_rank_table);
         closer.reverse();
 
-        println!("Even samples: {:?}", closer);
+        // println!("Even samples: {:?}", closer);
 
         new_median_distance.0 = closer[0].1;
         new_median_distance.1 = (((closer[0].3 - current_median.1).abs() + (closer[1].3 - current_median.1).abs())  / 2.).abs();
@@ -153,7 +226,7 @@ fn madm_ranking(sorted_rank_table: &Vec<Vec<(usize,usize,usize,f64,usize)>>,feat
         let mut closer = closer_sample(closest_left_sample, closest_right_sample, *current_median, feature, sorted_rank_table);
         closer.reverse();
 
-        println!("Odd samples: {:?}", closer);
+        // println!("Odd samples: {:?}", closer);
 
         new_median_distance.0 = closer[0].1;
         new_median_distance.1 = (closer[0].3 - current_median.1).abs();
@@ -166,7 +239,7 @@ fn madm_ranking(sorted_rank_table: &Vec<Vec<(usize,usize,usize,f64,usize)>>,feat
 
     }
 
-    println!("Computed new median distance: {:?}", new_median_distance);
+    // println!("Computed new median distance: {:?}", new_median_distance);
     //
     // new_median_distance
 
@@ -191,9 +264,9 @@ fn insert_into_sorted(sorted: &mut Vec<(usize,usize,f64)> , insertion: (usize,f6
 
 fn pop_rank_table(rank_table: &mut Vec<Vec<(usize,usize,usize,f64,usize)>>, pop: (usize,usize)) -> (usize,usize,usize,f64,usize) {
 
-    println!("Popping a sample!");
+    // println!("Popping a sample!");
 
-    assert!(rank_table[pop.0].len() > 1, "Popped an empty feature!");
+    // assert!(rank_table[pop.0].len() > 1, "Popped an empty feature!");
 
     // let target = rank_table[pop.0].remove(pop.1);
     let target = rank_table[pop.0][pop.1];
@@ -223,7 +296,7 @@ fn pop_rank_table(rank_table: &mut Vec<Vec<(usize,usize,usize,f64,usize)>>, pop:
         rank_table[pop.0][less_than].0 = greater_than;
     }
     else {
-        println!("Popping an edge: {},{}", greater_than, less_than);
+        // println!("Popping an edge: {},{}", greater_than, less_than);
         if target.4 == target.1 {
             rank_table[pop.0][target.0].4 = rank_table[pop.0][target.0].1;
         }
@@ -235,7 +308,7 @@ fn pop_rank_table(rank_table: &mut Vec<Vec<(usize,usize,usize,f64,usize)>>, pop:
     rank_table[pop.0][pop.1].0 = target.1;
     rank_table[pop.0][pop.1].4 = target.1;
 
-    println!("Sample popped: {:?}", target);
+    // println!("Sample popped: {:?}", target);
 
     target
 
@@ -243,7 +316,7 @@ fn pop_rank_table(rank_table: &mut Vec<Vec<(usize,usize,usize,f64,usize)>>, pop:
 
 fn rank_table_median(rank_table:& Vec<Vec<(usize,usize,usize,f64,usize)>>, right_zone: &usize, median_zone:&usize, left_zone:&usize, feature:usize, old_median:(usize,f64), removed: (usize,usize,usize,f64,usize)) -> (usize,f64) {
 
-    println!("Computing new median!");
+    // println!("Computing new median!");
 
     let mut new_median: (usize,f64) = (0,0.);
 
@@ -255,7 +328,7 @@ fn rank_table_median(rank_table:& Vec<Vec<(usize,usize,usize,f64,usize)>>, right
     // if (right_zone+left_zone+median_zone -1 ) % 2 != 0 {
     if (rank_table[feature].len() - removed.1) %2 != 0 {
 
-        println!("Even median!");
+        // println!("Even median!");
 
         match (rank_table[feature][old_median.0].2).cmp(&removed.2) {
             Ordering::Less => new_median = {
@@ -280,7 +353,7 @@ fn rank_table_median(rank_table:& Vec<Vec<(usize,usize,usize,f64,usize)>>, right
     }
     else {
 
-        println!("Odd median!");
+        // println!("Odd median!");
         match (rank_table[feature][old_median.0].2).partial_cmp(&removed.2).unwrap_or(Ordering::Greater) {
             Ordering::Less => new_median = {
                 let new_index = rank_table[feature][old_median.0].0;
@@ -301,8 +374,8 @@ fn rank_table_median(rank_table:& Vec<Vec<(usize,usize,usize,f64,usize)>>, right
         }
     }
 
-    println!("Computed new median!");
-    println!("{:?}", new_median);
+    // println!("Computed new median!");
+    // println!("{:?}", new_median);
 
     new_median
 
@@ -359,9 +432,9 @@ fn expand_by_1(sorted_rank_table:& Vec<Vec<(usize,usize,usize,f64,usize)>>, feat
         }
     }
 
-    println!("Expanding by 1:");
-    println!("{:?},{:?}",left,right);
-    println!("{:?},{:?}", left_boundary,right_boundary);
+    // println!("Expanding by 1:");
+    // println!("{:?},{:?}",left,right);
+    // println!("{:?},{:?}", left_boundary,right_boundary);
 
     (left_boundary,right_boundary)
 
@@ -409,7 +482,7 @@ fn median_distance(sorted_rank_table:& Vec<Vec<(usize,usize,usize,f64,usize)>>, 
     }
 
 
-    println!("Computing new median distance!");
+    // println!("Computing new median distance!");
 
     let mut new_median_distance = old_median_distance.clone();
 
@@ -420,10 +493,10 @@ fn median_distance(sorted_rank_table:& Vec<Vec<(usize,usize,usize,f64,usize)>>, 
     let (mut left_boundary, mut right_boundary) =
     (sorted_rank_table[feature][median_distance_ordered[0].0],sorted_rank_table[feature][median_distance_ordered[1].0]);
 
-    println!("Before recomputation:");
-    println!("Boundaries: {:?},{:?}", left_boundary,right_boundary);
-    println!("Removed: {:?}", removed);
-    println!("Zones: {},{},{}", *left_zone,*median_zone,*right_zone);
+    // println!("Before recomputation:");
+    // println!("Boundaries: {:?},{:?}", left_boundary,right_boundary);
+    // println!("Removed: {:?}", removed);
+    // println!("Zones: {},{},{}", *left_zone,*median_zone,*right_zone);
 
 
     if removed.2 < left_boundary.2 {
@@ -437,11 +510,11 @@ fn median_distance(sorted_rank_table:& Vec<Vec<(usize,usize,usize,f64,usize)>>, 
     }
 
 
-    println!("Subtracted removed sample!");
+    // println!("Subtracted removed sample!");
 
-    println!("Boundaries: {:?},{:?}", left_boundary,right_boundary);
-    println!("Removed: {:?}", removed);
-    println!("Zones: {},{},{}", *left_zone,*median_zone,*right_zone);
+    // println!("Boundaries: {:?},{:?}", left_boundary,right_boundary);
+    // println!("Removed: {:?}", removed);
+    // println!("Zones: {},{},{}", *left_zone,*median_zone,*right_zone);
 
 
     if removed.1 == left_boundary.1 {
@@ -452,11 +525,11 @@ fn median_distance(sorted_rank_table:& Vec<Vec<(usize,usize,usize,f64,usize)>>, 
         right_boundary = sorted_rank_table[feature][removed.0];
     }
 
-    println!("Handled removed boundary");
+    // println!("Handled removed boundary");
 
-    println!("Boundaries: {:?},{:?}", left_boundary,right_boundary);
-    println!("Removed: {:?}", removed);
-    println!("Zones: {},{},{}", *left_zone,*median_zone,*right_zone);
+    // println!("Boundaries: {:?},{:?}", left_boundary,right_boundary);
+    // println!("Removed: {:?}", removed);
+    // println!("Zones: {},{},{}", *left_zone,*median_zone,*right_zone);
 
 
 
@@ -466,11 +539,11 @@ fn median_distance(sorted_rank_table:& Vec<Vec<(usize,usize,usize,f64,usize)>>, 
         right_boundary = contracted.1;
     }
 
-    println!("Handled median overflow");
+    // println!("Handled median overflow");
 
-    println!("Boundaries: {:?},{:?}", left_boundary,right_boundary);
-    println!("Removed: {:?}", removed);
-    println!("Zones: {},{},{}", *left_zone,*median_zone,*right_zone);
+    // println!("Boundaries: {:?},{:?}", left_boundary,right_boundary);
+    // println!("Removed: {:?}", removed);
+    // println!("Zones: {},{},{}", *left_zone,*median_zone,*right_zone);
 
 
     if (*median_zone as i32) <= ((*left_zone+*right_zone) as i32) {
@@ -480,27 +553,27 @@ fn median_distance(sorted_rank_table:& Vec<Vec<(usize,usize,usize,f64,usize)>>, 
     }
 
 
-    println!("Zones fixed:");
-    println!("Boundaries: {:?},{:?}", left_boundary,right_boundary);
-    println!("Removed: {:?}", removed);
-    println!("Zones: {},{},{}", *left_zone,*median_zone,*right_zone);
+    // println!("Zones fixed:");
+    // println!("Boundaries: {:?},{:?}", left_boundary,right_boundary);
+    // println!("Removed: {:?}", removed);
+    // println!("Zones: {},{},{}", *left_zone,*median_zone,*right_zone);
 
     if change > 0. {
-        println!("Moving right!");
+        // println!("Moving right!");
         for i in 0..sorted_rank_table[feature].len() {
-            println!("Boundaries: {:?},{:?}", left_boundary,right_boundary);
-            println!("New median: {:?}", new_median);
+            // println!("Boundaries: {:?},{:?}", left_boundary,right_boundary);
+            // println!("New median: {:?}", new_median);
             if right_boundary.1 == right_boundary.4 {
                 break
             }
 
-            println!("Comparison: {},{}",(sorted_rank_table[feature][right_boundary.4].3 - new_median.1).abs(),(sorted_rank_table[feature][left_boundary.4].3 - new_median.1).abs());
+            // println!("Comparison: {},{}",(sorted_rank_table[feature][right_boundary.4].3 - new_median.1).abs(),(sorted_rank_table[feature][left_boundary.4].3 - new_median.1).abs());
 
             match (sorted_rank_table[feature][right_boundary.4].3 - new_median.1).abs().partial_cmp(&(left_boundary.3 - new_median.1).abs()).unwrap_or(Ordering::Greater) {
                 Ordering::Less => {
                     right_boundary = sorted_rank_table[feature][right_boundary.4];
                     left_boundary = sorted_rank_table[feature][left_boundary.4];
-                    println!("Moved right!")
+                    // println!("Moved right!")
                 },
                 Ordering::Greater => break,
                 Ordering::Equal =>{
@@ -510,14 +583,14 @@ fn median_distance(sorted_rank_table:& Vec<Vec<(usize,usize,usize,f64,usize)>>, 
             }
             *left_zone += 1;
             *right_zone -= 1;
-            println!("Boundaries: {:?},{:?}", left_boundary,right_boundary);
+            // println!("Boundaries: {:?},{:?}", left_boundary,right_boundary);
         }
     }
     if change < 0. {
-        println!("Moving left!");
+        // println!("Moving left!");
         for i in 0..sorted_rank_table[feature].len() {
-            println!("Boundaries: {:?},{:?}", left_boundary,right_boundary);
-            println!("New median: {:?}", new_median);
+            // println!("Boundaries: {:?},{:?}", left_boundary,right_boundary);
+            // println!("New median: {:?}", new_median);
             if left_boundary.1 == left_boundary.0 {
                 break
             }
@@ -534,7 +607,7 @@ fn median_distance(sorted_rank_table:& Vec<Vec<(usize,usize,usize,f64,usize)>>, 
             }
             *right_zone += 1;
             *left_zone -= 1;
-            println!("Boundaries: {:?},{:?}", left_boundary,right_boundary);
+            // println!("Boundaries: {:?},{:?}", left_boundary,right_boundary);
         }
     }
 
@@ -545,17 +618,17 @@ fn median_distance(sorted_rank_table:& Vec<Vec<(usize,usize,usize,f64,usize)>>, 
 
     let sample_space = *median_zone+*left_zone+*right_zone;
 
-    println!("{}", sample_space);
-    println!("{:?}", median_distance_disordered);
+    // println!("{}", sample_space);
+    // println!("{:?}", median_distance_disordered);
 
     if sample_space % 2 == 0 {
 
-        println!("Even samples, computing split median!");
+        // println!("Even samples, computing split median!");
 
         let mut distances = closer_sample(left_boundary, right_boundary, new_median, feature, sorted_rank_table);
         distances.reverse();
 
-        println!("{:?}",distances);
+        // println!("{:?}",distances);
 
         new_median_distance.1 = (new_median_distance.1 + (distances[1].3 - new_median.1).abs())/2.;
 
@@ -577,10 +650,184 @@ fn median_distance(sorted_rank_table:& Vec<Vec<(usize,usize,usize,f64,usize)>>, 
     }
 
 
-    println!("Done computing new median distance!");
-    println!("{:?}", new_median_distance);
+    // println!("Done computing new median distance!");
+    // println!("{:?}", new_median_distance);
 
     new_median_distance
+
+}
+
+fn rank_table_subset<T:std::clone::Clone>(sorted_rank_table:& Vec<Vec<(usize,usize,usize,f64,usize)>>, upper_sorted_samples: & Vec<Vec<usize>>, indecies: & Vec<usize>, sample_identity: & Vec<T>) -> (Vec<Vec<(usize,usize,usize,f64,usize)>>,Vec<(usize,f64)>,Vec<T>,Vec<Vec<usize>>) {
+
+    println!("Rank table: {},{}", sorted_rank_table.len(),sorted_rank_table[0].len());
+
+    let sample_set: HashSet<usize> = indecies.iter().cloned().collect();
+
+    println!("Built a sample hash");
+
+    let mut index_dictionary: HashMap<usize,usize> = HashMap::new();
+
+    let mut new_sample_ids: Vec<T> = Vec::new();
+
+    let mut new_indecies = 0;
+    for (i,sample) in sorted_rank_table[0].iter().enumerate() {
+        if sample_set.contains(&i) {
+            index_dictionary.insert(i,new_indecies);
+            new_sample_ids.push(sample_identity[i].clone());
+            new_indecies += 1;
+
+        }
+
+
+    }
+
+    println!("Built the sample index dictionary");
+
+    // println!("{:?}", sample_set);
+    // println!("{:?}", index_dictionary);
+
+    let mut new_sorted_samples = Vec::new();
+
+    let mut new_rank_table: Vec<Vec<(usize,usize,usize,f64,usize)>> = Vec::new();
+
+    let mut new_medians = Vec::new();
+
+    for (i,feature) in sorted_rank_table.iter().enumerate() {
+
+        new_rank_table.push(Vec::new());
+
+        let mut current_feature = new_rank_table.last_mut().unwrap();
+
+        let mut first_sample = 0;
+
+        for (j,sample) in feature.iter().enumerate() {
+
+            // println!("i: {}, j: {}", i,j);
+
+            if sample_set.contains(&sample.1) {
+
+                if current_feature.len() < 1 {
+                    first_sample = sample.1;
+                }
+
+                let mut current_sample = sample.1;
+
+                // println!("Current sample: {}", current_sample);
+                // println!("{:?}", sorted_rank_table[i][current_sample]);
+                //
+                // println!("Finding previous sample:");
+
+                let mut previous_sample = sample.0;
+
+                for k in 0..feature.len()-1 {
+                    if sample_set.contains(&previous_sample) {
+                        break;
+                    }
+                    else {
+                        previous_sample = sorted_rank_table[i][previous_sample].0;
+                    }
+                    if previous_sample == sorted_rank_table[i][previous_sample].0 {
+                        if sample_set.contains(&previous_sample) {
+                            break;
+                        }
+                        else {
+                            previous_sample = current_sample;
+                            break;
+
+                        }
+                    }
+
+                }
+
+                // println!("Previous sample: {}", previous_sample);
+
+
+                let mut next_sample = sample.4;
+
+                for k in 0..feature.len()-1 {
+                    if sample_set.contains(&next_sample) {
+                        break;
+                    }
+                    else {
+                        next_sample = sorted_rank_table[i][next_sample].4;
+                    }
+                    if next_sample == sorted_rank_table[i][next_sample].4 {
+                        if sample_set.contains(&next_sample) {
+                            break
+                        }
+                        else {
+                            next_sample = current_sample;
+                            break;
+                        }
+                    }
+                }
+
+                if sorted_rank_table[i][current_sample].2 < sorted_rank_table[i][first_sample].2 {
+                    first_sample = current_sample;
+                }
+
+                current_sample = index_dictionary[&sample.1];
+                previous_sample = index_dictionary[&previous_sample];
+                next_sample = index_dictionary[&next_sample];
+
+                // println!("Next sample: {}", next_sample);
+
+
+
+                current_feature.push((previous_sample,current_sample,0,sample.3,next_sample));
+
+
+            }
+
+        }
+
+        first_sample = index_dictionary[&first_sample];
+
+        println!("First sample: {}", first_sample);
+
+        let mut current_sorted_samples = Vec::new();
+
+        let mut current_index = first_sample.clone();
+        let mut current_sample = 0;
+
+        for i in 0..current_feature.len() {
+
+            current_feature[current_index].2 = current_sample;
+
+            current_sorted_samples.push(current_index);
+
+            if current_feature.len()%2 == 0 {
+                if current_sample == current_feature.len()/2 {
+                    new_medians.push((current_index,(current_feature[current_index].3 + current_feature[current_sorted_samples[current_sorted_samples.len()-2]].3)/2.))
+                }
+            }
+            else {
+                if current_sample == (current_feature.len()-1)/2 {
+                    new_medians.push((current_index,current_feature[current_index].3))
+                }
+            }
+
+            current_sample += 1;
+
+            if current_index == current_feature[current_index].4 {
+                break
+            }
+
+            current_index = current_feature[current_index].4;
+
+
+        }
+
+        println!("Finished subsetting {}",i);
+
+        new_sorted_samples.push(current_sorted_samples);
+
+    }
+
+
+
+
+    (new_rank_table,new_medians,new_sample_ids,new_sorted_samples)
 
 }
 
@@ -588,25 +835,34 @@ fn median_distance(sorted_rank_table:& Vec<Vec<(usize,usize,usize,f64,usize)>>, 
 #[allow(dead_code)]
 impl OnlineMADM {
 
-    pub fn new(counts: Vec<Vec<f64>>) -> OnlineMADM {
+    pub fn new(counts: Vec<Vec<f64>>,drop_zeroes:bool) -> OnlineMADM {
 
         println!("Computing MADM initial conditions");
 
         let mut local_counts = counts;
         let dimensions = (local_counts.len(),local_counts[0].len());
-        let mut upper_sorted_samples = Vec::new();
         let mut upper_sorted_rank_table = Vec::new();
+        let mut upper_sorted_samples = Vec::new();
         // for feature in matrix_flip(&local_counts) {
         //     upper_sorted_counts.push(argsort(&feature));
         // }
         let mut current_upper_median = Vec::new();
         for feature in matrix_flip(&local_counts) {
             println!("Computing feature median");
-            let description = sort_upper(&feature);
+            let description = sort_upper(&feature,drop_zeroes);
             // current_upper_median.push(median(&feature.iter().map(|x| x.1).collect()));
             upper_sorted_samples.push(description.0);
             upper_sorted_rank_table.push(description.1);
             current_upper_median.push((description.2,description.3));
+        }
+        if drop_zeroes {
+            for (i,feature) in upper_sorted_rank_table.clone().iter().enumerate() {
+                for (j, sample) in feature.iter().enumerate() {
+                    if sample.3 == 0. {
+                        pop_rank_table(&mut upper_sorted_rank_table, (i,j));
+                    }
+                }
+            }
         }
         let mut upper_sorted_MSDM = Vec::new();
 
@@ -616,9 +872,9 @@ impl OnlineMADM {
 
         for (i,(feature,median)) in upper_sorted_rank_table.iter().zip(current_upper_median.iter()).enumerate() {
 
-            println!("Sorted rank table: {:?}", upper_sorted_rank_table[i]);
+            // println!("Sorted rank table: {:?}", upper_sorted_rank_table[i]);
 
-            let madm = madm_ranking(&upper_sorted_rank_table,i, &current_upper_median[i]);
+            let madm = madm_ranking(&upper_sorted_rank_table,i, &current_upper_median[i],drop_zeroes);
             upper_sorted_MSDM.push(madm);
 
             let boundaries = vec![(madm.0,madm.1),(madm.2,madm.3)];
@@ -630,35 +886,151 @@ impl OnlineMADM {
             right_zone.push(upper_sorted_rank_table[i].len() - upper_sorted_rank_table[i][right_boundary.0].2 - 1);
             left_zone.push(upper_sorted_rank_table[i][left_boundary.0].2);
 
-            println!("Boundaries: {:?},{:?}", left_boundary,right_boundary);
-            println!("Zones: {},{},{}", left_zone[i],median_zone[i],right_zone[i]);
+            // println!("Boundaries: {:?},{:?}", left_boundary,right_boundary);
+            // println!("Zones: {},{},{}", left_zone[i],median_zone[i],right_zone[i]);
 
         }
+
+        // let sample_identity = Vec::from(0..dimensions.1);
+        // let draw_order = Vec::from(0..dimensions.1);
+
+        let sample_identity = (0..dimensions.0).collect();
+        let draw_order = (0..dimensions.0).rev().collect();
+
+        let mut median_history = Vec::new();
+        median_history.push(current_upper_median.clone());
+
+        let mut dispersion_history = Vec::new();
+        dispersion_history.push(upper_sorted_MSDM.clone());
+
 
         OnlineMADM {
             counts : local_counts,
             dimensions: dimensions,
+            drop_zeroes: drop_zeroes,
             current_index: 0,
             current_upper_median : current_upper_median,
+
+            upper_sorted_samples: upper_sorted_samples,
 
             median_zone : median_zone,
             left_zone : left_zone,
             right_zone : right_zone,
 
+            sample_identity: sample_identity,
+            draw_order: draw_order,
 
             upper_sorted_rank_table : upper_sorted_rank_table,
-            upper_sorted_samples : upper_sorted_samples,
             upper_sorted_MSDM : upper_sorted_MSDM,
+
+            median_history: median_history,
+            dispersion_history: dispersion_history
+
         }
     }
 
     pub fn reverse(&self) -> OnlineMADM {
         let mut reversed = self.clone();
-        reversed.upper_sorted_rank_table.reverse();
+        reversed.draw_order.reverse();
         reversed
     }
 
-    fn variance_by_feature(&mut self, sorted_feature: usize) -> Vec<Vec<(f64,f64)>> {
+    pub fn sort_by_feature(&mut self, key_feature:usize) {
+
+        // let key_vector: = self.upper_sorted_rank_table[key_feature].iter().map(|x| x.2).collect();
+
+        let mut new_draw_order = vec![0;self.draw_order.len()];
+
+        for sample in 0..self.dimensions.1 {
+            let rank = self.upper_sorted_rank_table[key_feature][sample].2;
+            new_draw_order[rank] = self.upper_sorted_rank_table[key_feature][sample].1;
+        }
+        self.draw_order = new_draw_order;
+    }
+
+    pub fn derive_subset(&self, samples: Vec<usize>) -> OnlineMADM {
+
+        println!("Deriving a subset!");
+
+        let (new_rank_table,new_medians,new_identities,new_sorted_samples) = rank_table_subset(&self.upper_sorted_rank_table, &self.upper_sorted_samples, &samples, &self.sample_identity);
+
+
+        let mut local_counts = Vec::new();
+        // let flipped_counts = matrix_flip(&self.counts);
+        for sample in samples {
+            local_counts.push(self.counts[sample].clone())
+        }
+        // local_counts = matrix_flip(&local_counts);
+
+
+        let dimensions = (local_counts.len(),local_counts[0].len());
+
+        let mut upper_sorted_MSDM = Vec::new();
+
+        let mut median_zone = Vec::new();
+        let mut left_zone = Vec::new();
+        let mut right_zone = Vec::new();
+
+        for (i,(feature,median)) in new_rank_table.iter().zip(new_medians.iter()).enumerate() {
+
+            // println!("Sorted rank table: {:?}", new_rank_table[i]);
+
+            let madm = madm_ranking(&new_rank_table,i, &new_medians[i],true);
+            upper_sorted_MSDM.push(madm);
+
+            let boundaries = vec![(madm.0,madm.1),(madm.2,madm.3)];
+
+            let left_boundary = boundaries.iter().min_by(|a,b| new_rank_table[i][a.0].2.cmp(& new_rank_table[i][b.0].2)).unwrap();
+            let right_boundary = boundaries.iter().max_by(|a,b| new_rank_table[i][a.0].2.cmp(& new_rank_table[i][b.0].2)).unwrap();
+
+            median_zone.push(new_rank_table[i][right_boundary.0].2 - new_rank_table[i][left_boundary.0].2 + 1);
+            right_zone.push(new_rank_table[i].len() - new_rank_table[i][right_boundary.0].2 - 1);
+            left_zone.push(new_rank_table[i][left_boundary.0].2);
+
+            // println!("Boundaries: {:?},{:?}", left_boundary,right_boundary);
+            // println!("Zones: {},{},{}", left_zone[i],median_zone[i],right_zone[i]);
+
+        }
+
+        let mut median_history = Vec::new();
+        median_history.push(new_medians.clone());
+
+        let mut dispersion_history = Vec::new();
+        dispersion_history.push(upper_sorted_MSDM.clone());
+
+        // let sample_identity = Vec::from(0..dimensions.1);
+        // let draw_order = Vec::from(0..dimensions.1);
+
+        let draw_order = (0..dimensions.0).collect();
+
+
+        OnlineMADM {
+            counts : local_counts,
+            dimensions: dimensions,
+            drop_zeroes: true,
+            current_index: 0,
+            current_upper_median : new_medians,
+
+            upper_sorted_samples: new_sorted_samples,
+
+            median_zone : median_zone,
+            left_zone : left_zone,
+            right_zone : right_zone,
+
+            sample_identity: new_identities,
+            draw_order: draw_order,
+
+            upper_sorted_rank_table : new_rank_table,
+            upper_sorted_MSDM : upper_sorted_MSDM,
+
+            median_history: median_history,
+            dispersion_history: dispersion_history
+        }
+
+
+    }
+
+    fn dispersion_by_feature(&mut self, sorted_feature: usize) -> Vec<Vec<(f64,f64)>> {
 
         // let reordered_rank_table: Vec<usize> = self.upper_sorted_rank_table[sorted_feature].iter().map(|x| x.2).collect();
         //
@@ -668,6 +1040,8 @@ impl OnlineMADM {
 
 
         let mut output: Vec<Vec<(f64,f64)>> = Vec::new();
+
+        self.sort_by_feature(sorted_feature);
 
         output.push(self.current_upper_median.iter().map(|x| x.1).zip(self.upper_sorted_MSDM.iter().map(|x| x.1)).collect());
 
@@ -716,9 +1090,13 @@ impl Iterator for OnlineMADM {
 
     fn next(&mut self) -> Option<(Vec<(usize,f64)>,Vec<(usize,f64,usize,f64)>)> {
 
-        println!("####################################################################################################################################################################");
+        // println!("####################################################################################################################################################################");
 
-        if self.current_index >= self.dimensions.0-1 {
+        self.current_index = self.draw_order.pop().unwrap();
+
+        println!("Current index: {}", self.current_index);
+
+        if self.median_history.len() >= self.dimensions.0 {
             return None
         }
 
@@ -728,45 +1106,96 @@ impl Iterator for OnlineMADM {
 
             let current_sample = pop_rank_table(&mut self.upper_sorted_rank_table,(i,self.current_index));
 
+            if self.drop_zeroes {
+                if current_sample.3 == 0. {
+                    continue
+                }
+            }
+
             let new_median = rank_table_median(&self.upper_sorted_rank_table, &self.median_zone[i], &self.left_zone[i], &self.right_zone[i], i, self.current_upper_median[i], current_sample);
 
             let new_median_distance = median_distance(&self.upper_sorted_rank_table, i, self.upper_sorted_MSDM[i], self.current_upper_median[i], new_median, current_sample, &mut self.median_zone[i], &mut self.left_zone[i], &mut self.right_zone[i]);
 
-            println!("Current zones:{},{},{}", self.left_zone[i],self.median_zone[i],self.right_zone[i]);
-
-            println!("Current index: {}", self.current_index);
-            println!("{:?}", current_sample);
-            println!("{:?}", self.upper_sorted_rank_table);
-            println!("{:?}", new_median);
-            println!("{:?}", new_median_distance);
+            // println!("Current zones:{},{},{}", self.left_zone[i],self.median_zone[i],self.right_zone[i]);
+            //
+            // println!("Current index: {}", self.current_index);
+            // println!("{:?}", current_sample);
+            // println!("{:?}", self.upper_sorted_rank_table);
+            // println!("{:?}", new_median);
+            // println!("{:?}", new_median_distance);
 
             self.current_upper_median[i] = new_median;
             self.upper_sorted_MSDM[i] = new_median_distance;
 
         }
 
-        self.current_index += 1;
+        self.median_history.push(self.current_upper_median.clone());
+        self.dispersion_history.push(self.upper_sorted_MSDM.clone());
 
         Some((self.current_upper_median.clone(),self.upper_sorted_MSDM.clone()))
     }
 
 }
 
+// impl<'a> Iterator for &'a OnlineMADM {
+//
+//     type Item = &'a (Vec<(usize,f64)>,Vec<(usize,f64,usize,f64)>);
+//
+//     fn next(&mut self) -> Option<&'a (Vec<(usize,f64)>,Vec<(usize,f64,usize,f64)>)> {
+//
+//         let result = self.next();
+//         match result {
+//             Some(x) => Some(&'a x),
+//             None => None
+//         }
+//         // match self.next() {
+//         //     Some(result) => Some(&'a result),
+//         //     None => None
+//         // }
+//     }
+// }
+// impl<'a> Iterator for OnlineMADM<'a> {
+//
+//     type Item = (Vec<(usize,f64)>,Vec<(usize,f64,usize,f64)>);
+//
+//     fn next(&mut self) -> Option<(Vec<(usize,f64)>,Vec<(usize,f64,usize,f64)>)> {
+//
+//         let result = self.next();
+//         match result {
+//             Some(x) => Some(x),
+//             None => None
+//         }
+//         // match self.next() {
+//         //     Some(result) => Some(&'a result),
+//         //     None => None
+//         // }
+//     }
+// }
+
+
 #[derive(Clone)]
+#[derive(Debug)]
 pub struct OnlineMADM {
-    counts: Vec<Vec<f64>>,
+    pub counts: Vec<Vec<f64>>,
     dimensions: (usize,usize),
+    drop_zeroes: bool,
     current_index : usize,
     current_upper_median: Vec<(usize,f64)>,
-    // upper_sorted_counts: Vec<Vec<(usize,f64)>>,
     median_zone : Vec<usize>,
     left_zone : Vec<usize>,
     right_zone : Vec<usize>,
 
-    upper_sorted_samples: Vec<Vec<usize>>,
-    upper_sorted_rank_table: Vec<Vec<(usize,usize,usize,f64,usize)>>,
+    sample_identity: Vec<usize>,
+    draw_order: Vec<usize>,
 
-    upper_sorted_MSDM: Vec<(usize,f64,usize,f64)>,
+    pub upper_sorted_rank_table: Vec<Vec<(usize,usize,usize,f64,usize)>>,
+
+    pub upper_sorted_MSDM: Vec<(usize,f64,usize,f64)>,
+
+    upper_sorted_samples: Vec<Vec<usize>>,
+
+    pub median_history: Vec<Vec<(usize,f64)>>,
+    pub dispersion_history: Vec<Vec<(usize,f64,usize,f64)>>
 }
 
 
@@ -822,9 +1251,9 @@ pub fn slow_vs_fast () {
     //
 
 
-    let mut model = OnlineMADM::new(matrix.clone());
+    let mut model = OnlineMADM::new(matrix.clone(),false);
 
-    let fast_medians: Vec<Vec<(f64,f64)>> = model.variance_by_feature(0);
+    let fast_medians: Vec<Vec<(f64,f64)>> = model.dispersion_by_feature(0);
 
     println!("Target data:");
     println!("{:?}", counts);
@@ -856,5 +1285,14 @@ fn matrix_flip(in_mat: &Vec<Vec<f64>>) -> Vec<Vec<f64>> {
         }
     }
 
+    out
+}
+
+fn argsort(input: &Vec<f64>) -> Vec<(usize,f64)> {
+    let mut intermediate1 = input.iter().enumerate().collect::<Vec<(usize,&f64)>>();
+    intermediate1.sort_unstable_by(|a,b| a.1.partial_cmp(b.1).unwrap_or(Ordering::Greater));
+    let mut intermediate2 = intermediate1.iter().enumerate().collect::<Vec<(usize,&(usize,&f64))>>();
+    intermediate2.sort_unstable_by(|a,b| ((a.1).0).cmp(&(b.1).0));
+    let out = intermediate2.iter().map(|x| (x.0,((x.1).1).clone())).collect();
     out
 }
