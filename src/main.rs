@@ -2,6 +2,7 @@
 use std::env;
 use std::io;
 use std::sync::Arc;
+use std::f64;
 // use std::rc::Weak;
 use std::cmp::min;
 use std::sync::Weak;
@@ -15,6 +16,7 @@ use std::cmp::Ordering;
 use rustml::math::*;
 use std::thread::sleep;
 use std::time;
+use std::cell::Cell;
 #[macro_use] extern crate rustml;
 extern crate rand;
 use rand::Rng;
@@ -31,7 +33,7 @@ use online_madm::slow_description_test;
 
 fn main() {
 
-    let filename = "/Users/boris/taylor/vision/rust_prototype/raw_data/iris.drop";
+    let filename = "/Users/boris/taylor/vision/rust_prototype/raw_data/counts.txt";
 
     println!("Reading data");
 
@@ -92,7 +94,7 @@ fn main() {
 
 
 
-        if line.0%3 == 0 && line.0 > 0 {
+        if line.0%100 == 0 && line.0 > 0 {
 
         //     println!("===========");
             println!("{}",line.0);
@@ -162,27 +164,45 @@ fn main() {
     // let temp2 = temp.into_iter().cloned().collect();
     // let temp3 = vec![temp2];
     // let temp4 = matrix_flip(&temp3);
+    //
+    //
+    // let mut thr_rng = rand::thread_rng();
+    //
+    // let mut counts = Vec::new();
+    //
+    // let mut rng = thr_rng.gen_iter::<f64>();
+    //
+    // for feature in 0..10 {
+    //
+    //     println!("{:?}",counts);
+    //
+    //     counts.push(Vec::new());
+    //
+    //     let loc_f = counts.last_mut().unwrap();
+    //
+    //     for sample in 0..100 {
+    //         if rng.next().unwrap() < 0.7 {
+    //             loc_f.push(rng.next().unwrap());
+    //         }
+    //         else {
+    //             loc_f.push(0.0);
+    //         }
+    //     }
+    //         // counts.push(rng.take(6).collect());
+    //
+    // }
 
-
-    let mut thr_rng = rand::thread_rng();
-
-    let mut counts = Vec::new();
-
-    for feature in 0..3 {
-
-        let mut rng = thr_rng.gen_iter::<f64>();
-
-        counts.push(rng.take(6).collect());
-    }
-
-    counts = matrix_flip(&counts);
-
-    let model = OnlineMADM::new(counts.clone(),true);
-
-    let second_model = OnlineMADM::new(counts.clone(),false);
-
-    println!("{:?}", model);
-    println!("{:?}", second_model);
+    // println!("{:?}",counts);
+    //
+    //
+    // counts = matrix_flip(&counts);
+    //
+    // let model = OnlineMADM::new(counts.clone(),true);
+    //
+    // let second_model = OnlineMADM::new(counts.clone(),false);
+    //
+    // println!("{:?}", model);
+    // println!("{:?}", second_model);
 
     // let temp6 = matrix_flip(&counts);
 
@@ -197,7 +217,7 @@ fn main() {
 
     // println!("Source floats: {:?}", matrix_flip(&counts));
 
-    let mut forest = Forest::grow_forest(count_array,1,1);
+    let mut forest = Forest::grow_forest(count_array, 1, 5, true);
     forest.test();
 
     // println!("Inner axist test! {:?}", inner_axis_mean(&axis_sum_test));
@@ -215,18 +235,18 @@ impl Forest {
 
 
 
-    fn grow_forest(counts : Vec<Vec<f64>>, forest_size: usize, tree_features: usize) -> Forest {
+    fn grow_forest(counts : Vec<Vec<f64>>, forest_size: usize, tree_features: usize, dropout: bool) -> Forest {
 
         let count_size1:usize = counts.len();
         let count_size2 = {&counts[0]}.len();
 
-        let mut forest = Forest{trees:Vec::new(),counts: Arc::new(counts),count_size:(count_size1,count_size2),tree_features:tree_features};
+        let mut forest = Forest{dropout: dropout, trees:Vec::new(),counts: Arc::new(counts),count_size:(count_size1,count_size2),tree_features:tree_features};
 
         for n in 0..forest_size {
             let in_features = rand::sample(&mut rand::thread_rng(), 0..count_size2, tree_features);
             let out_features = {0..count_size2}.collect::<Vec<usize>>();
             let tree_vector : &mut Vec<Tree> = forest.trees.borrow_mut();
-            tree_vector.push(Tree::plant_tree(in_features,out_features,forest.counts.clone()))
+            tree_vector.push(Tree::plant_tree(in_features,out_features,forest.counts.clone(),forest.dropout))
         }
         forest
     }
@@ -252,14 +272,31 @@ impl Forest {
         };
         // self.trees.push(Tree::plant_tree(vec![627],vec![3964],self.counts.clone()));
 
-        let split_feature = 0;
+        let split_feature = 627;
 
-        let split = self.trees[0].nodes[0].find_split(split_feature);
+        let split = self.trees[0].root.find_split(split_feature);
         println!("Best split for feature {} is found to be {},{}", split_feature, split.0,split.1);
+
+        self.trees[0].root.best_split();
+
+        // let split = self.trees[0].nodes[0].find_split(split_feature);
+        // println!("Trying to find split again: {},{}", split.0,split.1);
+        //
+        // let split = self.trees[0].nodes[0].find_split(1);
+        // println!("Splitting by the second feature: {},{}", split.0,split.1);
+        //
+        // let split = self.trees[0].nodes[0].find_split(2);
+        // println!("Splitting by the third feature: {},{}", split.0,split.1);
+        //
+        // let split = self.trees[0].nodes[0].find_split(split_feature);
+        // println!("Best split for feature {} is found to be {},{}", split_feature, split.0,split.1);
+
+
     }
 }
 
 struct Forest {
+    dropout: bool,
     trees: Vec<Tree>,
     count_size: (usize,usize),
     counts: Arc<Vec<Vec<f64>>>,
@@ -269,16 +306,25 @@ struct Forest {
 
 impl Tree {
 
-    fn plant_tree(in_f:Vec<usize>,out_f:Vec<usize>,f:Arc<Vec<Vec<f64>>>) -> Tree {
+    fn plant_tree(in_f:Vec<usize>,out_f:Vec<usize>,f:Arc<Vec<Vec<f64>>>, dropout: bool) -> Tree {
+
+        let root = Node::first(Arc::downgrade(&f),(0..f.len()).collect(),in_f.clone(),out_f.clone(),dropout);
+
+        println!("Exited the root node function, planting tree!");
+
         let mut tree = Tree {
+            dropout: dropout,
             nodes: Vec::new(),
+            root: root.0,
             input_features:Arc::new(in_f),
             // input_samples:Arc::new(Vec::new()),
             input_samples:(0..f.len()).collect(),
             output_features:Arc::new(out_f),
             weights:Arc::new(Vec::new()),
             counts:Arc::downgrade(&f)};
-        tree.nodes.push(Node::first(tree.counts.clone(),tree.input_samples.clone(),tree.output_features.to_vec()));
+        tree.nodes.push(root.1);
+
+        println!("Tree planted!");
 
         tree
     }
@@ -287,7 +333,9 @@ impl Tree {
 }
 
 struct Tree {
-    nodes: Vec<Node>,
+    dropout: bool,
+    nodes: Vec<Weak<Node>>,
+    root: Node,
     input_features: Arc<Vec<usize>>,
     input_samples: Vec<usize>,
     output_features: Arc<Vec<usize>>,
@@ -297,9 +345,11 @@ struct Tree {
 
 impl Node {
 
-    fn first(counts:Weak<Vec<Vec<f64>>>, samples:Vec<usize>, output_features:Vec<usize>) -> Node {
+    fn first(counts:Weak<Vec<Vec<f64>>>, samples:Vec<usize>, input_features:Vec<usize>, output_features:Vec<usize>, dropout: bool) -> (Node,Weak<Node>) {
 
         let out_f_set : HashSet<usize> = output_features.iter().cloned().collect();
+
+        let mut weights = vec![1.;counts.upgrade().expect("Empty counts at node creation!")[0].len()];
 
         let mut loc_counts: Vec<Vec<f64>> = samples.iter().cloned().map(|x| counts.upgrade().expect("Dead tree!")[x].clone()).collect();
 
@@ -317,6 +367,9 @@ impl Node {
         let rmadm = fmadm.reverse();
 
         let madm = (fmadm,rmadm);
+
+        println!("Finished computing a root node!");
+
         // let means: Vec<f64> = loc_counts.iter().fold(vec![0f64;loc_counts[0].len()], |acc, x|
         //     {
         //         x.iter().zip(acc.iter()).map(|y| y.0 + y.1).collect::<Vec<f64>>()
@@ -330,21 +383,93 @@ impl Node {
 
 
         let mut result = Node {
+            dropout: dropout,
+            selfreference: Cell::new(None),
             feature:None,
             split: None,
             medians: medians,
             output_features: output_features,
+            input_features: input_features,
             indecies: samples,
             dispersion:dispersion,
-            weights:vec![1.;loc_counts[0].len()],
+            weights: weights,
             children:Vec::new(),
-            parent:None,
+            parent: Cell::new(None),
             counts:counts,
             madm:madm
         };
 
-        result
+        println!("Root node object complete, setting up references!");
+
+        let mut res_arc = Arc::new(result);
+
+        let  res_weak = Arc::downgrade(&res_arc);
+
+        // let res_ref: &Node = res_arc.borrow();
+
+        res_arc.selfreference.set(Some(res_weak.clone()));
+
+        match Arc::try_unwrap(res_arc) {
+            Ok(node) => return (node,res_weak),
+            Err(arc) => panic!("Failed to unwrap a root node, something went wrong at tree construction")
+        }
+
     }
+
+    fn derive(&mut self, samples: Vec<usize>) -> Weak<Node> {
+
+        let mut weights = vec![1.;self.counts.upgrade().expect("Empty counts at node creation!")[0].len()];
+
+        let fmadm = self.madm.0.derive_subset(samples.clone());
+
+        let medians = fmadm.median_history[0].clone();
+        let dispersion = fmadm.dispersion_history[0].iter().enumerate().map(|(i,x)| {
+            x.1/medians[i].1
+        }).collect();
+
+        let rmadm = self.madm.1.derive_subset(samples.clone());
+
+        let madm = (fmadm,rmadm);
+
+        println!("Derived rank tables!");
+
+        let child = Node{
+            dropout: self.dropout,
+            selfreference: Cell::new(None),
+            feature: None,
+            split: None,
+            output_features: self.output_features.clone(),
+            input_features: self.input_features.clone(),
+            indecies: samples,
+            medians: medians,
+            weights: weights,
+            dispersion: dispersion,
+            children: Vec::new(),
+            parent: Cell::new(None),
+            counts: self.counts.clone(),
+            madm: madm
+        };
+
+        println!("Constructed a child object, trying to insert labels!");
+        // println!("{:?}", self.selfreference);
+
+        let self_weak = self.selfreference.take().unwrap();
+
+        child.parent.set(Some(self_weak.clone()));
+
+        self.selfreference.set(Some(self_weak.clone()));
+
+        let arc_child = Arc::new(child);
+
+        let weak_child = Arc::downgrade(&arc_child.clone());
+
+        match Arc::try_unwrap(arc_child) {
+            Ok(child) => {self.children.push(child); return weak_child},
+            Err(error) => panic!("Failed to derive a node, pointers broken!")
+        }
+
+    }
+
 
     fn test(&self) {
         println!("Node test (feature, split,indecies)");
@@ -370,23 +495,44 @@ impl Node {
 
     fn find_split(&mut self, feature:usize) -> (usize,f64) {
 
-        println!("Finding split");
+        println!("Finding split: {}", feature);
+
+        let weight_backup = self.weights[feature];
+        self.weights[feature] = 0.;
+
+        let draw_order = self.madm.0.sort_by_feature(feature);
+        self.madm.1.sort_by_feature(feature);
+        self.madm.1.reverse_draw_order();
 
         let mut forward_dispersions = Vec::new();
 
+        let mut drawn_samples = Vec::new();
+
         // println!("{:?}" ,self.madm.0);
+        // println!("{:?}" ,self.madm.1);
 
         while let Some(x) = self.madm.0.next() {
 
             let mut individual_dispersions = Vec::new();
 
+            // for (i,(med,disp)) in x.0.iter().zip(x.1.iter()).enumerate() {
+            //     individual_dispersions.push((disp.1/med.1)*self.weights[i]);
+            // }
+            //
+            // forward_dispersions.push(individual_dispersions.iter().sum::<f64>() / self.weights.iter().sum::<f64>());
+
             for (i,(med,disp)) in x.0.iter().zip(x.1.iter()).enumerate() {
-                individual_dispersions.push((disp.1/med.1)*self.weights[i]);
+                individual_dispersions.push((disp.1/med.1).ln()*self.weights[i]);
             }
 
-            forward_dispersions.push(individual_dispersions.iter().sum::<f64>() / self.weights.iter().sum::<f64>());
+            forward_dispersions.push((individual_dispersions.iter().sum::<f64>() / self.weights.iter().sum::<f64>()).exp());
 
-            println!("{:?}",individual_dispersions);
+
+            if forward_dispersions.len()%150 == 0 {
+                println!("{}", forward_dispersions.len());
+            }
+
+            drawn_samples.push(x.2);
 
         }
 
@@ -404,62 +550,136 @@ impl Node {
                 individual_dispersions.push((disp.1/med.1)*self.weights[self.weights.len()-(i+1)]);
             }
 
-            println!("{:?}",individual_dispersions);
+            // println!("{:?}",individual_dispersions);
 
             reverse_dispersions.push(individual_dispersions.iter().sum::<f64>() / self.weights.iter().sum::<f64>());
 
         }
 
+        println!("Reverse split found");
+
         reverse_dispersions = reverse_dispersions.iter().cloned().rev().collect();
 
-        for (fw,rv) in forward_dispersions.iter().zip(reverse_dispersions.clone()) {
-            println!("fw/rv: {},{}",fw,rv);
-        }
+        // for (fw,rv) in forward_dispersions.iter().zip(reverse_dispersions.clone()) {
+        //     // println!("fw/rv: {},{}",fw,rv);
+        // }
 
-        let mut minimum = (0,forward_dispersions[0]*2.);
+        let mut minimum = (0,f64::INFINITY);
 
         for (i,(fw,rv)) in forward_dispersions.iter().zip(reverse_dispersions.clone()).enumerate() {
 
-            // let proportion = (0.5 - ((i as f64) / (forward_dispersions.len() as f64))).abs();
-            let proportion = 1.;
-
-            println!("{}", (fw+rv)*proportion);
-
-            if (0 < i) && (i < (forward_dispersions.len()-1)) {
-                if minimum.1 > (fw+rv)*proportion {
-                    minimum = (i,(fw+rv)*proportion);
-                }
+            if self.madm.0.sorted_rank_table[feature][drawn_samples[i]].3 == 0. {
+                continue
             }
 
-            // let f_adj_disp = fw / (1. - proportion);
-            // let r_adj_disp = rv / proportion
-            //
-            // println!("{},{}",f_adj_disp,r_adj_disp);
+            // let proportion = (0.5 - ((i as f64) / (forward_dispersions.len() as f64))).abs();
+            let proportion = (i as f64) / (forward_dispersions.len() as f64);
+            // let proportion = 1.;
+
+            // println!("{}", (fw+rv)*proportion);
             //
             // if (0 < i) && (i < (forward_dispersions.len()-1)) {
-            //     if minimum.1 > f_adj_disp.min(r_adj_disp) {
-            //         minimum = (i,f_adj_disp.min(r_adj_disp));
+            //     if minimum.1 > (fw+rv)*proportion {
+            //         minimum = (i,(fw+rv)*proportion);
             //     }
             // }
+
+            let f_adj_disp = fw * (1. - proportion);
+            let r_adj_disp = rv * proportion;
+
+            // println!("{},{}",f_adj_disp,r_adj_disp);
+            // println!("{}", f_adj_disp + r_adj_disp);
+
+            if (0 < i) && (i < (forward_dispersions.len()-1)) {
+                if minimum.1 > f_adj_disp + r_adj_disp {
+                    minimum = (drawn_samples[i],f_adj_disp + r_adj_disp);
+                }
+            }
         }
 
-        println!("{:?}", self.madm.0.counts[0]);
+        // println!("{:?}", self.madm.0.counts[0]);
+
+
+
+        self.madm.0.reset();
+        self.madm.1.reset();
+
+        self.weights[feature] = weight_backup;
+
+        println!("Feature: {}", feature);
+        println!("{:?}", minimum);
+        println!("Split rank: {}, Split value: {}", self.madm.0.sorted_rank_table[feature][minimum.0].2, self.madm.0.sorted_rank_table[feature][minimum.0].3);
 
         minimum
+    }
+
+    fn best_split(&mut self) -> (usize,(usize,f64)) {
+
+        println!("Trying to find the best split!");
+
+        let mut minima = Vec::new();
+
+        for feature in self.input_features.clone() {
+            minima.push((feature,self.find_split(feature)));
+        }
+
+        let best_split = minima.iter().min_by(|x,y| (x.1).1.partial_cmp(&(y.1).1).unwrap_or(Ordering::Greater)).unwrap();
+
+        println!("Best split: {:?}", best_split);
+
+        // best_split.unwrap().clone();
+
+        let mut left_split = Vec::new();
+        let mut right_split = Vec::new();
+
+        println!("Deriving child nodes:");
+
+        for sample in self.madm.0.sorted_rank_table[best_split.0].iter().cloned() {
+
+            if (self.dropout && sample.3 != 0.) || !self.dropout
+            {
+                if sample.3 < (best_split.1).1 {
+                    left_split.push(sample.1);
+                }
+                else {
+                    right_split.push(sample.1);
+                }
+            }
+        }
+
+        self.feature = Some(best_split.0);
+        self.split = Some((best_split.1).1);
+
+        self.derive(left_split);
+        self.derive(right_split);
+
+        println!("Child indecies:");
+
+        for child in &self.children {
+            println!("{:?}" , child.indecies)
+        }
+
+        println!("Found best split, derived children");
+        println!("{:?}",best_split);
+
+        *best_split
     }
 
 }
 
 struct Node {
+    dropout: bool,
+    selfreference: Cell<Option<Weak<Node>>>,
     feature: Option<usize>,
     split: Option<f64>,
     output_features: Vec<usize>,
+    input_features: Vec<usize>,
     indecies: Vec<usize>,
     medians: Vec<(usize,f64)>,
     weights: Vec<f64>,
     dispersion: Vec<f64>,
     children: Vec<Node>,
-    parent: Option<Arc<Node>>,
+    parent: Cell<Option<Weak<Node>>>,
     counts: Weak<Vec<Vec<f64>>>,
     madm: (OnlineMADM,OnlineMADM)
 }
