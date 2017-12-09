@@ -833,7 +833,9 @@ fn rank_table_subset<T:std::clone::Clone>(sorted_rank_table:& Vec<Vec<(usize,usi
 
         }
 
-        // println!("Finished subsetting {}",i);
+        if i%400 == 0 {
+            println!("Finished subsetting {}",i);
+        }
 
         new_sorted_samples.push(current_sorted_samples);
 

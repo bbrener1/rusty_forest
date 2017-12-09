@@ -513,6 +513,11 @@ impl Node {
 
         while let Some(x) = self.madm.0.next() {
 
+            if self.dropout && self.madm.1.sorted_rank_table[feature][x.2].3 == 0.
+            {
+                continue
+            }
+
             let mut individual_dispersions = Vec::new();
 
             // for (i,(med,disp)) in x.0.iter().zip(x.1.iter()).enumerate() {
@@ -522,10 +527,10 @@ impl Node {
             // forward_dispersions.push(individual_dispersions.iter().sum::<f64>() / self.weights.iter().sum::<f64>());
 
             for (i,(med,disp)) in x.0.iter().zip(x.1.iter()).enumerate() {
-                individual_dispersions.push((disp.1/med.1).ln()*self.weights[i]);
+                individual_dispersions.push(((disp.1/med.1)+1.).ln()*self.weights[i]);
             }
 
-            forward_dispersions.push((individual_dispersions.iter().sum::<f64>() / self.weights.iter().sum::<f64>()).exp());
+            forward_dispersions.push((individual_dispersions.iter().sum::<f64>() / self.weights.iter().sum::<f64>()).exp()-1.);
 
 
             if forward_dispersions.len()%150 == 0 {
@@ -544,15 +549,20 @@ impl Node {
 
         while let Some(x) = self.madm.1.next() {
 
+            if self.dropout && self.madm.1.sorted_rank_table[feature][x.2].3 == 0.
+            {
+                continue
+            }
+
             let mut individual_dispersions = Vec::new();
 
             for (i,(med,disp)) in x.0.iter().zip(x.1.iter()).enumerate() {
-                individual_dispersions.push((disp.1/med.1)*self.weights[self.weights.len()-(i+1)]);
+                individual_dispersions.push(((disp.1/med.1)+1.).ln()*self.weights[self.weights.len()-(i+1)]);
             }
 
             // println!("{:?}",individual_dispersions);
 
-            reverse_dispersions.push(individual_dispersions.iter().sum::<f64>() / self.weights.iter().sum::<f64>());
+            reverse_dispersions.push((individual_dispersions.iter().sum::<f64>() / self.weights.iter().sum::<f64>()).exp()-1.);
 
         }
 
@@ -560,9 +570,9 @@ impl Node {
 
         reverse_dispersions = reverse_dispersions.iter().cloned().rev().collect();
 
-        // for (fw,rv) in forward_dispersions.iter().zip(reverse_dispersions.clone()) {
-        //     // println!("fw/rv: {},{}",fw,rv);
-        // }
+        for (i,(fw,rv)) in forward_dispersions.iter().zip(reverse_dispersions.clone()).enumerate() {
+            if i%100 == 0 {println!("fw/rv: {},{}",fw,rv);}
+        }
 
         let mut minimum = (0,f64::INFINITY);
 
@@ -599,6 +609,9 @@ impl Node {
 
         // println!("{:?}", self.madm.0.counts[0]);
 
+        println!("Feature: {}", feature);
+        println!("{:?}", minimum);
+        println!("Split rank: {}, Split value: {}", self.madm.0.sorted_rank_table[feature][minimum.0].2, self.madm.0.sorted_rank_table[feature][minimum.0].3);
 
 
         self.madm.0.reset();
@@ -606,9 +619,6 @@ impl Node {
 
         self.weights[feature] = weight_backup;
 
-        println!("Feature: {}", feature);
-        println!("{:?}", minimum);
-        println!("Split rank: {}, Split value: {}", self.madm.0.sorted_rank_table[feature][minimum.0].2, self.madm.0.sorted_rank_table[feature][minimum.0].3);
 
         minimum
     }
@@ -649,6 +659,9 @@ impl Node {
 
         self.feature = Some(best_split.0);
         self.split = Some((best_split.1).1);
+
+        println!("{:?}", left_split);
+        println!("{:?}", right_split);
 
         self.derive(left_split);
         self.derive(right_split);
