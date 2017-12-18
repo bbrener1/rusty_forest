@@ -54,6 +54,10 @@ fn main() {
             //
             // println!("{}", gene.1.parse::<f64>().unwrap() );
 
+            if !((gene.0 == 1686) || (gene.0 == 4660)) {
+                continue
+            }
+
             match gene.1.parse::<f64>() {
                 Ok(exp_val) => {
                     match count_array.last_mut() {
@@ -217,7 +221,9 @@ fn main() {
 
     // println!("Source floats: {:?}", matrix_flip(&counts));
 
-    let mut forest = Forest::grow_forest(count_array, 1, 5, true);
+    println!("{:?}", count_array);
+
+    let mut forest = Forest::grow_forest(count_array, 1, 2, true);
     forest.test();
 
     // println!("Inner axist test! {:?}", inner_axis_mean(&axis_sum_test));
@@ -270,14 +276,23 @@ impl Forest {
 
 
         };
+
+        println!("Dumping the root node:");
+
+        let mut backup_debug_file = File::create("root_node_debug.txt").unwrap();
+        backup_debug_file.write_fmt(format_args!("{:?}", self.trees[0].root.madm.0));
+
         // self.trees.push(Tree::plant_tree(vec![627],vec![3964],self.counts.clone()));
 
-        let split_feature = 627;
-
-        let split = self.trees[0].root.find_split(split_feature);
-        println!("Best split for feature {} is found to be {},{}", split_feature, split.0,split.1);
+        // let split_feature = 627;
+        //
+        // let split = self.trees[0].root.find_split(split_feature);
+        // println!("Best split for feature {} is found to be {},{}", split_feature, split.0,split.1);
 
         self.trees[0].root.best_split();
+        // for child in &mut self.trees[0].root.children {
+        //     child.best_split();
+        // }
 
         // let split = self.trees[0].nodes[0].find_split(split_feature);
         // println!("Trying to find split again: {},{}", split.0,split.1);
@@ -399,6 +414,11 @@ impl Node {
             madm:madm
         };
 
+        // println!("Dumping feature information to disk");
+        //
+        // let mut backup_debug_file = File::create("root_node_debug.txt").unwrap();
+        // backup_debug_file.write_fmt(format_args!("{:?}", result.madm.0));
+
         println!("Root node object complete, setting up references!");
 
         let mut res_arc = Arc::new(result);
@@ -497,6 +517,9 @@ impl Node {
 
         println!("Finding split: {}", feature);
 
+        println!("{:?}", self.madm.0.sorted_rank_table[feature]);
+        println!("{},{},{},{}", self.madm.0.left_zone[feature],self.madm.0.median_zone[feature],self.madm.0.right_zone[feature],self.indecies.len());
+
         let weight_backup = self.weights[feature];
         self.weights[feature] = 0.;
 
@@ -527,10 +550,10 @@ impl Node {
             // forward_dispersions.push(individual_dispersions.iter().sum::<f64>() / self.weights.iter().sum::<f64>());
 
             for (i,(med,disp)) in x.0.iter().zip(x.1.iter()).enumerate() {
-                individual_dispersions.push(((disp.1/med.1)+1.).ln()*self.weights[i]);
+                individual_dispersions.push((disp.1/med.1).powi(2)*self.weights[i]);
             }
 
-            forward_dispersions.push((individual_dispersions.iter().sum::<f64>() / self.weights.iter().sum::<f64>()).exp()-1.);
+            forward_dispersions.push(individual_dispersions.sum().sqrt());
 
 
             if forward_dispersions.len()%150 == 0 {
@@ -543,7 +566,7 @@ impl Node {
 
         println!("Forward split found");
 
-        let mut reverse_dispersions: Vec<f64> = Vec::new();
+        let mut reverse_dispersions = Vec::new();
 
         // println!("{:?}" ,self.madm.1);
 
@@ -557,12 +580,12 @@ impl Node {
             let mut individual_dispersions = Vec::new();
 
             for (i,(med,disp)) in x.0.iter().zip(x.1.iter()).enumerate() {
-                individual_dispersions.push(((disp.1/med.1)+1.).ln()*self.weights[self.weights.len()-(i+1)]);
+                individual_dispersions.push((disp.1/med.1).powi(2)*self.weights[self.weights.len()-(i+1)]);
             }
 
             // println!("{:?}",individual_dispersions);
 
-            reverse_dispersions.push((individual_dispersions.iter().sum::<f64>() / self.weights.iter().sum::<f64>()).exp()-1.);
+            reverse_dispersions.push(individual_dispersions.sum().sqrt());
 
         }
 
@@ -570,11 +593,12 @@ impl Node {
 
         reverse_dispersions = reverse_dispersions.iter().cloned().rev().collect();
 
-        for (i,(fw,rv)) in forward_dispersions.iter().zip(reverse_dispersions.clone()).enumerate() {
-            if i%100 == 0 {println!("fw/rv: {},{}",fw,rv);}
-        }
+        // for (i,(fw,rv)) in forward_dispersions.iter().zip(reverse_dispersions.clone()).enumerate() {
+        //     if i%100 == 0 {println!("fw/rv: {},{}",fw,rv);}
+        // }
 
-        let mut minimum = (0,f64::INFINITY);
+        let mut minimum = (0,f64::INFINITY, 0,0);
+        // let mut individual_minima = vec![(0,f64::INFINITY);forward_dispersions[0].len()];
 
         for (i,(fw,rv)) in forward_dispersions.iter().zip(reverse_dispersions.clone()).enumerate() {
 
@@ -582,32 +606,22 @@ impl Node {
                 continue
             }
 
-            // let proportion = (0.5 - ((i as f64) / (forward_dispersions.len() as f64))).abs();
-            let proportion = (i as f64) / (forward_dispersions.len() as f64);
-            // let proportion = 1.;
+            minimum.3 += 1;
 
-            // println!("{}", (fw+rv)*proportion);
-            //
-            // if (0 < i) && (i < (forward_dispersions.len()-1)) {
-            //     if minimum.1 > (fw+rv)*proportion {
-            //         minimum = (i,(fw+rv)*proportion);
-            //     }
-            // }
+            let proportion = (i as f64) / (forward_dispersions.len() as f64);
+
 
             let f_adj_disp = fw * (1. - proportion);
             let r_adj_disp = rv * proportion;
 
-            // println!("{},{}",f_adj_disp,r_adj_disp);
-            // println!("{}", f_adj_disp + r_adj_disp);
-
             if (0 < i) && (i < (forward_dispersions.len()-1)) {
                 if minimum.1 > f_adj_disp + r_adj_disp {
-                    minimum = (drawn_samples[i],f_adj_disp + r_adj_disp);
+                    minimum = (drawn_samples[i],f_adj_disp + r_adj_disp, i, minimum.3);
                 }
             }
+
         }
 
-        // println!("{:?}", self.madm.0.counts[0]);
 
         println!("Feature: {}", feature);
         println!("{:?}", minimum);
@@ -620,7 +634,7 @@ impl Node {
         self.weights[feature] = weight_backup;
 
 
-        minimum
+        (minimum.0, minimum.1)
     }
 
     fn best_split(&mut self) -> (usize,(usize,f64)) {
@@ -644,27 +658,69 @@ impl Node {
 
         println!("Deriving child nodes:");
 
+        let comparator = self.madm.0.sorted_rank_table[best_split.0][(best_split.1).0];
+
         for sample in self.madm.0.sorted_rank_table[best_split.0].iter().cloned() {
+
+            println!("{:?}", comparator);
+            println!("{:?}", sample);
 
             if (self.dropout && sample.3 != 0.) || !self.dropout
             {
-                if sample.3 < (best_split.1).1 {
+                if sample.3 < comparator.3 {
+                    println!("Left");
                     left_split.push(sample.1);
+                    // println!("{:?}",left_split.len());
                 }
                 else {
+                    println!("Right");
                     right_split.push(sample.1);
+                    // println!("{:?}",right_split.len());
                 }
+            }
+            else {
+                println!("Drop");
             }
         }
 
         self.feature = Some(best_split.0);
         self.split = Some((best_split.1).1);
 
+        println!("Finished computing child indecies:");
+
         println!("{:?}", left_split);
         println!("{:?}", right_split);
 
+        println!("Synthesizing new nodes raw:");
+
+        let left_raw_node = Node::first(self.counts.clone(), left_split.clone(), self.input_features.clone(), self.output_features.clone(), self.dropout.clone());
+
+        println!("Dumping the left raw node:");
+
+        let mut left_raw_file = File::create("left_raw_node.txt").unwrap();
+        left_raw_file.write_fmt(format_args!("{:?}", left_raw_node.0.madm.0));
+
+
+        let right_raw_node = Node::first(self.counts.clone(), right_split.clone(), self.input_features.clone() , self.output_features.clone(), self.dropout.clone());
+
+        println!("Dumping the right raw node:");
+
+        let mut right_raw_file = File::create("right_raw_node.txt").unwrap();
+        right_raw_file.write_fmt(format_args!("{:?}", right_raw_node.0.madm.0));
+
+        println!("Done dumping raw nodes");
+
         self.derive(left_split);
         self.derive(right_split);
+
+        println!("Dumping the derived nodes:");
+
+        let mut left_derived_file = File::create("left_derived_node.txt").unwrap();
+        left_derived_file.write_fmt(format_args!("{:?}", self.children[0].madm.0));
+
+        let mut right_derived_file = File::create("right_derived_node.txt").unwrap();
+        right_derived_file.write_fmt(format_args!("{:?}", self.children[1].madm.0));
+
 
         println!("Child indecies:");
 
