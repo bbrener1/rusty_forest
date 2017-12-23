@@ -712,7 +712,7 @@ fn rank_table_subset<T:std::clone::Clone>(sorted_rank_table:& Vec<Vec<(usize,usi
 
         let mut current_feature = new_rank_table.last_mut().unwrap();
 
-        let mut first_sample = 0;
+        let mut first_sample:usize = sample_set.iter().next().unwrap().clone();
 
         for (j,sample) in feature.iter().enumerate() {
 
@@ -773,6 +773,7 @@ fn rank_table_subset<T:std::clone::Clone>(sorted_rank_table:& Vec<Vec<(usize,usi
                 }
 
                 if drop_zeroes {
+
                     if sorted_rank_table[i][current_sample].3 < sorted_rank_table[i][first_sample].3 && sorted_rank_table[i][current_sample].3 != 0. {
                         first_sample = current_sample;
                         // eprintln!("Updated first sample");
@@ -803,6 +804,9 @@ fn rank_table_subset<T:std::clone::Clone>(sorted_rank_table:& Vec<Vec<(usize,usi
 
         }
 
+        println!("Derived, but is the first sample correct?");
+        println!("{:?}", first_sample);
+
         first_sample = index_dictionary[&first_sample];
 
         eprintln!("Ranking derived rank table");
@@ -813,11 +817,14 @@ fn rank_table_subset<T:std::clone::Clone>(sorted_rank_table:& Vec<Vec<(usize,usi
         let mut current_index = first_sample.clone();
         let mut current_sample = 0;
 
+        let mut zeroes = 0;
+
         if drop_zeroes {
             for sample in current_feature.iter_mut() {
                 if sample.3 == 0. {
                     sample.2 = current_sample;
                     current_sample += 1;
+                    zeroes += 1;
                 }
             }
         }
@@ -834,13 +841,13 @@ fn rank_table_subset<T:std::clone::Clone>(sorted_rank_table:& Vec<Vec<(usize,usi
 
             current_sorted_samples.push(current_index);
 
-            if current_feature.len()%2 == 0 {
-                if current_sample == current_feature.len()/2 {
+            if (current_feature.len()-zeroes)%2 == 0 {
+                if current_sample == (current_feature.len()-zeroes)/2 {
                     new_medians.push((current_index,(current_feature[current_index].3 + current_feature[current_sorted_samples[current_sorted_samples.len()-2]].3)/2.))
                 }
             }
             else {
-                if current_sample == (current_feature.len()-1)/2 {
+                if current_sample == ((current_feature.len()-zeroes)-1)/2 {
                     new_medians.push((current_index,current_feature[current_index].3))
                 }
             }
@@ -1412,93 +1419,4 @@ fn argsort(input: &Vec<f64>) -> Vec<(usize,f64)> {
     intermediate2.sort_unstable_by(|a,b| ((a.1).0).cmp(&(b.1).0));
     let out = intermediate2.iter().map(|x| (x.0,((x.1).1).clone())).collect();
     out
-}
-
-
-impl<U,T> RankVector<U,T> {
-
-    fn new(in_vec:&Vec<f64>, drop:f64, feature_name: U, sample_names: Vec<T>) -> RankVector<U,T> {
-
-        let vector = Vec::new();
-
-        let median = 0;
-
-        let left_boundary = 0;
-        let right_boundary = 0;
-
-        let sorted_invec = argsort(in_vec);
-
-
-
-        RankVector{
-            vector: vector,
-
-            median: median,
-
-            left_boundary: left_boundary,
-            right_boundary: right_boundary,
-
-            finger: 0,
-
-            feature_name: feature_name,
-            sample_names: sample_names
-        }
-
-    }
-
-    pub fn pop() {
-
-    }
-
-    pub fn median() {
-
-    }
-
-    pub fn boundaries() {
-
-    }
-
-    fn expand_by_1() {
-
-    }
-
-    fn contract_by_1() {
-
-    }
-
-    pub fn move_left() {
-
-    }
-
-    pub fn move_right() {
-
-    }
-
-    pub fn seek() {
-
-    }
-
-    pub fn derive() {
-
-    }
-
-    pub fn index() {
-
-    }
-
-}
-
-struct RankVector<U,T> {
-    vector: Vec<(usize,usize,usize,f64,usize)>,
-
-    median: usize,
-
-    left_boundary: usize,
-    right_boundary: usize,
-
-    finger: usize,
-
-    feature_name: U,
-    sample_names: Vec<T>
-
 }

@@ -26,6 +26,10 @@ use std::collections::HashSet;
 extern crate gnuplot;
 
 mod online_madm;
+mod raw_vector;
+mod rank_vector;
+use rank_vector::RankVector;
+use raw_vector::RawVector;
 use online_madm::OnlineMADM;
 use online_madm::slow_vs_fast;
 use online_madm::slow_description;
@@ -33,7 +37,7 @@ use online_madm::slow_description_test;
 
 fn main() {
 
-    let filename = "/Users/boris/taylor/vision/rust_prototype/raw_data/counts.txt";
+    let filename = "/Users/boris/taylor/vision/rust_prototype/raw_data/iris.drop";
 
     println!("Reading data");
 
@@ -54,9 +58,9 @@ fn main() {
             //
             // println!("{}", gene.1.parse::<f64>().unwrap() );
 
-            if !((gene.0 == 1686) || (gene.0 == 4660)) {
-                continue
-            }
+            // if !((gene.0 == 1686) || (gene.0 == 4660)) {
+            //     continue
+            // }
 
             match gene.1.parse::<f64>() {
                 Ok(exp_val) => {
@@ -223,8 +227,56 @@ fn main() {
 
     println!("{:?}", count_array);
 
-    let mut forest = Forest::grow_forest(count_array, 1, 2, true);
-    forest.test();
+    let mut raw = RawVector::raw_vector(&matrix_flip(&count_array)[0]);
+
+    println!("{:?}",raw);
+
+    println!("{:?}", raw.iter_full().cloned().collect::<Vec<(usize,usize,usize,f64,usize)>>());
+
+    println!("Crawlers:");
+
+    println!("{:?}", raw.crawl_right(raw.first).cloned().collect::<Vec<(usize,usize,usize,f64,usize)>>());
+
+    println!("{:?}", raw.crawl_left(raw.first).cloned().collect::<Vec<(usize,usize,usize,f64,usize)>>());
+
+    println!("Dropping zeroes:");
+
+    raw.drop_zeroes();
+
+    println!("Crawling dropped list:");
+
+    println!("{:?}", raw.crawl_right(raw.first).cloned().collect::<Vec<(usize,usize,usize,f64,usize)>>());
+
+    println!("Skipping dropped items:");
+
+    println!("{:?}", raw.drop_skip().cloned().collect::<Vec<(usize,usize,usize,f64,usize)>>());
+
+    println!("Printing non-zero values");
+
+    println!("{:?}", raw.drop_skip().cloned().map(|x| x.3).collect::<Vec<f64>>());
+
+    println!("Printing noned-out drops");
+    for i in raw.drop_none() {
+        println!("{:?}",i);
+    }
+
+    println!("Skipping drops");
+    for i in raw.drop_skip() {
+        println!("{:?}",i);
+    }
+
+    println!("{:?}",raw.left_to_right().cloned().collect::<Vec<(usize,usize,usize,f64,usize)>>());
+
+    println!("Finding dead center:");
+
+    let dead_center = rank_vector::DeadCenter::center(&raw);
+
+    println!("{:?}", dead_center);
+
+    println!("{:?}", dead_center.median())
+
+    // let mut forest = Forest::grow_forest(count_array, 1, 4, true);
+    // forest.test();
 
     // println!("Inner axist test! {:?}", inner_axis_mean(&axis_sum_test));
     // println!("Matrix flip test! {:?}", matrix_flip(&axis_sum_test));
@@ -282,6 +334,8 @@ impl Forest {
         let mut backup_debug_file = File::create("root_node_debug.txt").unwrap();
         backup_debug_file.write_fmt(format_args!("{:?}", self.trees[0].root.madm.0));
 
+        self.trees[0].root.meta_split(20);
+
         // self.trees.push(Tree::plant_tree(vec![627],vec![3964],self.counts.clone()));
 
         // let split_feature = 627;
@@ -289,10 +343,8 @@ impl Forest {
         // let split = self.trees[0].root.find_split(split_feature);
         // println!("Best split for feature {} is found to be {},{}", split_feature, split.0,split.1);
 
-        self.trees[0].root.best_split();
-        // for child in &mut self.trees[0].root.children {
-        //     child.best_split();
-        // }
+
+
 
         // let split = self.trees[0].nodes[0].find_split(split_feature);
         // println!("Trying to find split again: {},{}", split.0,split.1);
@@ -471,9 +523,13 @@ impl Node {
         };
 
         println!("Constructed a child object, trying to insert labels!");
-        // println!("{:?}", self.selfreference);
 
-        let self_weak = self.selfreference.take().unwrap();
+        let self_weak_option = self.selfreference.take();
+
+        println!("{:?}",self_weak_option.is_some());
+
+        let self_weak = self_weak_option.unwrap();
+        // let self_weak = self.selfreference.take().unwrap();
 
         child.parent.set(Some(self_weak.clone()));
 
@@ -484,7 +540,11 @@ impl Node {
         let weak_child = Arc::downgrade(&arc_child.clone());
 
         match Arc::try_unwrap(arc_child) {
-            Ok(child) => {self.children.push(child); return weak_child},
+            Ok(child) => {
+                child.selfreference.set(Some(weak_child.clone()));
+                self.children.push(child);
+                return weak_child
+            },
             Err(error) => panic!("Failed to derive a node, pointers broken!")
         }
 
@@ -517,8 +577,8 @@ impl Node {
 
         println!("Finding split: {}", feature);
 
-        println!("{:?}", self.madm.0.sorted_rank_table[feature]);
-        println!("{},{},{},{}", self.madm.0.left_zone[feature],self.madm.0.median_zone[feature],self.madm.0.right_zone[feature],self.indecies.len());
+        // println!("{:?}", self.madm.0.sorted_rank_table[feature]);
+        // println!("{},{},{},{}", self.madm.0.left_zone[feature],self.madm.0.median_zone[feature],self.madm.0.right_zone[feature],self.indecies.len());
 
         let weight_backup = self.weights[feature];
         self.weights[feature] = 0.;
@@ -557,7 +617,7 @@ impl Node {
 
 
             if forward_dispersions.len()%150 == 0 {
-                println!("{}", forward_dispersions.len());
+                // println!("{}", forward_dispersions.len());
             }
 
             drawn_samples.push(x.2);
@@ -662,24 +722,24 @@ impl Node {
 
         for sample in self.madm.0.sorted_rank_table[best_split.0].iter().cloned() {
 
-            println!("{:?}", comparator);
-            println!("{:?}", sample);
+            // println!("{:?}", comparator);
+            // println!("{:?}", sample);
 
             if (self.dropout && sample.3 != 0.) || !self.dropout
             {
                 if sample.3 < comparator.3 {
-                    println!("Left");
+                    // println!("Left");
                     left_split.push(sample.1);
                     // println!("{:?}",left_split.len());
                 }
                 else {
-                    println!("Right");
+                    // println!("Right");
                     right_split.push(sample.1);
                     // println!("{:?}",right_split.len());
                 }
             }
             else {
-                println!("Drop");
+                // println!("Drop");
             }
         }
 
@@ -691,35 +751,35 @@ impl Node {
         println!("{:?}", left_split);
         println!("{:?}", right_split);
 
-        println!("Synthesizing new nodes raw:");
-
-        let left_raw_node = Node::first(self.counts.clone(), left_split.clone(), self.input_features.clone(), self.output_features.clone(), self.dropout.clone());
-
-        println!("Dumping the left raw node:");
-
-        let mut left_raw_file = File::create("left_raw_node.txt").unwrap();
-        left_raw_file.write_fmt(format_args!("{:?}", left_raw_node.0.madm.0));
-
-
-        let right_raw_node = Node::first(self.counts.clone(), right_split.clone(), self.input_features.clone() , self.output_features.clone(), self.dropout.clone());
-
-        println!("Dumping the right raw node:");
-
-        let mut right_raw_file = File::create("right_raw_node.txt").unwrap();
-        right_raw_file.write_fmt(format_args!("{:?}", right_raw_node.0.madm.0));
-
-        println!("Done dumping raw nodes");
+        // println!("Synthesizing new nodes raw:");
+        //
+        // let left_raw_node = Node::first(self.counts.clone(), left_split.clone(), self.input_features.clone(), self.output_features.clone(), self.dropout.clone());
+        //
+        // println!("Dumping the left raw node:");
+        //
+        // let mut left_raw_file = File::create("left_raw_node.txt").unwrap();
+        // left_raw_file.write_fmt(format_args!("{:?}", left_raw_node.0.madm.0));
+        //
+        //
+        // let right_raw_node = Node::first(self.counts.clone(), right_split.clone(), self.input_features.clone() , self.output_features.clone(), self.dropout.clone());
+        //
+        // println!("Dumping the right raw node:");
+        //
+        // let mut right_raw_file = File::create("right_raw_node.txt").unwrap();
+        // right_raw_file.write_fmt(format_args!("{:?}", right_raw_node.0.madm.0));
+        //
+        // println!("Done dumping raw nodes");
 
         self.derive(left_split);
         self.derive(right_split);
 
-        println!("Dumping the derived nodes:");
-
-        let mut left_derived_file = File::create("left_derived_node.txt").unwrap();
-        left_derived_file.write_fmt(format_args!("{:?}", self.children[0].madm.0));
-
-        let mut right_derived_file = File::create("right_derived_node.txt").unwrap();
-        right_derived_file.write_fmt(format_args!("{:?}", self.children[1].madm.0));
+        // println!("Dumping the derived nodes:");
+        //
+        // let mut left_derived_file = File::create("left_derived_node.txt").unwrap();
+        // left_derived_file.write_fmt(format_args!("{:?}", self.children[0].madm.0));
+        //
+        // let mut right_derived_file = File::create("right_derived_node.txt").unwrap();
+        // right_derived_file.write_fmt(format_args!("{:?}", self.children[1].madm.0));
 
 
         println!("Child indecies:");
@@ -732,6 +792,28 @@ impl Node {
         println!("{:?}",best_split);
 
         *best_split
+    }
+
+    fn meta_split(&mut self,max_leaves:usize) {
+        if self.indecies.len() < max_leaves {
+            return
+        }
+        if self.children.len() > 0 {
+            for child in &mut self.children {
+
+                println!("Node with children found: {},{}",self.feature.unwrap(),self.split.unwrap());
+
+                let mut node_dump_file = File::create(format!("node_dump_{}_{}.txt",self.feature.unwrap(),self.split.unwrap())).unwrap();
+                node_dump_file.write_fmt(format_args!("{:?}", self.madm.0));
+
+                child.meta_split(max_leaves);
+            }
+        }
+        else {
+            println!("Splitting some node!");
+            self.best_split();
+            self.meta_split(max_leaves);
+        }
     }
 
 }
