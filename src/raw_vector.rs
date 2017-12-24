@@ -54,8 +54,8 @@ impl RawVector {
     }
 
     pub fn pop(&mut self, i:usize) -> (usize,usize,usize,f64,usize) {
-        let left = self.left(i);
-        let right = self.right(i);
+        let left = self.left_ind(i);
+        let right = self.right_ind(i);
 
         let target = self.vector[i].clone();
 
@@ -94,7 +94,27 @@ impl RawVector {
         self.len
     }
 
-    pub fn left(&self, i:usize) -> Option<usize> {
+    pub fn left(&self, i:usize) -> Option<(usize,usize,usize,f64,usize)> {
+        let sample = self.vector[i];
+        if sample.0 != sample.1 {
+            Some(self[sample.0])
+        }
+        else {
+            None
+        }
+    }
+
+    pub fn right(&self, i:usize) -> Option<(usize,usize,usize,f64,usize)> {
+        let sample = self.vector[i];
+        if sample.4 != sample.1 {
+            Some(self[sample.4])
+        }
+        else {
+            None
+        }
+    }
+
+    pub fn left_ind(&self, i:usize) -> Option<usize> {
         let sample = self.vector[i];
         if sample.0 != sample.1 {
             Some(sample.0)
@@ -104,7 +124,7 @@ impl RawVector {
         }
     }
 
-    pub fn right(&self, i:usize) -> Option<usize> {
+    pub fn right_ind(&self, i:usize) -> Option<usize> {
         let sample = self.vector[i];
         if sample.4 != sample.1 {
             Some(sample.4)
@@ -112,6 +132,12 @@ impl RawVector {
         else {
             None
         }
+    }
+
+    pub fn drop(&mut self, target: usize) {
+        self.drop_set.insert(target);
+        self.pop(target);
+        self.drop = true;
     }
 
     pub fn drop_zeroes(&mut self) {
@@ -164,6 +190,19 @@ impl RawVector {
 
     pub fn first(&self) -> (usize,usize,usize,f64,usize) {
         self.vector[self.first].clone()
+    }
+
+    pub fn last(&self) -> (usize,usize,usize,f64,usize) {
+        self.vector[self.last].clone()
+    }
+
+    pub fn seek(&self, ind: usize) -> Option<(usize,usize,usize,f64,usize)> {
+        if ind < self.vector.len() {
+            Some(self.vector[ind].clone())
+        }
+        else {
+            None
+        }
     }
 
     // pub fn drop_skip<'a,'b>(&'a self, drop_set: &'b HashSet<usize>) -> RawVectDropSkip<'a,'b> {

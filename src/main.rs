@@ -29,6 +29,7 @@ mod online_madm;
 mod raw_vector;
 mod rank_vector;
 use rank_vector::RankVector;
+use rank_vector::OrderedDraw;
 use raw_vector::RawVector;
 use online_madm::OnlineMADM;
 use online_madm::slow_vs_fast;
@@ -225,55 +226,91 @@ fn main() {
 
     // println!("Source floats: {:?}", matrix_flip(&counts));
 
-    println!("{:?}", count_array);
+    // println!("{:?}", count_array);
+    //
+    // let mut raw = RawVector::raw_vector(&matrix_flip(&count_array)[0]);
+    //
+    // println!("{:?}",raw);
+    //
+    // println!("{:?}", raw.iter_full().cloned().collect::<Vec<(usize,usize,usize,f64,usize)>>());
+    //
+    // println!("Crawlers:");
+    //
+    // println!("{:?}", raw.crawl_right(raw.first).cloned().collect::<Vec<(usize,usize,usize,f64,usize)>>());
+    //
+    // println!("{:?}", raw.crawl_left(raw.first).cloned().collect::<Vec<(usize,usize,usize,f64,usize)>>());
+    //
+    // println!("Dropping zeroes:");
+    //
+    // raw.drop_zeroes();
+    //
+    // println!("Crawling dropped list:");
+    //
+    // println!("{:?}", raw.crawl_right(raw.first).cloned().collect::<Vec<(usize,usize,usize,f64,usize)>>());
+    //
+    // println!("Skipping dropped items:");
+    //
+    // println!("{:?}", raw.drop_skip().cloned().collect::<Vec<(usize,usize,usize,f64,usize)>>());
+    //
+    // println!("Printing non-zero values");
+    //
+    // println!("{:?}", raw.drop_skip().cloned().map(|x| x.3).collect::<Vec<f64>>());
+    //
+    // println!("Printing non-zero indecies");
+    //
+    // println!("{:?}", raw.drop_skip().cloned().map(|x| x.1).collect::<Vec<usize>>());
+    //
+    // println!("Printing noned-out drops");
+    // for i in raw.drop_none() {
+    //     println!("{:?}",i);
+    // }
+    //
+    // println!("Skipping drops");
+    // for i in raw.drop_skip() {
+    //     println!("{:?}",i);
+    // }
+    //
+    // println!("{:?}",raw.left_to_right().cloned().collect::<Vec<(usize,usize,usize,f64,usize)>>());
+    //
+    // println!("Finding dead center:");
+    //
+    // let dead_center = rank_vector::DeadCenter::center(&raw);
+    //
+    // println!("{:?}", dead_center);
+    //
+    // println!("{:?}", dead_center.median());
 
-    let mut raw = RawVector::raw_vector(&matrix_flip(&count_array)[0]);
+    println!("=================================================================");
 
-    println!("{:?}",raw);
+    println!("Indecies: {:?}", matrix_flip(&count_array)[0]);
 
-    println!("{:?}", raw.iter_full().cloned().collect::<Vec<(usize,usize,usize,f64,usize)>>());
+    println!("Testing Ranked Vector!");
 
-    println!("Crawlers:");
+    let mut ranked: RankVector<String,usize> = RankVector::new(&matrix_flip(&count_array)[0], 0., String::from("test"), Vec::new());
 
-    println!("{:?}", raw.crawl_right(raw.first).cloned().collect::<Vec<(usize,usize,usize,f64,usize)>>());
+    ranked.drop_zeroes();
 
-    println!("{:?}", raw.crawl_left(raw.first).cloned().collect::<Vec<(usize,usize,usize,f64,usize)>>());
+    ranked.initialize();
 
-    println!("Dropping zeroes:");
+    println!("Dropped values, ranked vector");
 
-    raw.drop_zeroes();
+    println!("{:?}", ranked.vector.drop_skip().cloned().collect::<Vec<(usize,usize,usize,f64,usize)>>());
 
-    println!("Crawling dropped list:");
+    println!("{:?}", ranked.clone());
 
-    println!("{:?}", raw.crawl_right(raw.first).cloned().collect::<Vec<(usize,usize,usize,f64,usize)>>());
+    ranked.set_boundaries();
 
-    println!("Skipping dropped items:");
+    println!("{:?}", ranked.clone());
 
-    println!("{:?}", raw.drop_skip().cloned().collect::<Vec<(usize,usize,usize,f64,usize)>>());
+    println!("{:?},{:?},{:?},{:?},{:?},{:?}", ranked.left_zone.size,ranked.left_zone.index_set.len(),ranked.median_zone.size,ranked.median_zone.index_set.len(),ranked.right_zone.size,ranked.right_zone.index_set.len());
 
-    println!("Printing non-zero values");
+    let ordered_draw = OrderedDraw::new(&mut ranked);
 
-    println!("{:?}", raw.drop_skip().cloned().map(|x| x.3).collect::<Vec<f64>>());
+    println!("{:?}", ordered_draw.vector.vector.left_to_right().cloned().collect::<Vec<(usize,usize,usize,f64,usize)>>());
 
-    println!("Printing noned-out drops");
-    for i in raw.drop_none() {
-        println!("{:?}",i);
+    for sample in ordered_draw {
+        println!("Drawing: {:?}", sample);
     }
-
-    println!("Skipping drops");
-    for i in raw.drop_skip() {
-        println!("{:?}",i);
-    }
-
-    println!("{:?}",raw.left_to_right().cloned().collect::<Vec<(usize,usize,usize,f64,usize)>>());
-
-    println!("Finding dead center:");
-
-    let dead_center = rank_vector::DeadCenter::center(&raw);
-
-    println!("{:?}", dead_center);
-
-    println!("{:?}", dead_center.median())
 
     // let mut forest = Forest::grow_forest(count_array, 1, 4, true);
     // forest.test();
