@@ -1,0 +1,258 @@
+use std;
+use std::marker::PhantomData;
+use std::cmp::PartialOrd;
+use std::cmp::Ordering;
+use std::cmp::max;
+use std::collections::HashSet;
+use std::collections::HashMap;
+use std::fmt::Debug;
+
+extern crate rand;
+use rand::Rng;
+
+use rank_vector::RankVector;
+use rank_vector::OrderedDraw;
+use rank_vector::ProceduralDraw;
+
+impl<U:Clone + std::cmp::Eq + std::hash::Hash + Debug,T:Clone + std::cmp::Eq + std::hash::Hash + Debug> RankTable<U,T> {
+    pub fn new(counts: &Vec<Vec<f64>>,features:&[U],samples:&[T]) -> RankTable<U,T> {
+
+        let mut meta_vector = Vec::new();
+
+        let mut feature_dictionary: HashMap<U,usize> = HashMap::with_capacity(features.len());
+
+        let mut sample_dictionary: HashMap<T,usize> = HashMap::with_capacity(samples.len());
+
+        sample_dictionary = samples.iter().cloned().enumerate().map(|x| (x.1,x.0)).collect();
+
+        for (i,(name,loc_counts)) in features.iter().cloned().zip(counts.iter()).enumerate() {
+            println!("Starting to iterate");
+            feature_dictionary.insert(name.clone(),i);
+            println!("Updated feature dict");
+            let mut construct = RankVector::new(loc_counts,name.clone(),Vec::new());
+            println!("Made a rank vector");
+            construct.drop_zeroes();
+            construct.initialize();
+            construct.set_boundaries();
+            meta_vector.push(construct);
+        }
+
+        let draw_order = (0..counts[0].len()).collect::<Vec<usize>>();
+
+        let dim = (meta_vector.len(),meta_vector[0].vector.vector.len());
+
+        println!("Made rank table with {} features, {} samples:", meta_vector.len(),meta_vector[0].vector.len());
+
+        RankTable{meta_vector:meta_vector,feature_names:Vec::from(features),sample_names:Vec::from(samples),draw_order:draw_order,index:0,dimensions:dim, feature_dictionary: feature_dictionary, sample_dictionary: sample_dictionary}
+
+    }
+
+    pub fn medians(&self) -> Vec<f64> {
+        self.meta_vector.iter().map(|x| x.median()).collect()
+    }
+
+    pub fn dispersions(&self) -> Vec<f64> {
+        self.meta_vector.iter().map(|x| x.mad()).collect()
+    }
+
+    pub fn trunc_iterate(&mut self) -> RankTableIter<U,T> {
+        let limit = self.dimensions.1;
+        RankTableIter::new(self,limit)
+    }
+
+    pub fn sort_by_feature(&mut self, feature: &U) -> Vec<usize> {
+        self.meta_vector[self.feature_dictionary[feature]].give_dropped_order()
+    }
+
+    pub fn feature_name(&self, feature_index: usize) -> U {
+        self.feature_names[feature_index].clone()
+    }
+
+    pub fn feature_index(&self, feature_name: &U) -> usize {
+        self.feature_dictionary[feature_name]
+    }
+
+    pub fn feature_fetch(&self, feature: &U, index: usize) -> f64 {
+        self.meta_vector[self.feature_dictionary[feature]].vector[index].3
+    }
+
+    pub fn sample_name(&self, index:usize) -> T {
+        self.sample_names[index].clone()
+    }
+
+    pub fn sample_index(&self, sample_name: &T) -> usize {
+        self.sample_dictionary[sample_name]
+    }
+
+    pub fn split(&mut self, feature: &U) -> (RankTableSplitter<U,T>,RankTableSplitter<U,T>, Vec<usize>) {
+        RankTableSplitter::split(self,&feature)
+    }
+
+    pub fn derive(&self, indecies:&[usize]) -> RankTable<U,T> {
+
+        let mut new_meta_vector: Vec<RankVector<U,T>> = Vec::with_capacity(indecies.len());
+
+        let new_sample_dictionary: HashMap<T,usize> = indecies.iter().enumerate().map(|x| (self.sample_names[*x.1].clone(),x.0)).collect();
+
+        let mut new_sample_names: Vec<T> = Vec::with_capacity(indecies.len());
+
+        for sample_name in &self.sample_names {
+            if new_sample_dictionary.contains_key(&sample_name) {
+                new_sample_names.push(sample_name.clone());
+            }
+        }
+
+        for feature in &self.meta_vector {
+            new_meta_vector.push(feature.derive(indecies));
+        }
+
+        let new_draw_order: Vec<usize> = (0..indecies.len()).collect();
+
+        let dimensions = (self.meta_vector.len(),self.meta_vector[0].vector.vector.len());
+
+        RankTable {
+
+            meta_vector: new_meta_vector,
+            feature_names: self.feature_names.clone(),
+            sample_names: new_sample_names,
+            feature_dictionary: self.feature_dictionary.clone(),
+            sample_dictionary: new_sample_dictionary,
+            draw_order: new_draw_order,
+            index: 0,
+            dimensions: dimensions,
+        }
+    }
+
+}
+
+
+#[derive(Debug,Clone)]
+pub struct RankTable<U:Clone + std::cmp::Eq + std::hash::Hash,T:Clone + std::cmp::Eq + std::hash::Hash> {
+    meta_vector: Vec<RankVector<U,T>>,
+    feature_names: Vec<U>,
+    pub sample_names: Vec<T>,
+    feature_dictionary: HashMap<U,usize>,
+    sample_dictionary: HashMap<T,usize>,
+    draw_order: Vec<usize>,
+    index: usize,
+    pub dimensions: (usize,usize),
+}
+
+impl<'a,U:Clone+ std::cmp::Eq + std::hash::Hash + Debug,T:Clone + std::cmp::Eq + std::hash::Hash + Debug> RankTableIter<'a,U,T> {
+    pub fn new(rank_table: &mut RankTable<U,T>,limit:usize) -> RankTableIter<U,T> {
+
+        println!("Starting new meta-iterator:");
+
+        let mut table = Vec::new();
+
+        for vector in rank_table.meta_vector.iter_mut() {
+            table.push(vector.ordered_draw());
+        }
+
+        println!("Finished making iterators, yielding meta-iterator");
+
+        RankTableIter{table:table,index:0,limit:limit-1}
+    }
+
+}
+
+impl<'a,U:Clone + Debug,T:Clone + Debug> Iterator for RankTableIter<'a,U,T> {
+    type Item = Vec<(f64,f64)>;
+
+    fn next(&mut self) -> Option<Vec<(f64,f64)>> {
+
+        if self.index > self.limit {
+            return None
+        }
+
+        let mut output = Vec::new();
+
+        for (i,draw) in self.table.iter_mut().enumerate() {
+            let io = draw.next();
+            // println!("{},{},{},{:?}",i,self.index,self.limit,io);
+
+            output.push(io.unwrap_or((0.,0.)));
+        }
+
+        self.index += 1;
+
+
+
+        Some(output)
+    }
+}
+
+pub struct RankTableIter<'a,U:'a,T:'a> {
+    table: Vec<OrderedDraw<'a,U,T>>,
+    index: usize,
+    limit: usize,
+}
+
+impl<U:Clone + std::cmp::Eq + std::hash::Hash + Debug ,T:Clone + std::cmp::Eq + std::hash::Hash + Debug> RankTableSplitter<U,T> {
+    pub fn new(rank_table: &mut RankTable<U,T>,feature:&U) -> RankTableSplitter<U,T> {
+
+        let draw_order = rank_table.sort_by_feature(&feature);
+
+        let length = draw_order.len();
+
+        println!("Starting new meta-iterator:");
+
+        let mut table = Vec::new();
+
+        for vector in rank_table.meta_vector.iter() {
+            table.push(vector.clone().consumed_draw());
+        }
+
+        println!("Finished making iterators, yielding meta-iterator");
+
+        RankTableSplitter{table:table,index:0,draw_order:draw_order, length: length}
+    }
+
+    pub fn split(rank_table: &mut RankTable<U,T>, feature:&U) -> (RankTableSplitter<U,T>,RankTableSplitter<U,T>,Vec<usize>) {
+        let mut forward_splitter = RankTableSplitter::new(rank_table,feature);
+        let draw_order = forward_splitter.draw_order.clone();
+        let mut reverse_splitter = forward_splitter.clone();
+        reverse_splitter.draw_order.reverse();
+
+        (forward_splitter,reverse_splitter,draw_order)
+    }
+
+}
+
+
+
+impl<U:Clone + Debug,T:Clone + Debug> Iterator for RankTableSplitter<U,T> {
+    type Item = Vec<(f64,f64)>;
+
+    fn next(&mut self) -> Option<Vec<(f64,f64)>> {
+
+        if self.index > self.length - 1 {
+            return None
+        }
+
+        let mut output = Vec::new();
+
+        let target = self.draw_order[self.index];
+
+        for draw in self.table.iter_mut() {
+            let io = draw.next(target);
+            // println!("{},{},{},{:?}",i,self.index,self.limit,io);
+
+            output.push(io.unwrap_or((0.,0.)));
+        }
+
+        self.index += 1;
+
+
+
+        Some(output)
+    }
+}
+
+#[derive(Clone)]
+pub struct RankTableSplitter<U,T> {
+    table: Vec<ProceduralDraw<U,T>>,
+    draw_order: Vec<usize>,
+    index: usize,
+    pub length: usize,
+}

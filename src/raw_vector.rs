@@ -12,7 +12,8 @@ use rand::Rng;
 impl RawVector {
     pub fn raw_vector(in_vec:&Vec<f64>) -> RawVector {
 
-        let mut vector = Vec::new();
+        let mut vector = Vec::with_capacity(in_vec.len());
+        let mut draw_order = Vec::with_capacity(in_vec.len());
 
         let mut sorted_invec = in_vec.iter().enumerate().collect::<Vec<(usize,&f64)>>();
         sorted_invec.sort_unstable_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Greater));
@@ -23,28 +24,42 @@ impl RawVector {
 
             if i == 0 {
                 vector.push((sample.0,sample.0,i,*sample.1,sorted_invec[i+1].0));
+                draw_order.push(sample.0);
             }
             if i == (sorted_invec.len() - 1) {
                 vector.push((sorted_invec[i-1].0,sample.0,i,*sample.1,sample.0));
+                draw_order.push(sample.0);
             }
             if {i != 0} && {i < (sorted_invec.len()-1)} {
                 vector.push((sorted_invec[i-1].0,sample.0,i,*sample.1,sorted_invec[i+1].0));
+                draw_order.push(sample.0);
             }
         }
 
-        let first = vector[0].1;
-        let last = vector[vector.len()-1].1;
-        let length = vector.len();
+        let first: usize;
+        let last: usize;
+        let length: usize;
+
+        if vector.len() > 0 {
+            first = vector[0].1;
+            last = vector[vector.len()-1].1;
+            length = vector.len();
+        }
+        else {
+            first = 0;
+            last = 0;
+            length = 0;
+        }
+
 
         vector.sort_by_key(|x| x.1);
 
-        let draw_order = (0..vector.len()).collect();
         let drop_set = HashSet::new();
 
         RawVector {
-            first: first,
+            first: Some(first),
             len: length,
-            last: last,
+            last: Some(last),
             vector: vector,
             draw_order: draw_order,
             drop_set: drop_set,
@@ -54,14 +69,25 @@ impl RawVector {
     }
 
     pub fn pop(&mut self, i:usize) -> (usize,usize,usize,f64,usize) {
+
         let left = self.left_ind(i);
         let right = self.right_ind(i);
 
         let target = self.vector[i].clone();
 
-        println!("Pop debug 1: {:?}\t{:?}\t{:?}",self.vector[left.unwrap_or(i)], target, self.vector[right.unwrap_or(i)]);
+        // println!("Pop debug 1: {:?}\t{:?}\t{:?}",self.vector[left.unwrap_or(i)], target, self.vector[right.unwrap_or(i)]);
 
         if left.is_none() && right.is_none() {
+            if self.len() == 1 {
+                if let (Some(first),Some(last)) = (self.first,self.last) {
+                    if (first == last) && (first == target.1) {
+                        self.first = None;
+                        self.last = None;
+                        self.len = 0;
+                        return target
+                    }
+                }
+            }
             return target
         }
 
@@ -78,14 +104,14 @@ impl RawVector {
 
         self.len -= 1;
 
-        if self.first == i {
-            self.first = right.unwrap();
+        if self.first.unwrap_or(i) == i {
+            self.first = right;
         }
-        if self.last == i {
-            self.last = left.unwrap();
+        if self.last.unwrap_or(i) == i {
+            self.last = left;
         }
 
-        println!("Pop debug 2: {:?}\t{:?}\t{:?}",self.vector[left.unwrap_or(i)], target, self.vector[right.unwrap_or(i)]);
+        // println!("Pop debug 2: {:?}\t{:?}\t{:?}",self.vector[left.unwrap_or(i)], target, self.vector[right.unwrap_or(i)]);
 
         target
     }
@@ -156,7 +182,7 @@ impl RawVector {
     }
 
     pub fn crawl_right(&self,first:usize) -> RightVectCrawler {
-        println!("{:?}",self.first);
+        // println!("{:?}",self.first);
         RightVectCrawler{index : Some(first), vector : &self.vector}
     }
 
@@ -165,11 +191,18 @@ impl RawVector {
     }
 
     pub fn left_to_right(&self) -> RightVectCrawler {
-        self.crawl_right(self.first)
+        if let Some(first) = self.first {
+            return self.crawl_right(first)
+        }
+        return RightVectCrawler::empty(&self.vector)
+
     }
 
     pub fn right_to_left(&self) -> LeftVectCrawler {
-        self.crawl_left(self.last)
+        if let Some(last) = self.last {
+            return self.crawl_left(last)
+        }
+        return LeftVectCrawler::empty(&self.vector)
     }
 
     pub fn iter_full(&self) -> RawVectIterFull {
@@ -184,16 +217,26 @@ impl RawVector {
         RawVectDropNone::new(self.iter_full(), &self.drop_set)
     }
 
+    pub fn dropped_draw_order(&self) -> Vec<usize> {
+        self.left_to_right().map(|x| x.1).collect()
+    }
+
     pub fn set_draw(& mut self, order: Vec<usize>) {
         self.draw_order = order
     }
 
-    pub fn first(&self) -> (usize,usize,usize,f64,usize) {
-        self.vector[self.first].clone()
+    pub fn first(&self) -> Option<(usize,usize,usize,f64,usize)> {
+        if let Some(first) = self.first {
+            return Some(self.vector[first].clone())
+        }
+        None
     }
 
-    pub fn last(&self) -> (usize,usize,usize,f64,usize) {
-        self.vector[self.last].clone()
+    pub fn last(&self) -> Option<(usize,usize,usize,f64,usize)> {
+        if let Some(last) = self.last {
+            return Some(self.vector[last].clone())
+        }
+        None
     }
 
     pub fn seek(&self, ind: usize) -> Option<(usize,usize,usize,f64,usize)> {
@@ -204,6 +247,70 @@ impl RawVector {
             None
         }
     }
+
+    // pub fn derive(&self, indecies:Vec<usize>) -> RawVector {
+    pub fn derive(&self, indecies:&[usize]) -> RawVector {
+
+        let derived_set: HashSet<usize> = indecies.iter().cloned().collect();
+        let index_map: HashMap<usize,usize> = self.draw_order.iter().filter(|x| derived_set.contains(x)).cloned().enumerate().map(|x| (x.1,x.0)).collect();
+
+        let mut intermediate = vec![(0,0,0,0.,0);derived_set.len()];
+        let mut new_draw_order = Vec::new();
+
+        let mut i = 0;
+        let mut previous = 0;
+        let mut first = 0;
+        let mut new_index = 0;
+
+
+        for sample in self.iter_full() {
+            if derived_set.contains(&sample.1) {
+
+                let new: (usize,usize,usize,f64,usize);
+
+                new_index = index_map[&sample.1];
+
+                if i == 0 {
+                    new = (new_index,new_index,i,sample.3,new_index);
+                    previous = new_index;
+                    first = new_index;
+                }
+                else {
+                    new = (previous,new_index,i,sample.3,new_index);
+                    intermediate[previous].4 = new_index;
+                    previous = new_index;
+                }
+
+
+                intermediate[index_map[&sample.1]] = new;
+                new_draw_order.push(index_map[&sample.1]);
+
+                i += 1;
+            }
+        }
+
+        let last = new_index;
+
+        let mut new_drop_set = HashSet::new();
+
+        // if self.drop {
+        //     new_drop_set = derived_set.intersection(&self.drop_set).cloned().collect();
+        // }
+
+        let new_raw = RawVector {
+            first: Some(first),
+            len: intermediate.len(),
+            last: Some(last),
+            vector: intermediate,
+            draw_order: new_draw_order,
+            drop_set: new_drop_set,
+            drop: false
+        };
+
+        new_raw
+
+    }
+
 
     // pub fn drop_skip<'a,'b>(&'a self, drop_set: &'b HashSet<usize>) -> RawVectDropSkip<'a,'b> {
     //     RawVectDropSkip::new(&self.vector, &drop_set)
@@ -228,8 +335,8 @@ impl Index<usize> for RawVector {
 #[derive(Debug,Clone)]
 pub struct RawVector {
     pub vector: Vec<(usize,usize,usize,f64,usize)>,
-    pub first: usize,
-    pub last: usize,
+    pub first: Option<usize>,
+    pub last: Option<usize>,
     pub len: usize,
     pub drop_set : HashSet<usize>,
     pub draw_order : Vec<usize>,
@@ -359,6 +466,9 @@ impl<'a> RightVectCrawler<'a> {
     fn new(input: &'a Vec<(usize,usize,usize,f64,usize)>, first: usize) -> RightVectCrawler {
         RightVectCrawler{vector: input, index: Some(first)}
     }
+    fn empty(input: &'a Vec<(usize,usize,usize,f64,usize)>) -> RightVectCrawler {
+        RightVectCrawler{vector: input, index: None}
+    }
 }
 
 impl<'a> Iterator for RightVectCrawler<'a> {
@@ -396,6 +506,9 @@ pub struct RightVectCrawler<'a> {
 impl<'a> LeftVectCrawler<'a> {
     fn new(input: &'a Vec<(usize,usize,usize,f64,usize)>, first: usize) -> LeftVectCrawler {
         LeftVectCrawler{vector: input, index: Some(first)}
+    }
+    fn empty(input: &'a Vec<(usize,usize,usize,f64,usize)>) -> LeftVectCrawler {
+        LeftVectCrawler{vector: input, index: None}
     }
 }
 
