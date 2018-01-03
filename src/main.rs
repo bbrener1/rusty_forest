@@ -29,9 +29,12 @@ mod online_madm;
 mod raw_vector;
 mod rank_vector;
 mod rank_table;
-mod trees;
+mod node;
+mod tree;
+mod thread_pool;
 
-use trees::Node;
+use node::Node;
+use tree::Tree;
 use rank_table::RankTable;
 use rank_vector::RankVector;
 use rank_vector::OrderedDraw;
@@ -43,7 +46,7 @@ use online_madm::slow_description_test;
 
 fn main() {
 
-    let filename = "/Users/boris/taylor/vision/rust_prototype/raw_data/iris.trunc";
+    let filename = "/Users/boris/taylor/vision/rust_prototype/raw_data/iris.drop";
 
     println!("Reading data");
 
@@ -368,7 +371,9 @@ fn main() {
 
     // let mut node = Node::root(&vec![matrix_flip(&count_array)[1].clone()],&names,&samples,names[..1].iter().cloned().collect(),names[1..].iter().cloned().collect());
 
-    let mut node = Node::root(&matrix_flip(&count_array),&names,&samples,names[..1].iter().cloned().collect(),names[1..].iter().cloned().collect());
+    // let mut node = Node::root(&matrix_flip(&count_array),&names,&samples,names[..1].iter().cloned().collect(),names[1..].iter().cloned().collect());
+
+    let mut node = Node::root(&matrix_flip(&count_array),&names,&samples,names.clone(),names.clone());
 
     // let mut node = Node::root(&simple_case,&names,&samples,names[..1].iter().cloned().collect(),names[1..].iter().cloned().collect());
 
@@ -377,6 +382,10 @@ fn main() {
     // println!("{:?}",node.rank_table.sort_by_feature(0));
 
     node.derive_children();
+
+    for child in node.children.iter_mut() {
+        child.derive_children();
+    }
 
     // let mut forest = Forest::grow_forest(count_array, 1, 4, true);
     // forest.test();

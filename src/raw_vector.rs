@@ -466,7 +466,7 @@ impl<'a> RightVectCrawler<'a> {
     fn new(input: &'a Vec<(usize,usize,usize,f64,usize)>, first: usize) -> RightVectCrawler {
         RightVectCrawler{vector: input, index: Some(first)}
     }
-    fn empty(input: &'a Vec<(usize,usize,usize,f64,usize)>) -> RightVectCrawler {
+    pub fn empty(input: &'a Vec<(usize,usize,usize,f64,usize)>) -> RightVectCrawler {
         RightVectCrawler{vector: input, index: None}
     }
 }
@@ -507,7 +507,7 @@ impl<'a> LeftVectCrawler<'a> {
     fn new(input: &'a Vec<(usize,usize,usize,f64,usize)>, first: usize) -> LeftVectCrawler {
         LeftVectCrawler{vector: input, index: Some(first)}
     }
-    fn empty(input: &'a Vec<(usize,usize,usize,f64,usize)>) -> LeftVectCrawler {
+    pub fn empty(input: &'a Vec<(usize,usize,usize,f64,usize)>) -> LeftVectCrawler {
         LeftVectCrawler{vector: input, index: None}
     }
 }

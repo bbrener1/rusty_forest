@@ -11,10 +11,12 @@ extern crate rand;
 use rand::Rng;
 
 use raw_vector::RawVector;
+use raw_vector::LeftVectCrawler;
+use raw_vector::RightVectCrawler;
 
-impl<U:Clone + Debug,T:Clone + Debug> RankVector<U,T> {
+impl<U:Clone + Debug> RankVector<U> {
 
-    pub fn new(in_vec:&Vec<f64>, feature_name: U) -> RankVector<U,T> {
+    pub fn new(in_vec:&Vec<f64>, feature_name: U) -> RankVector<U> {
 
         let vector = RawVector::raw_vector(in_vec);
 
@@ -28,7 +30,7 @@ impl<U:Clone + Debug,T:Clone + Debug> RankVector<U,T> {
 
         println!("Trying to intialize ranked object");
 
-        let zones = RankVector::<U,T>::empty_zones();
+        let zones = RankVector::<U>::empty_zones();
 
         RankVector{
 
@@ -111,11 +113,22 @@ impl<U:Clone + Debug,T:Clone + Debug> RankVector<U,T> {
         println!("Initializing!");
 
         let mut dead_center = DeadCenter::center(&self.vector);
-        let mut leftward = self.vector.crawl_left(dead_center.left.unwrap().1).cloned();
-        let mut rightward = self.vector.crawl_right(dead_center.right.unwrap().1).cloned();
 
-        let mut left = leftward.next().unwrap();
-        let mut right = rightward.next().unwrap();
+        let mut leftward: LeftVectCrawler;
+        let mut rightward: RightVectCrawler;
+
+
+        if let (Some(d_l),Some(d_r)) = (dead_center.left,dead_center.right) {
+            leftward = self.vector.crawl_left(d_l.1);
+            rightward = self.vector.crawl_right(d_r.1);
+        }
+        else {
+            leftward = LeftVectCrawler::empty(&self.vector.vector);
+            rightward = RightVectCrawler::empty(&self.vector.vector);
+        }
+
+        let mut left_option = leftward.next();
+        let mut right_option = rightward.next();
 
         let median = dead_center.median();
 
@@ -131,29 +144,37 @@ impl<U:Clone + Debug,T:Clone + Debug> RankVector<U,T> {
         let median_object: MedianZone;
         let right_object: RightZone;
 
-        if left == right {
-            middle_set.insert(left.1);
-            median_zone = 1;
-            median_object = MedianZone{ size:1 ,dead_center:dead_center,left:Some(left.1),right:Some(right.1), index_set: middle_set};
+        if let (Some(left),Some(right)) = (left_option,right_option) {
+            if left == right {
+                middle_set.insert(left.1);
+                median_zone = 1;
+                median_object = MedianZone{ size:1 ,dead_center:dead_center,left:Some(left.1),right:Some(right.1), index_set: middle_set};
+            }
+            else {
+                middle_set.insert(left.1);
+                middle_set.insert(right.1);
+                median_zone = 2;
+                median_object = MedianZone{ size:2 ,dead_center:dead_center,left:Some(left.1),right:Some(right.1), index_set: middle_set};
+            }
+
+            for sample in leftward {
+                left_set.insert(sample.1);
+                left_zone += 1;
+            }
+            for sample in rightward {
+                right_set.insert(sample.1);
+                right_zone += 1;
+            }
+            left_object = LeftZone{size: left_zone, right:self.vector.left_ind(left.1), index_set: left_set};
+            right_object = RightZone{size: right_zone, left: self.vector.right_ind(right.1), index_set: right_set};
+
         }
-        else {
-            middle_set.insert(left.1);
-            middle_set.insert(right.1);
-            median_zone = 2;
-            median_object = MedianZone{ size:2 ,dead_center:dead_center,left:Some(left.1),right:Some(right.1), index_set: middle_set};
+        else{
+            median_object = MedianZone{ size: 0, dead_center:dead_center,left:None,right:None,index_set:middle_set};
+            left_object = LeftZone{size: left_zone, right:None, index_set: left_set};
+            right_object = RightZone{size: right_zone, left: None, index_set: right_set};
         }
 
-        for sample in leftward {
-            left_set.insert(sample.1);
-            left_zone += 1;
-        }
-        for sample in rightward {
-            right_set.insert(sample.1);
-            right_zone += 1;
-        }
-
-        left_object = LeftZone{size: left_zone, right:self.vector.left_ind(left.1), index_set: left_set};
-        right_object = RightZone{size: right_zone, left: self.vector.right_ind(right.1), index_set: right_set};
 
         self.left_zone = left_object;
         self.median_zone = median_object;
@@ -274,6 +295,9 @@ impl<U:Clone + Debug,T:Clone + Debug> RankVector<U,T> {
 
     pub fn set_boundaries(&mut self) {
         println!("Setting boundaries!");
+        if self.vector.len() < 1 {
+            return
+        }
         while (self.left_zone.size + self.right_zone.size) > (self.median_zone.size - 1) {
             self.expand_by_1();
             // println!("Moving:{:?}",self.expand_by_1());
@@ -461,15 +485,15 @@ impl<U:Clone + Debug,T:Clone + Debug> RankVector<U,T> {
         (self.left_zone.index_set.clone(), self.median_zone.index_set.clone(), self.right_zone.index_set.clone())
     }
 
-    pub fn ordered_draw(&mut self) -> OrderedDraw<U,T> {
+    pub fn ordered_draw(&mut self) -> OrderedDraw<U> {
         OrderedDraw::new(self)
     }
 
-    pub fn consumed_draw(self) -> ProceduralDraw<U,T> {
+    pub fn consumed_draw(self) -> ProceduralDraw<U> {
         ProceduralDraw::new(self)
     }
 
-    pub fn procedural_draw(&mut self) -> OrderedDraw<U,T> {
+    pub fn procedural_draw(&mut self) -> OrderedDraw<U> {
         OrderedDraw::new(self)
     }
 
@@ -481,12 +505,21 @@ impl<U:Clone + Debug,T:Clone + Debug> RankVector<U,T> {
         self.vector.dropped_draw_order()
     }
 
+    pub fn between(&self, begin:usize,end:usize) -> usize {
+        for (count,sample) in self.vector.crawl_right(begin).enumerate() {
+            if sample.1 == end {
+                return count
+            }
+        }
+        return 0
+    }
+
     pub fn draw_values(&self) -> Vec<f64> {
         self.vector.iter_full().map(|x| x.3.clone()).collect()
     }
 
     // pub fn derive(&self, indecies:Vec<usize>,) -> RankVector<U,T> {
-    pub fn derive(&self, indecies:&[usize],) -> RankVector<U,T> {
+    pub fn derive(&self, indecies:&[usize],) -> RankVector<U> {
 
         let derived_set: HashSet<usize> = indecies.iter().cloned().collect();
 
@@ -506,7 +539,7 @@ impl<U:Clone + Debug,T:Clone + Debug> RankVector<U,T> {
         let right_boundary = 0;
         let length = vector.len();
 
-        let zones = RankVector::<U,T>::empty_zones();
+        let zones = RankVector::<U>::empty_zones();
 
         let mut derived = RankVector{
 
@@ -540,7 +573,7 @@ impl<U:Clone + Debug,T:Clone + Debug> RankVector<U,T> {
         }
 
         derived.initialize();
-        derived.boundaries();
+        derived.set_boundaries();
 
         derived
 
@@ -677,6 +710,10 @@ impl DeadCenter {
 
     pub fn center(raw :&RawVector) -> DeadCenter {
         let length = raw.len();
+
+        if length < 1 {
+            return DeadCenter{left:None,right:None}
+        }
 
         let mut left_zone= -1i32;
         let mut right_zone = (length) as i32;
@@ -876,14 +913,14 @@ pub struct RightZone {
 }
 
 
-impl<'a,U:Clone + Debug,T:Clone + Debug> OrderedDraw<'a,U,T> {
-    pub fn new(vector : &'a mut RankVector<U,T>) -> OrderedDraw<'a,U,T> {
+impl<'a,U:Clone + Debug> OrderedDraw<'a,U> {
+    pub fn new(vector : &'a mut RankVector<U>) -> OrderedDraw<'a,U> {
         vector.backup();
         OrderedDraw{vector: vector, index:0}
     }
 }
 
-impl<'a,U:Clone+Debug,T:Clone+Debug> Iterator for OrderedDraw<'a,U,T> {
+impl<'a,U:Clone+Debug> Iterator for OrderedDraw<'a,U> {
     type Item = (f64,f64);
 
     fn next(&mut self) -> Option<(f64,f64)> {
@@ -910,13 +947,13 @@ impl<'a,U:Clone+Debug,T:Clone+Debug> Iterator for OrderedDraw<'a,U,T> {
 }
 
 pub struct OrderedDraw<'a,U:'a>{
-    pub vector: &'a mut RankVector<U,T>,
+    pub vector: &'a mut RankVector<U>,
     index: usize,
 }
 
-impl<U:Clone+Debug,T:Clone+Debug> ProceduralDraw<U,T> {
+impl<U:Clone+Debug> ProceduralDraw<U> {
 
-    pub fn new(vector :RankVector<U>) -> ProceduralDraw<U,T> {
+    pub fn new(vector :RankVector<U>) -> ProceduralDraw<U> {
         ProceduralDraw{vector: vector, index:0}
     }
 

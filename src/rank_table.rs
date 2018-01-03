@@ -29,7 +29,7 @@ impl<U:Clone + std::cmp::Eq + std::hash::Hash + Debug,T:Clone + std::cmp::Eq + s
             println!("Starting to iterate");
             feature_dictionary.insert(name.clone(),i);
             println!("Updated feature dict");
-            let mut construct = RankVector::new(loc_counts,name.clone(),Vec::new());
+            let mut construct = RankVector::new(loc_counts,name.clone());
             println!("Made a rank vector");
             construct.drop_zeroes();
             construct.initialize();
@@ -84,13 +84,29 @@ impl<U:Clone + std::cmp::Eq + std::hash::Hash + Debug,T:Clone + std::cmp::Eq + s
         self.sample_dictionary[sample_name]
     }
 
-    pub fn split(&mut self, feature: &U) -> (RankTableSplitter<U,T>,RankTableSplitter<U,T>, Vec<usize>) {
+    pub fn split(&self, feature: &U) -> (RankTableSplitter<U,T>,RankTableSplitter<U,T>, Vec<usize>) {
         RankTableSplitter::split(self,&feature)
+    }
+
+    pub fn between(&self, feature: &U,begin:&T,end:&T) -> usize {
+        self.meta_vector[self.feature_dictionary[feature]].between(self.sample_dictionary[begin],self.sample_dictionary[end])
+    }
+
+    pub fn full_values(&self) -> Vec<Vec<f64>> {
+        let mut values = Vec::new();
+        for feature in &self.meta_vector {
+            values.push(feature.draw_values());
+        }
+        values
+    }
+
+    pub fn samples(&self) -> &[T] {
+        &self.sample_names
     }
 
     pub fn derive(&self, indecies:&[usize]) -> RankTable<U,T> {
 
-        let mut new_meta_vector: Vec<RankVector<U,T>> = Vec::with_capacity(indecies.len());
+        let mut new_meta_vector: Vec<RankVector<U>> = Vec::with_capacity(indecies.len());
 
         let new_sample_dictionary: HashMap<T,usize> = indecies.iter().enumerate().map(|x| (self.sample_names[*x.1].clone(),x.0)).collect();
 
@@ -128,7 +144,7 @@ impl<U:Clone + std::cmp::Eq + std::hash::Hash + Debug,T:Clone + std::cmp::Eq + s
 
 #[derive(Debug,Clone)]
 pub struct RankTable<U:Clone + std::cmp::Eq + std::hash::Hash,T:Clone + std::cmp::Eq + std::hash::Hash> {
-    meta_vector: Vec<RankVector<U,T>>,
+    meta_vector: Vec<RankVector<U>>,
     feature_names: Vec<U>,
     pub sample_names: Vec<T>,
     feature_dictionary: HashMap<U,usize>,
@@ -151,7 +167,7 @@ impl<'a,U:Clone+ std::cmp::Eq + std::hash::Hash + Debug,T:Clone + std::cmp::Eq +
 
         println!("Finished making iterators, yielding meta-iterator");
 
-        RankTableIter{table:table,index:0,limit:limit-1}
+        RankTableIter{table:table,index:0,limit:limit-1,current_sample:None}
     }
 
 }
@@ -183,13 +199,14 @@ impl<'a,U:Clone + Debug,T:Clone + Debug> Iterator for RankTableIter<'a,U,T> {
 }
 
 pub struct RankTableIter<'a,U:'a,T:'a> {
-    table: Vec<OrderedDraw<'a,U,T>>,
+    table: Vec<OrderedDraw<'a,U>>,
     index: usize,
+    current_sample: Option<T>,
     limit: usize,
 }
 
 impl<U:Clone + std::cmp::Eq + std::hash::Hash + Debug ,T:Clone + std::cmp::Eq + std::hash::Hash + Debug> RankTableSplitter<U,T> {
-    pub fn new(rank_table: &mut RankTable<U,T>,feature:&U) -> RankTableSplitter<U,T> {
+    pub fn new(rank_table: & RankTable<U,T>,feature:&U) -> RankTableSplitter<U,T> {
 
         let draw_order = rank_table.sort_by_feature(&feature);
 
@@ -205,10 +222,10 @@ impl<U:Clone + std::cmp::Eq + std::hash::Hash + Debug ,T:Clone + std::cmp::Eq + 
 
         println!("Finished making iterators, yielding meta-iterator");
 
-        RankTableSplitter{table:table,index:0,draw_order:draw_order, length: length}
+        RankTableSplitter{table:table,index:0,draw_order:draw_order, length: length, current_sample:None}
     }
 
-    pub fn split(rank_table: &mut RankTable<U,T>, feature:&U) -> (RankTableSplitter<U,T>,RankTableSplitter<U,T>,Vec<usize>) {
+    pub fn split(rank_table: & RankTable<U,T>, feature:&U) -> (RankTableSplitter<U,T>,RankTableSplitter<U,T>,Vec<usize>) {
         let mut forward_splitter = RankTableSplitter::new(rank_table,feature);
         let draw_order = forward_splitter.draw_order.clone();
         let mut reverse_splitter = forward_splitter.clone();
@@ -251,8 +268,9 @@ impl<U:Clone + Debug,T:Clone + Debug> Iterator for RankTableSplitter<U,T> {
 
 #[derive(Clone)]
 pub struct RankTableSplitter<U,T> {
-    table: Vec<ProceduralDraw<U,T>>,
+    table: Vec<ProceduralDraw<U>>,
     draw_order: Vec<usize>,
     index: usize,
+    current_sample: Option<T>,
     pub length: usize,
 }
