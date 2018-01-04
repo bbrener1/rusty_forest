@@ -72,11 +72,9 @@ impl<U:Clone + std::cmp::Eq + std::hash::Hash + Debug,T:Clone + std::cmp::Eq + s
 
         println!("Splitting a node");
 
+        let feature_index = self.rank_table.feature_index(feature);
+
         let (forward,reverse,draw_order) = self.rank_table.split(feature);
-
-        let feature_weight_backup = self.feature_weights[self.rank_table.feature_index(feature)];
-
-        self.feature_weights[self.rank_table.feature_index(feature)] = 0.;
 
         let mut fw_dsp = vec![0.;forward.length];
 
@@ -91,7 +89,7 @@ impl<U:Clone + std::cmp::Eq + std::hash::Hash + Debug,T:Clone + std::cmp::Eq + s
                     if div.is_nan() {
                         div = 0.;
                     };
-                    div.powi(2) * self.feature_weights[x.0] + acc
+                    div.powi(2) * self.feature_weights[x.0] * ((x.0 != feature_index) as i32 as f64) + acc
                 })
                 .sqrt();
 
@@ -112,7 +110,7 @@ impl<U:Clone + std::cmp::Eq + std::hash::Hash + Debug,T:Clone + std::cmp::Eq + s
                     if div.is_nan() {
                         div = 0.;
                     };
-                    div.powi(2) * self.feature_weights[x.0] + acc
+                    div.powi(2) * self.feature_weights[x.0] * ((x.0 != feature_index) as i32 as f64) + acc
                 })
                 .sqrt();
 
@@ -150,8 +148,6 @@ impl<U:Clone + std::cmp::Eq + std::hash::Hash + Debug,T:Clone + std::cmp::Eq + s
 
         let split_sample_name = self.rank_table.sample_name(split_sample_index);
 
-        self.feature_weights[self.rank_table.feature_index(feature)] = feature_weight_backup;
-
         let output = (feature.clone(),split_index,split_sample_name,split_sample_index,split_sample_value,split_dispersion,draw_order);
 
         println!("Split output: {:?}",output.clone());
@@ -160,13 +156,45 @@ impl<U:Clone + std::cmp::Eq + std::hash::Hash + Debug,T:Clone + std::cmp::Eq + s
 
     }
 
-    pub fn parallel_split<'a>(&'a self, feature: &'a U, pool: mpsc::Sender<(&'a U,&'a Node<U,T>,mpsc::Sender<(U,usize,T,usize,f64,f64,Vec<usize>)>)>) -> mpsc::Receiver<(U,usize,T,usize,f64,f64,Vec<usize>)> {
+    // pub fn parallel_split<'a>(&'a self, feature: &'a U, pool: mpsc::Sender<(&'a U,&'a Node<U,T>,mpsc::Sender<(U,usize,T,usize,f64,f64,Vec<usize>)>)>) -> mpsc::Receiver<(U,usize,T,usize,f64,f64,Vec<usize>)> {
+    //
+    //     let (tx,rx) = mpsc::channel();
+    //
+    //     pool.send((feature,&self,tx)).unwrap();
+    //
+    //     rx
+    //
+    // }
 
-        let (tx,rx) = mpsc::channel();
+    pub fn parallel_best_split<'a>(&'a mut self, pool: mpsc::Sender<(&'a U,&'a RankTable<U,T>,&'a [f64],mpsc::Sender<(U,usize,T,usize,f64,f64,Vec<usize>)>)>) -> (U,f64,Vec<usize>,Vec<usize>) {
 
-        pool.send((feature,&self,tx)).unwrap();
+        if self.input_features.len() < 1 {
+            panic!("Tried to split with no input features");
+        };
 
-        rx
+        let mut feature_receivers: Vec<mpsc::Receiver<(U,usize,T,usize,f64,f64,Vec<usize>)>> = Vec::with_capacity(self.input_features.len());
+
+        for feature in &self.input_features {
+
+            let (tx,rx) = mpsc::channel();
+
+            pool.send((feature,&self.rank_table,&self.feature_weights[..],tx)).unwrap();
+
+            feature_receivers.push(rx);
+
+        }
+
+        let mut feature_dispersions: Vec<(U,usize,T,usize,f64,f64,Vec<usize>)> = Vec::with_capacity(self.input_features.len());
+
+        for receiver in feature_receivers {
+            feature_dispersions.push(receiver.recv().unwrap());
+        }
+
+        let minimum_dispersion = feature_dispersions.iter().min_by(|a,b| a.5.partial_cmp(&b.5).unwrap_or(Ordering::Greater)).unwrap();
+
+        println!("Best split: {:?}", minimum_dispersion.clone());
+
+        (minimum_dispersion.0.clone(),minimum_dispersion.4,minimum_dispersion.6[..minimum_dispersion.1].iter().cloned().collect(),minimum_dispersion.6[minimum_dispersion.1..].iter().cloned().collect())
 
     }
 

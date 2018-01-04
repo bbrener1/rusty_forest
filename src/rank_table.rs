@@ -60,7 +60,7 @@ impl<U:Clone + std::cmp::Eq + std::hash::Hash + Debug,T:Clone + std::cmp::Eq + s
         RankTableIter::new(self,limit)
     }
 
-    pub fn sort_by_feature(&mut self, feature: &U) -> Vec<usize> {
+    pub fn sort_by_feature(& self, feature: &U) -> Vec<usize> {
         self.meta_vector[self.feature_dictionary[feature]].give_dropped_order()
     }
 

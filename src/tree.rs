@@ -45,19 +45,19 @@ impl<U:Clone + std::cmp::Eq + std::hash::Hash + Debug,T:Clone + std::cmp::Eq + s
             }
         }
     }
-
-    pub fn crawl_to_leaves<'a>(&'a mut self, target: &'a mut Node<U,T>) -> Vec<&'a mut Node<U,T>> {
-        let mut output = Vec::new();
-        if target.children.len() < 1 {
-            return vec![target]
-        }
-        else {
-            for child in target.children.iter_mut() {
-                output.extend(self.crawl_to_leaves(child));
-            }
-        };
-        output
-    }
+    // 
+    // pub fn crawl_to_leaves<'a>(&'a mut self, target: &'a mut Node<U,T>) -> Vec<&'a mut Node<U,T>> {
+    //     let mut output = Vec::new();
+    //     if target.children.len() < 1 {
+    //         return vec![target]
+    //     }
+    //     else {
+    //         for child in target.children.iter_mut() {
+    //             output.extend(self.crawl_to_leaves(child));
+    //         }
+    //     };
+    //     output
+    // }
     //
     // pub fn crawl_leaves<'a>(&'a mut self, target: &'a mut Node<U,T>) -> Vec<&'a mut Node<U,T>> {
     //     let mut output = Vec::new();
