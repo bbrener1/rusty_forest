@@ -5,6 +5,3 @@ authors = ["boris"]
 
 [dependencies]
 rand = "0.3"
-gnuplot = {git = 'https://github.com/SiegeLord/RustGnuplot'}
-[dependencies.rustml]
-git = "https://github.com/daniel-e/rustml/"
