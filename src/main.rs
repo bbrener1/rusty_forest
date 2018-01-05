@@ -62,9 +62,10 @@ fn main() {
 
         for gene in gene_line.split_whitespace().enumerate() {
 
-            // println!("{}", gene.0);
-            //
-            // println!("{}", gene.1.parse::<f64>().unwrap() );
+            if gene.0%200 == 0 {
+                println!("{}", gene.0);
+                println!("{}", gene.1.parse::<f64>().unwrap_or(-1.) );
+            }
 
             // if !((gene.0 == 1686) || (gene.0 == 4660)) {
             //     continue
@@ -83,6 +84,7 @@ fn main() {
                 },
                 Err(msg) => {
                     println!("Couldn't parse a cell in the text file, Rust sez: {:?}",msg);
+                    println!("Cell content: {:?}", gene.1);
                     match count_array.last_mut() {
                         Some(last_vec) => last_vec.push(0f64),
                         None => {
