@@ -43,11 +43,13 @@ use online_madm::slow_description_test;
 
 fn main() {
 
-    let filename = env::args().nth(2).unwrap();
+    let args:Vec<String> = env::args().collect();
+
+    println!("Argumnets parsed: {:?}", args);
 
     println!("Reading data");
 
-    let count_array_file = File::open(filename).expect("File error!");
+    let count_array_file = File::open(args[1].clone()).expect("File error!");
     let mut count_array_lines = io::BufReader::new(&count_array_file).lines();
 
     let mut count_array: Vec<Vec<f64>> = Vec::new();
