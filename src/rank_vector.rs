@@ -14,23 +14,23 @@ use raw_vector::RawVector;
 use raw_vector::LeftVectCrawler;
 use raw_vector::RightVectCrawler;
 
-impl<U:Clone + Debug> RankVector<U> {
+impl RankVector {
 
-    pub fn new(in_vec:&Vec<f64>, feature_name: U) -> RankVector<U> {
+    pub fn new(in_vec:&Vec<f64>, feature_name: String) -> RankVector {
 
         let vector = RawVector::raw_vector(in_vec);
 
-        println!("Made raw vector object!");
+        // println!("Made raw vector object!");
 
         let empty_backup = RawVector::raw_vector(&Vec::with_capacity(0));
 
-        println!("Made an empty backup!");
+        // println!("Made an empty backup!");
 
         let length = vector.len();
 
-        println!("Trying to intialize ranked object");
+        // println!("Trying to intialize ranked object");
 
-        let zones = RankVector::<U>::empty_zones();
+        let zones = RankVector::empty_zones();
 
         RankVector{
 
@@ -110,7 +110,7 @@ impl<U:Clone + Debug> RankVector<U> {
 
     pub fn initialize(&mut self) {
 
-        println!("Initializing!");
+        // println!("Initializing!");
 
         let mut dead_center = DeadCenter::center(&self.vector);
 
@@ -294,7 +294,7 @@ impl<U:Clone + Debug> RankVector<U> {
     }
 
     pub fn set_boundaries(&mut self) {
-        println!("Setting boundaries!");
+        // println!("Setting boundaries!");
         if self.vector.len() < 1 {
             return
         }
@@ -485,15 +485,15 @@ impl<U:Clone + Debug> RankVector<U> {
         (self.left_zone.index_set.clone(), self.median_zone.index_set.clone(), self.right_zone.index_set.clone())
     }
 
-    pub fn ordered_draw(&mut self) -> OrderedDraw<U> {
+    pub fn ordered_draw(&mut self) -> OrderedDraw {
         OrderedDraw::new(self)
     }
 
-    pub fn consumed_draw(self) -> ProceduralDraw<U> {
+    pub fn consumed_draw(self) -> ProceduralDraw {
         ProceduralDraw::new(self)
     }
 
-    pub fn procedural_draw(&mut self) -> OrderedDraw<U> {
+    pub fn procedural_draw(&mut self) -> OrderedDraw {
         OrderedDraw::new(self)
     }
 
@@ -518,8 +518,12 @@ impl<U:Clone + Debug> RankVector<U> {
         self.vector.iter_full().map(|x| x.3.clone()).collect()
     }
 
+    pub fn draw_ordered_values(&self) -> Vec<f64> {
+        self.vector.iter_ordered()
+    }
+
     // pub fn derive(&self, indecies:Vec<usize>,) -> RankVector<U,T> {
-    pub fn derive(&self, indecies:&[usize],) -> RankVector<U> {
+    pub fn derive(&self, indecies:&[usize],) -> RankVector {
 
         let derived_set: HashSet<usize> = indecies.iter().cloned().collect();
 
@@ -539,7 +543,7 @@ impl<U:Clone + Debug> RankVector<U> {
         let right_boundary = 0;
         let length = vector.len();
 
-        let zones = RankVector::<U>::empty_zones();
+        let zones = RankVector::empty_zones();
 
         let mut derived = RankVector{
 
@@ -587,7 +591,7 @@ impl<U:Clone + Debug> RankVector<U> {
 }
 
 #[derive(Debug,Clone)]
-pub struct RankVector<U> {
+pub struct RankVector {
     pub vector: RawVector,
 
     backup: bool,
@@ -606,7 +610,7 @@ pub struct RankVector<U> {
     drop: bool,
     num_dropped: usize,
 
-    feature_name: U,
+    feature_name: String,
 
 }
 
@@ -913,14 +917,14 @@ pub struct RightZone {
 }
 
 
-impl<'a,U:Clone + Debug> OrderedDraw<'a,U> {
-    pub fn new(vector : &'a mut RankVector<U>) -> OrderedDraw<'a,U> {
+impl<'a> OrderedDraw<'a> {
+    pub fn new(vector : &'a mut RankVector) -> OrderedDraw<'a> {
         vector.backup();
         OrderedDraw{vector: vector, index:0}
     }
 }
 
-impl<'a,U:Clone+Debug> Iterator for OrderedDraw<'a,U> {
+impl<'a> Iterator for OrderedDraw<'a> {
     type Item = (f64,f64);
 
     fn next(&mut self) -> Option<(f64,f64)> {
@@ -946,14 +950,14 @@ impl<'a,U:Clone+Debug> Iterator for OrderedDraw<'a,U> {
     }
 }
 
-pub struct OrderedDraw<'a,U:'a>{
-    pub vector: &'a mut RankVector<U>,
+pub struct OrderedDraw<'a>{
+    pub vector: &'a mut RankVector,
     index: usize,
 }
 
-impl<U:Clone+Debug> ProceduralDraw<U> {
+impl ProceduralDraw {
 
-    pub fn new(vector :RankVector<U>) -> ProceduralDraw<U> {
+    pub fn new(vector :RankVector) -> ProceduralDraw {
         ProceduralDraw{vector: vector, index:0}
     }
 
@@ -969,7 +973,7 @@ impl<U:Clone+Debug> ProceduralDraw<U> {
         // println!("Boundaries: {:?}", self.vector.boundaries());
         // println!("Zone boundaries: {:?},{:?}", self.vector.left_zone.right.unwrap_or(0), self.vector.right_zone.left.unwrap_or(0));
         // println!("Indecies: {:?}", self.vector.indecies());
-        // println!("{:?}",self.vector.pop(target));
+        // println!("{:?}",self.vector.pop(target).3);
         self.vector.pop(target);
 
         // println!("{:?}", self.vector.vector.left_to_right().cloned().collect::<Vec<(usize,usize,usize,f64,usize)>>());
@@ -981,7 +985,7 @@ impl<U:Clone+Debug> ProceduralDraw<U> {
 }
 
 #[derive(Clone)]
-pub struct ProceduralDraw<U>{
-    pub vector: RankVector<U>,
+pub struct ProceduralDraw{
+    pub vector: RankVector,
     index: usize,
 }

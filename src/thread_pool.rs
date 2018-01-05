@@ -27,15 +27,18 @@ use rank_table::RankTableSplitter;
 use node::Node;
 
 
-impl<'a,U:Clone + std::cmp::Eq + std::hash::Hash + Debug,T:Clone + std::cmp::Eq + std::hash::Hash + Debug> ThreadPool<'a,U,T>{
-    pub fn new(size: usize) -> Sender<(&'a U,&'a Node<U,T>,Sender<(U,usize,T,usize,f64,f64,Vec<usize>)>)> {
+impl ThreadPool{
+    pub fn new(size: usize) -> Sender<((usize, (RankTableSplitter,RankTableSplitter,Vec<usize>),Vec<f64>), mpsc::Sender<(usize,usize,f64,Vec<usize>)>)> {
 
         let (tx,rx) = mpsc::channel();
+
+        let worker_receiver_channel = Arc::new(Mutex::new(rx));
 
         let mut workers = Vec::with_capacity(size);
 
         for i in 0..size {
-            workers.push(Worker::new(i))
+
+            workers.push(Worker::new(i,worker_receiver_channel.clone()))
         }
 
         tx
@@ -43,47 +46,41 @@ impl<'a,U:Clone + std::cmp::Eq + std::hash::Hash + Debug,T:Clone + std::cmp::Eq 
 }
 
 
-pub struct ThreadPool<'a,U:'a + Clone + std::cmp::Eq + std::hash::Hash + Debug,T:'a + Clone + std::cmp::Eq + std::hash::Hash + Debug> {
-    workers: Vec<Worker<'a,U,T>>,
-    distributor_channel: Sender<(&'a U,&'a Node<U,T>,Sender<(U,usize,T,usize,f64,f64,Vec<usize>)>)>,
-    worker_receiver_channel: Arc<Mutex<Receiver<(&'a U, &'a Node<U,T>, mpsc::Sender<(U,usize,T,usize,f64,f64,Vec<usize>)>)>>>
+pub struct ThreadPool {
+    workers: Vec<Worker>,
+    worker_receiver_channel: Arc<Mutex<Receiver<((usize,(RankTableSplitter,RankTableSplitter,Vec<usize>),Vec<f64>), mpsc::Sender<(usize,usize,f64,Vec<usize>)>)>>>
 }
 
 
-impl <'a,U:Clone + std::cmp::Eq + std::hash::Hash + Debug,T:Clone + std::cmp::Eq + std::hash::Hash + Debug> Worker<'a,U,T> {
+impl Worker {
 
-    pub fn new(id:usize,channel:Arc<Mutex<Receiver<(&'a U, &'a RankTable<U,T>,&'a[f64], mpsc::Sender<(U,usize,T,usize,f64,f64,Vec<usize>)>)>>>) ->Worker<'a,U,T> {
+    pub fn new(id:usize,channel:Arc<Mutex<Receiver<((usize,(RankTableSplitter,RankTableSplitter,Vec<usize>),Vec<f64>), mpsc::Sender<(usize,usize,f64,Vec<usize>)>)>>>) ->Worker {
         Worker{
             id: id,
-            thread: std::thread::spawn(|| {
-                while let Some((feature,rank_table, weights,sender)) = channel.lock().unwrap().recv().ok() {
-                    sender.send(split(feature,rank_table,weights));
+            thread: std::thread::spawn(move || {
+                while let Some(((feature_index,(forward,reverse,order), weights),sender)) = channel.lock().unwrap().recv().ok() {
+                    sender.send(split(feature_index,forward,reverse,order,weights));
                 }
             }),
-            worker_receiver_channel: channel
         }
     }
 
-    pub fn compute(feature: &'a U, node: &'a Node<U,T>, return_channel: mpsc::Sender<(U,usize,T,usize,f64,f64,Vec<usize>)>) {
-        return_channel.send(node.split(feature))
-    }
+    // pub fn compute(feature: & str, rank_table: & RankTable, feature_weights: &[f64], return_channel: mpsc::Sender<(String,usize,String,usize,f64,f64,Vec<usize>)>) {
+    //     return_channel.send(split(feature,rank_table,feature_weights));
+    // }
 }
 
-struct Worker<'a,U:'a + Clone + std::cmp::Eq + std::hash::Hash + Debug,T:'a + Clone + std::cmp::Eq + std::hash::Hash + Debug> {
+struct Worker {
     id: usize,
     thread: thread::JoinHandle<()>,
-    worker_receiver_channel: Arc<Mutex<Receiver<(&'a U, &'a RankTable<U,T>, &'a[f64], mpsc::Sender<(U,usize,T,usize,f64,f64,Vec<usize>)>)>>>,
+    // worker_receiver_channel: Arc<Mutex<Receiver<((usize,(RankTableSplitter,RankTableSplitter,Vec<usize>),Vec<f64>), mpsc::Sender<(usize,usize,f64,Vec<usize>)>)>>>,
 }
 
 
 
-fn split<'a,U:'a + Clone + std::cmp::Eq + std::hash::Hash + Debug,T:'a + Clone + std::cmp::Eq + std::hash::Hash + Debug> (feature: &'a U,rank_table: &'a RankTable<U,T>, feature_weights:&[f64]) -> (U,usize,T,usize,f64,f64,Vec<usize>) {
+fn split (feature_index: usize, forward: RankTableSplitter, reverse: RankTableSplitter, draw_order: Vec<usize>, feature_weights:Vec<f64>) -> (usize,usize,f64,Vec<usize>) {
 
-    println!("Splitting a node");
-
-    let feature_index = rank_table.feature_index(feature);
-
-    let (forward,reverse,draw_order) = rank_table.split(feature);
+    // println!("Splitting a node");
 
     let mut fw_dsp = vec![0.;forward.length];
 
@@ -128,40 +125,70 @@ fn split<'a,U:'a + Clone + std::cmp::Eq + std::hash::Hash + Debug,T:'a + Clone +
 
     rv_dsp.reverse();
 
-    for combo in fw_dsp.iter().zip(rv_dsp.iter()) {
-        println!("{:?},{}", combo, combo.0 + combo.1);
+    let (mut split_index, mut split_dispersion) = (0,std::f64::INFINITY);
+
+    for (i,(fw,rv)) in fw_dsp.iter().zip(rv_dsp).enumerate() {
+        if fw_dsp.len() > 6 && i > 2 && i < fw_dsp.len() - 3 {
+            if fw+rv < split_dispersion {
+                split_index = i;
+                split_dispersion = fw+rv;
+            }
+        }
+        else if fw_dsp.len() > 3 && fw_dsp.len() < 6 && i > 1 && i < fw_dsp.len() -1 {
+            if fw+rv < split_dispersion {
+                split_index = i;
+                split_dispersion = fw+rv;
+            }
+        }
+        else if fw_dsp.len() < 3 {
+            if fw+rv < split_dispersion {
+                split_index = i;
+                split_dispersion = fw+rv;
+            }
+        }
     }
 
-    let fw: &[f64];
-    let rv: &[f64];
-
-    if fw_dsp.len() > 6 && rv_dsp.len() > 6 {
-        fw = &fw_dsp[3..(fw_dsp.len()-3)];
-        rv = &rv_dsp[3..(rv_dsp.len()-3)];
-    }
-    else if fw_dsp.len() > 2 && rv_dsp.len() > 2 {
-        fw = &fw_dsp[1..(fw_dsp.len()-1)];
-        rv = &rv_dsp[1..(rv_dsp.len()-1)];
-    }
-    else {
-        fw = &fw_dsp[..];
-        rv = &rv_dsp[..]
-    }
-
-
-    let (split_index, split_dispersion) = fw.iter().zip(rv.iter()).map(|x| x.0 + x.1).enumerate().min_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Greater)).unwrap_or((0,0.));
-
-    let split_sample_value = rank_table.feature_fetch(feature, draw_order[split_index]);
 
     let split_sample_index = draw_order[split_index];
 
-    let split_sample_name = rank_table.sample_name(split_sample_index);
-
-    let output = (feature.clone(),split_index,split_sample_name,split_sample_index,split_sample_value,split_dispersion,draw_order);
+    let output = (split_index,split_sample_index,split_dispersion,draw_order);
 
     println!("Split output: {:?}",output.clone());
 
     output
+
+    //
+    // for combo in fw_dsp.iter().zip(rv_dsp.iter()) {
+    //     println!("{:?},{}", combo, combo.0 + combo.1);
+    // }
+    //
+    // let fw: &[f64];
+    // let rv: &[f64];
+    //
+    // if fw_dsp.len() > 6 && rv_dsp.len() > 6 {
+    //     fw = &fw_dsp[3..(fw_dsp.len()-3)];
+    //     rv = &rv_dsp[3..(rv_dsp.len()-3)];
+    // }
+    // else if fw_dsp.len() > 2 && rv_dsp.len() > 2 {
+    //     fw = &fw_dsp[1..(fw_dsp.len()-1)];
+    //     rv = &rv_dsp[1..(rv_dsp.len()-1)];
+    // }
+    // else {
+    //     fw = &fw_dsp[..];
+    //     rv = &rv_dsp[..]
+    // }
+    //
+    //
+    // let (split_index, split_dispersion) = fw.iter().zip(rv.iter()).map(|x| x.0 + x.1).enumerate().min_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Greater)).unwrap_or((0,0.));
+    //
+    // let split_sample_index = draw_order[split_index];
+    //
+    //
+    // let output = (split_index,split_sample_index,split_dispersion,draw_order);
+    //
+    // println!("Split output: {:?}",output.clone());
+    //
+    // output
 
 }
 

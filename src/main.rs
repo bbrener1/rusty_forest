@@ -46,7 +46,7 @@ use online_madm::slow_description_test;
 
 fn main() {
 
-    let filename = "/Users/boris/taylor/vision/rust_prototype/raw_data/iris.drop";
+    let filename = "/Users/boris/taylor/vision/rust_prototype/raw_data/counts.txt";
 
     println!("Reading data");
 
@@ -336,8 +336,10 @@ fn main() {
     // let mut backup_debug_file = File::create("ranked_vec_clone.txt").unwrap();
     // backup_debug_file.write_fmt(format_args!("{:?}", ranked_clone));
 
-    let names: Vec<usize> = (0..count_array[0].len()).collect();
-    let samples: Vec<usize> = (0..count_array.len()).collect();
+    let names: Vec<String> = (0..count_array[0].len()).map(|x| x.to_string()).collect();
+    let samples: Vec<String> = (0..count_array.len()).map(|x| x.to_string()).collect();
+    // let names_prime: &[&str] = &names.iter().map(|x| &x[..]).collect()[..];
+    // let samples_prime: &[&str] = &samples.iter().map(|x| &x[..]).collect()[..];
     //
     // let medium_case = vec![vec![-1.,0.,-2.,10.,-3.,-4.,-20.,15.,20.,25.,100.]];
     //
@@ -373,7 +375,7 @@ fn main() {
 
     // let mut node = Node::root(&matrix_flip(&count_array),&names,&samples,names[..1].iter().cloned().collect(),names[1..].iter().cloned().collect());
 
-    let mut node = Node::root(&matrix_flip(&count_array),&names,&samples,names.clone(),names.clone());
+    // let mut node = Node::root(&matrix_flip(&count_array),&names.clone(),&samples.clone(),names.clone(),names.clone());
 
     // let mut node = Node::root(&simple_case,&names,&samples,names[..1].iter().cloned().collect(),names[1..].iter().cloned().collect());
 
@@ -381,11 +383,19 @@ fn main() {
     //
     // println!("{:?}",node.rank_table.sort_by_feature(0));
 
-    node.derive_children();
+    // node.parallel_derive();
+    //
+    // for child in node.children.iter_mut() {
+    //     child.derive_children();
+    // }
 
-    for child in node.children.iter_mut() {
-        child.derive_children();
-    }
+    let mut tree = Tree::plant_tree(&matrix_flip(&count_array),&names.clone(),&samples.clone(),names.clone(),names.clone(), 20);
+    let mut parallel_tree = Tree::plant_tree(&matrix_flip(&count_array),&names.clone(),&samples.clone(),names[4500..4550].iter().cloned().collect(),names.clone(), 20);
+
+    // tree.test_splits();
+    parallel_tree.test_parallel_splits();
+
+
 
     // let mut forest = Forest::grow_forest(count_array, 1, 4, true);
     // forest.test();

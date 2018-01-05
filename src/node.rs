@@ -20,11 +20,12 @@ use rank_table::RankTable;
 use rank_table::RankTableSplitter;
 
 
-impl<U:Clone + std::cmp::Eq + std::hash::Hash + Debug,T:Clone + std::cmp::Eq + std::hash::Hash + Debug> Node<U,T> {
+impl Node {
 
-    pub fn root(counts:&Vec<Vec<f64>>,feature_names:&[U],sample_names:&[T],input_features: Vec<U>,output_features:Vec<U>) -> Node<U,T> {
+    pub fn root<'a>(counts:&Vec<Vec<f64>>,feature_names:&'a[String],sample_names:&'a[String],input_features: Vec<String>,output_features:Vec<String>,pool:mpsc::Sender<((usize, (RankTableSplitter,RankTableSplitter,Vec<usize>),Vec<f64>), mpsc::Sender<(usize,usize,f64,Vec<usize>)>)>) -> Node
+    {
 
-        let rank_table = RankTable::new(counts,feature_names,sample_names);
+        let rank_table = RankTable::new(counts,&feature_names,&sample_names);
 
         let feature_weights = vec![1.;feature_names.len()];
 
@@ -33,6 +34,7 @@ impl<U:Clone + std::cmp::Eq + std::hash::Hash + Debug,T:Clone + std::cmp::Eq + s
         let dispersions = rank_table.dispersions();
 
         let new_node = Node {
+            pool: pool,
 
             rank_table: rank_table,
             dropout: true,
@@ -60,15 +62,15 @@ impl<U:Clone + std::cmp::Eq + std::hash::Hash + Debug,T:Clone + std::cmp::Eq + s
 
     }
 
-    pub fn between(&self, feature:&U, begin:&T, end:&T) -> usize {
+    pub fn between(&self, feature:&str, begin:&str, end:&str) -> usize {
         self.rank_table.between(feature,begin,end)
     }
 
-    pub fn samples(&self) -> Vec<T> {
+    pub fn samples(&self) -> Vec<String> {
         self.rank_table.sample_names.clone()
     }
 
-    pub fn split(&self, feature: &U) -> (U,usize,T,usize,f64,f64,Vec<usize>) {
+    pub fn split(&self, feature: &str) -> (String,usize,String,usize,f64,f64,Vec<usize>) {
 
         println!("Splitting a node");
 
@@ -80,7 +82,7 @@ impl<U:Clone + std::cmp::Eq + std::hash::Hash + Debug,T:Clone + std::cmp::Eq + s
 
         for (i,sample) in forward.enumerate() {
 
-            // println!("{:?}",sample);
+            println!("{:?}",sample);
             fw_dsp[i] = sample
                 .iter()
                 .enumerate()
@@ -119,28 +121,32 @@ impl<U:Clone + std::cmp::Eq + std::hash::Hash + Debug,T:Clone + std::cmp::Eq + s
 
         rv_dsp.reverse();
 
-        for combo in fw_dsp.iter().zip(rv_dsp.iter()) {
-            println!("{:?},{}", combo, combo.0 + combo.1);
-        }
+        // for combo in fw_dsp.iter().zip(rv_dsp.iter()) {
+        //     println!("{:?},{}", combo, combo.0 + combo.1);
+        // }
 
-        let fw: &[f64];
-        let rv: &[f64];
+        let (mut split_index, mut split_dispersion) = (0,std::f64::INFINITY);
 
-        if fw_dsp.len() > 6 && rv_dsp.len() > 6 {
-            fw = &fw_dsp[3..(fw_dsp.len()-3)];
-            rv = &rv_dsp[3..(rv_dsp.len()-3)];
+        for (i,(fw,rv)) in fw_dsp.iter().zip(rv_dsp).enumerate() {
+            if fw_dsp.len() > 6 && i > 2 && i < fw_dsp.len() - 3 {
+                if fw+rv < split_dispersion {
+                    split_index = i;
+                    split_dispersion = fw+rv;
+                }
+            }
+            else if fw_dsp.len() > 3 && fw_dsp.len() < 6 && i > 1 && i < fw_dsp.len() -1 {
+                if fw+rv < split_dispersion {
+                    split_index = i;
+                    split_dispersion = fw+rv;
+                }
+            }
+            else if fw_dsp.len() < 3 {
+                if fw+rv < split_dispersion {
+                    split_index = i;
+                    split_dispersion = fw+rv;
+                }
+            }
         }
-        else if fw_dsp.len() > 2 && rv_dsp.len() > 2 {
-            fw = &fw_dsp[1..(fw_dsp.len()-1)];
-            rv = &rv_dsp[1..(rv_dsp.len()-1)];
-        }
-        else {
-            fw = &fw_dsp[..];
-            rv = &rv_dsp[..]
-        }
-
-
-        let (split_index, split_dispersion) = fw.iter().zip(rv.iter()).map(|x| x.0 + x.1).enumerate().min_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Greater)).unwrap_or((0,0.));
 
         let split_sample_value = self.rank_table.feature_fetch(feature, draw_order[split_index]);
 
@@ -148,7 +154,7 @@ impl<U:Clone + std::cmp::Eq + std::hash::Hash + Debug,T:Clone + std::cmp::Eq + s
 
         let split_sample_name = self.rank_table.sample_name(split_sample_index);
 
-        let output = (feature.clone(),split_index,split_sample_name,split_sample_index,split_sample_value,split_dispersion,draw_order);
+        let output = (String::from(feature),split_index,split_sample_name,split_sample_index,split_sample_value,split_dispersion,draw_order);
 
         println!("Split output: {:?}",output.clone());
 
@@ -156,50 +162,63 @@ impl<U:Clone + std::cmp::Eq + std::hash::Hash + Debug,T:Clone + std::cmp::Eq + s
 
     }
 
-    // pub fn parallel_split<'a>(&'a self, feature: &'a U, pool: mpsc::Sender<(&'a U,&'a Node<U,T>,mpsc::Sender<(U,usize,T,usize,f64,f64,Vec<usize>)>)>) -> mpsc::Receiver<(U,usize,T,usize,f64,f64,Vec<usize>)> {
-    //
-    //     let (tx,rx) = mpsc::channel();
-    //
-    //     pool.send((feature,&self,tx)).unwrap();
-    //
-    //     rx
-    //
-    // }
 
-    pub fn parallel_best_split<'a>(&'a mut self, pool: mpsc::Sender<(&'a U,&'a RankTable<U,T>,&'a [f64],mpsc::Sender<(U,usize,T,usize,f64,f64,Vec<usize>)>)>) -> (U,f64,Vec<usize>,Vec<usize>) {
+
+
+    pub fn parallel_best_split(& mut self) -> (String,f64,Vec<usize>,Vec<usize>) {
+
+        // pool: mpsc::Sender<((usize,(RankTableSplitter,RankTableSplitter,Vec<usize>),Vec<f64>),mpsc::Sender<(usize,usize,f64,Vec<usize>)>)>
 
         if self.input_features.len() < 1 {
             panic!("Tried to split with no input features");
         };
 
-        let mut feature_receivers: Vec<mpsc::Receiver<(U,usize,T,usize,f64,f64,Vec<usize>)>> = Vec::with_capacity(self.input_features.len());
+        let mut feature_receivers: Vec<mpsc::Receiver<(usize,usize,f64,Vec<usize>)>> = Vec::with_capacity(self.input_features.len());
 
         for feature in &self.input_features {
 
+            let feature_index = self.rank_table.feature_index(feature);
+            let splitters = self.rank_table.split(feature);
+            let mut feature_weights = self.feature_weights.clone();
+            feature_weights[feature_index] = 0.;
+
             let (tx,rx) = mpsc::channel();
 
-            pool.send((feature,&self.rank_table,&self.feature_weights[..],tx)).unwrap();
+            self.pool.send(((feature_index,splitters,feature_weights),tx)).unwrap();
 
             feature_receivers.push(rx);
 
         }
 
-        let mut feature_dispersions: Vec<(U,usize,T,usize,f64,f64,Vec<usize>)> = Vec::with_capacity(self.input_features.len());
+        let mut feature_dispersions: Vec<(usize,usize,f64,Vec<usize>)> = Vec::with_capacity(self.input_features.len());
 
         for receiver in feature_receivers {
             feature_dispersions.push(receiver.recv().unwrap());
         }
 
-        let minimum_dispersion = feature_dispersions.iter().min_by(|a,b| a.5.partial_cmp(&b.5).unwrap_or(Ordering::Greater)).unwrap();
+        let mut minimum_dispersion = (0,feature_dispersions[0].clone());
 
-        println!("Best split: {:?}", minimum_dispersion.clone());
+        for (i,feature) in feature_dispersions.iter().enumerate() {
+            if i == 0 {
+                continue
+            }
+            else {
+                if feature.2 < (minimum_dispersion.1).2 {
+                    minimum_dispersion = (i,feature.clone());
+                }
+            }
+        }
 
-        (minimum_dispersion.0.clone(),minimum_dispersion.4,minimum_dispersion.6[..minimum_dispersion.1].iter().cloned().collect(),minimum_dispersion.6[minimum_dispersion.1..].iter().cloned().collect())
+        let (feature_index,(split_index, split_sample_index, split_dispersion, split_order)) = minimum_dispersion;
+
+        let best_feature = self.input_features[feature_index].clone();
+
+        (best_feature,split_dispersion,split_order[..split_index].iter().cloned().collect(),split_order[split_index..].iter().cloned().collect())
 
     }
 
     // pub fn best_split(&mut self) -> (U,usize,T,usize,f64,f64,Vec<usize>) {
-    pub fn best_split(&mut self) -> (U,Vec<usize>,Vec<usize>) {
+    pub fn best_split(&mut self) -> (String,Vec<usize>,Vec<usize>) {
 
         if self.input_features.len() < 1 {
             panic!("Tried to split with no input features");
@@ -231,7 +250,7 @@ impl<U:Clone + std::cmp::Eq + std::hash::Hash + Debug,T:Clone + std::cmp::Eq + s
 
     }
 
-    pub fn derive(&mut self, indecies: &[usize]) -> Node<U,T> {
+    pub fn derive(&mut self, indecies: &[usize]) -> Node {
         let new_rank_table = self.rank_table.derive(indecies);
         let parent = self.self_reference.take().clone();
         self.self_reference.set(parent.clone());
@@ -241,6 +260,8 @@ impl<U:Clone + std::cmp::Eq + std::hash::Hash + Debug,T:Clone + std::cmp::Eq + s
         let feature_weights = vec![1.;new_rank_table.dimensions.0];
 
         let child = Node {
+            pool: self.pool.clone(),
+
             rank_table: new_rank_table,
             dropout: self.dropout,
 
@@ -263,6 +284,21 @@ impl<U:Clone + std::cmp::Eq + std::hash::Hash + Debug,T:Clone + std::cmp::Eq + s
         child.self_reference.set(Some(child_reference));
 
         child
+    }
+
+    pub fn parallel_derive(&mut self) {
+        let (feature, dispersion, left_indecies,right_indecies) = self.parallel_best_split();
+        let left_child = self.derive(&left_indecies);
+        let right_child = self.derive(&right_indecies);
+        println!("{:?}",left_child.samples());
+        println!("{:?}", right_child.samples());
+
+        self.report(true);
+        left_child.report(true);
+        right_child.report(true);
+
+        self.children.push(left_child);
+        self.children.push(right_child);
     }
 
     pub fn derive_children(&mut self) {
@@ -294,12 +330,13 @@ impl<U:Clone + std::cmp::Eq + std::hash::Hash + Debug,T:Clone + std::cmp::Eq + s
         println!("Samples: {}", self.rank_table.sample_names.len());
         if verbose {
             println!("{:?}", self.rank_table.samples());
-            println!("Counts: {:?}", self.rank_table.full_values());
+            println!("Counts: {:?}", self.rank_table.full_ordered_values());
+            println!("Ordered counts: {:?}", self.rank_table.full_values());
         }
 
     }
 
-    pub fn internal_report(&self) -> &[T] {
+    pub fn internal_report(&self) -> &[String] {
         self.rank_table.samples()
     }
 
@@ -309,20 +346,22 @@ impl<U:Clone + std::cmp::Eq + std::hash::Hash + Debug,T:Clone + std::cmp::Eq + s
 
 }
 
-pub struct Node<U:Clone + std::cmp::Eq + std::hash::Hash,T:Clone + std::cmp::Eq + std::hash::Hash> {
+pub struct Node {
 
-    pub rank_table: RankTable<U,T>,
+    pool: mpsc::Sender<((usize,(RankTableSplitter,RankTableSplitter,Vec<usize>),Vec<f64>),mpsc::Sender<(usize,usize,f64,Vec<usize>)>)>,
+
+    pub rank_table: RankTable,
     dropout: bool,
 
-    parent: Option<Weak<Node<U,T>>>,
-    pub children: Vec<Node<U,T>>,
-    self_reference: Cell<Option<Weak<Node<U,T>>>>,
+    parent: Option<Weak<Node>>,
+    pub children: Vec<Node>,
+    self_reference: Cell<Option<Weak<Node>>>,
 
-    feature: Option<U>,
+    feature: Option<String>,
     split: Option<f64>,
 
-    output_features: Vec<U>,
-    input_features: Vec<U>,
+    output_features: Vec<String>,
+    input_features: Vec<String>,
 
     medians: Vec<f64>,
     pub feature_weights: Vec<f64>,

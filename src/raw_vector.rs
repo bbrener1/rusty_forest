@@ -209,6 +209,10 @@ impl RawVector {
         RawVectIterFull::new(&self.vector,&self.draw_order)
     }
 
+    pub fn iter_ordered(&self) -> Vec<f64> {
+        self.vector.iter().cloned().map(|x| x.3).collect()
+    }
+
     pub fn drop_skip<'a>(&'a self) -> RawVectDropSkip<'a> {
         RawVectDropSkip::new(self.iter_full(), &self.drop_set)
     }
@@ -252,7 +256,7 @@ impl RawVector {
     pub fn derive(&self, indecies:&[usize]) -> RawVector {
 
         let derived_set: HashSet<usize> = indecies.iter().cloned().collect();
-        let index_map: HashMap<usize,usize> = self.draw_order.iter().filter(|x| derived_set.contains(x)).cloned().enumerate().map(|x| (x.1,x.0)).collect();
+        let index_map: HashMap<usize,usize> = self.vector.iter().map(|x| x.1).filter(|x| derived_set.contains(x)).enumerate().map(|x| (x.1,x.0)).collect();
 
         let mut intermediate = vec![(0,0,0,0.,0);derived_set.len()];
         let mut new_draw_order = Vec::new();
