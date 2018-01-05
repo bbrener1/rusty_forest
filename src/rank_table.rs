@@ -14,7 +14,7 @@ use rank_vector::RankVector;
 use rank_vector::OrderedDraw;
 use rank_vector::ProceduralDraw;
 
-impl RankTable where {
+impl RankTable {
 
     pub fn new<'a> (counts: &Vec<Vec<f64>>,feature_names:&'a [String],sample_names:&'a [String]) -> RankTable {
 
