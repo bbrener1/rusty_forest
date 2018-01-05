@@ -13,17 +13,14 @@ use std::borrow::Borrow;
 use std::ops::DerefMut;
 use std::cmp::PartialOrd;
 use std::cmp::Ordering;
-use rustml::math::*;
 use std::thread::sleep;
 use std::time;
 use std::cell::Cell;
-#[macro_use] extern crate rustml;
 extern crate rand;
 use rand::Rng;
 use std::collections::HashSet;
 
 
-extern crate gnuplot;
 
 mod online_madm;
 mod raw_vector;
