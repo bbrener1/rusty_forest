@@ -294,8 +294,8 @@ impl Node {
         println!("{:?}", right_child.samples());
 
         self.report(false);
-        left_child.report(true);
-        right_child.report(true);
+        left_child.report(false);
+        right_child.report(false);
 
         self.children.push(left_child);
         self.children.push(right_child);
