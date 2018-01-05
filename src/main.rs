@@ -43,7 +43,7 @@ use online_madm::slow_description_test;
 
 fn main() {
 
-    let filename = "/Users/boris/taylor/vision/rust_prototype/raw_data/counts.txt";
+    let filename = env::args().nth(2).unwrap();
 
     println!("Reading data");
 
