@@ -58,7 +58,9 @@ impl Worker {
         Worker{
             id: id,
             thread: std::thread::spawn(move || {
-                while let Some(((feature_index,(forward,reverse,order), weights),sender)) = channel.lock().unwrap().recv().ok() {
+                while let Some(message) = channel.lock().unwrap().recv().ok() {
+                    let ((feature_index,(forward,reverse,order), weights),sender) = message.clone();
+                    drop(message);
                     sender.send(split(feature_index,forward,reverse,order,weights));
                 }
             }),
