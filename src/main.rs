@@ -389,7 +389,7 @@ fn main() {
     // }
 
     let mut tree = Tree::plant_tree(&matrix_flip(&count_array),&names.clone(),&samples.clone(),names.clone(),names.clone(), 20);
-    let mut parallel_tree = Tree::plant_tree(&matrix_flip(&count_array),&names.clone(),&samples.clone(),names[4500..4550].iter().cloned().collect(),names.clone(), 20);
+    let mut parallel_tree = Tree::plant_tree(&matrix_flip(&count_array),&names.clone(),&samples.clone(),names[4500..4510].iter().cloned().collect(),names.clone(), 20);
 
     // tree.test_splits();
     parallel_tree.test_parallel_splits();

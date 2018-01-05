@@ -58,19 +58,21 @@ impl Worker {
         Worker{
             id: id,
             thread: std::thread::spawn(move || {
-                while let Some(message) = channel.lock().unwrap().recv().ok() {
-                    let ((feature_index,(forward,reverse,order), weights),sender) = message.clone();
-                    drop(message);
-                    sender.send(split(feature_index,forward,reverse,order,weights));
+                loop{
+                    let message = channel.lock().unwrap().recv().ok();
+                    if let Some(((feature_index,(forward,reverse,order), weights),sender)) = message {
+                        sender.send(split(feature_index,forward,reverse,order,weights));
+                    }
                 }
             }),
         }
     }
+}
 
     // pub fn compute(feature: & str, rank_table: & RankTable, feature_weights: &[f64], return_channel: mpsc::Sender<(String,usize,String,usize,f64,f64,Vec<usize>)>) {
     //     return_channel.send(split(feature,rank_table,feature_weights));
     // }
-}
+
 
 struct Worker {
     id: usize,
