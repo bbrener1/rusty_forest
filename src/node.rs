@@ -293,7 +293,7 @@ impl Node {
         println!("{:?}",left_child.samples());
         println!("{:?}", right_child.samples());
 
-        self.report(true);
+        self.report(false);
         left_child.report(true);
         right_child.report(true);
 
