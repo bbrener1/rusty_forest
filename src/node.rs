@@ -336,6 +336,20 @@ impl Node {
 
     }
 
+    pub fn data_dump(&self) -> String {
+        let mut report_string = String::new();
+        report_string.push_str(&format!("Feature: {:?}\n", self.feature));
+        report_string.push_str(&format!("Split:{:?}\n",self.split));
+        report_string.push_str(&format!("Output features:{:?}\n",self.output_features.len()));
+        report_string.push_str(&format!("{:?}\n",self.output_features));
+        report_string.push_str(&format!("Medians: {:?}\n",self.medians));
+        report_string.push_str(&format!("Dispersions: {:?}\n",self.dispersions));
+        report_string.push_str(&format!("Feature weights:{:?}\n",self.feature_weights));
+        report_string.push_str(&format!("Samples:{:?}\n",self.internal_report().len()));
+        report_string.push_str(&format!("{:?}\n",self.internal_report()));
+        report_string
+    }
+
     pub fn internal_report(&self) -> &[String] {
         self.rank_table.samples()
     }
@@ -355,7 +369,7 @@ pub struct Node {
 
     parent: Option<Weak<Node>>,
     pub children: Vec<Node>,
-    self_reference: Cell<Option<Weak<Node>>>,
+    pub self_reference: Cell<Option<Weak<Node>>>,
 
     feature: Option<String>,
     split: Option<f64>,

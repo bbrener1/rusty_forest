@@ -2,6 +2,8 @@ use std;
 use std::cell::Cell;
 use std::sync::Arc;
 use std::sync::Weak;
+use std::fs::File;
+use std::io::Write;
 use std::marker::PhantomData;
 use std::cmp::PartialOrd;
 use std::cmp::Ordering;
@@ -60,7 +62,15 @@ impl Tree {
     }
 
     pub fn grow_branches(&mut self) {
-        grow_branches(&mut self.root, 20)
+        self.nodes = grow_branches(&mut self.root, self.size_limit);
+    }
+
+    pub fn report_node_structure(&self) {
+        let mut tree_dump = File::create("tree_dump.txt").unwrap();
+        for node in &self.nodes {
+            tree_dump.write(&node.upgrade().unwrap().data_dump().as_bytes());
+        }
+
     }
 
     // pub fn grow_recursively(&mut self, target: ) {
@@ -124,13 +134,16 @@ pub struct Tree {
     size_limit: usize,
 }
 
-pub fn grow_branches(target:&mut Node, size_limit:usize) {
+pub fn grow_branches(target:&mut Node, size_limit:usize) -> Vec<Weak<Node>> {
+    let mut weak_refs = Vec::new();
+    weak_refs.push(target.self_reference.get_mut().clone().unwrap());
     if target.internal_report().len() > size_limit {
         target.derive_children();
         for child in target.children.iter_mut() {
-            grow_branches(child,size_limit);
+            weak_refs.append(&mut grow_branches(child,size_limit));
         }
     }
+    weak_refs
 
 }
 
