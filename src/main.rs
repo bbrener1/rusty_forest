@@ -392,10 +392,10 @@ fn main() {
     // }
 
     let mut rng = rand::thread_rng();
-    let input_features = rand::seq::sample_iter(&mut rng, names.clone(), 1000);
+    let input_features = rand::seq::sample_iter(&mut rng, names.clone(), 1000).expect("Couldn't generate input features");
 
     // let mut tree = Tree::plant_tree(&matrix_flip(&count_array),&names.clone(),&samples.clone(),names.clone(),names.clone(), 20);
-    let mut parallel_tree = Tree::plant_tree(&matrix_flip(&count_array),&names.clone(),&samples.clone(),names[4500..4510].iter().cloned().collect(),names.clone(), 20);
+    let mut parallel_tree = Tree::plant_tree(&matrix_flip(&count_array),&names.clone(),&samples.clone(),input_features,names.clone(), 20);
 
     parallel_tree.grow_branches();
     parallel_tree.report_node_structure();
