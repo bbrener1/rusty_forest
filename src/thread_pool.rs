@@ -138,19 +138,19 @@ fn split (feature_index: usize, forward: RankTableSplitter, reverse: RankTableSp
         if fw_dsp.len() > 6 && i > 2 && i < fw_dsp.len() - 3 {
             if weighted_split < split_dispersion {
                 split_index = i;
-                split_dispersion = fw+rv;
+                split_dispersion = weighted_split;
             }
         }
         else if fw_dsp.len() > 3 && fw_dsp.len() < 6 && i > 1 && i < fw_dsp.len() -1 {
             if weighted_split < split_dispersion {
                 split_index = i;
-                split_dispersion = fw+rv;
+                split_dispersion = weighted_split;
             }
         }
         else if fw_dsp.len() < 3 {
             if weighted_split < split_dispersion {
                 split_index = i;
-                split_dispersion = fw+rv;
+                split_dispersion = weighted_split;
             }
         }
     }
