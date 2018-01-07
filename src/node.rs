@@ -39,9 +39,7 @@ impl Node {
             rank_table: rank_table,
             dropout: true,
 
-            parent: None,
             children: Vec::new(),
-            self_reference: Cell::new(None),
 
             feature: None,
             split: None,
@@ -53,10 +51,6 @@ impl Node {
             feature_weights: feature_weights,
             dispersions: dispersions,
         };
-
-        let (new_node,self_reference) = generate_weak(new_node);
-
-        new_node.self_reference.set(Some(self_reference));
 
         new_node
 
@@ -252,8 +246,6 @@ impl Node {
 
     pub fn derive(&mut self, indecies: &[usize]) -> Node {
         let new_rank_table = self.rank_table.derive(indecies);
-        let parent = self.self_reference.take().clone();
-        self.self_reference.set(parent.clone());
 
         let medians = new_rank_table.medians();
         let dispersions = new_rank_table.dispersions();
@@ -265,9 +257,7 @@ impl Node {
             rank_table: new_rank_table,
             dropout: self.dropout,
 
-            parent: parent,
             children: Vec::new(),
-            self_reference: Cell::new(None),
 
             feature: None,
             split: None,
@@ -280,8 +270,6 @@ impl Node {
             dispersions: dispersions,
         };
 
-        let (child, child_reference) = generate_weak(child);
-        child.self_reference.set(Some(child_reference));
 
         child
     }
@@ -350,6 +338,8 @@ impl Node {
         report_string
     }
 
+
+
     pub fn internal_report(&self) -> &[String] {
         self.rank_table.samples()
     }
@@ -367,9 +357,7 @@ pub struct Node {
     pub rank_table: RankTable,
     dropout: bool,
 
-    parent: Option<Weak<Node>>,
     pub children: Vec<Node>,
-    pub self_reference: Cell<Option<Weak<Node>>>,
 
     feature: Option<String>,
     split: Option<f64>,
@@ -383,11 +371,11 @@ pub struct Node {
 }
 
 
-pub fn generate_weak<T>(target:T) -> (T,Weak<T>) {
-    let arc_t = Arc::new(target);
-    let weak_t = Arc::downgrade(&arc_t);
-    match Arc::try_unwrap(arc_t) {
-        Ok(object) => return(object,weak_t),
-        Err(err) => panic!("Tried to unwrap an empty reference, something went wrong with weak reference construction!")
-    }
-}
+// pub fn generate_weak<T>(target:T) -> (T,Weak<T>) {
+//     let arc_t = Arc::new(target);
+//     let weak_t = Arc::downgrade(&arc_t);
+//     match Arc::try_unwrap(arc_t) {
+//         Ok(object) => return(object,weak_t),
+//         Err(err) => panic!("Tried to unwrap an empty reference, something went wrong with weak reference construction!")
+//     }
+// }

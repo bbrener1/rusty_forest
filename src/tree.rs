@@ -26,8 +26,8 @@ use thread_pool::ThreadPool;
 impl Tree {
 
     pub fn plant_tree(counts:&Vec<Vec<f64>>,feature_names:&[String],sample_names:&[String],input_features: Vec<String>,output_features:Vec<String>,size_limit:usize) -> Tree {
-        let pool = ThreadPool::new(80);
-        let root = Node::root(counts,feature_names,sample_names,input_features,output_features,pool.clone());
+        let pool = ThreadPool::new(10);
+        let mut root = Node::root(counts,feature_names,sample_names,input_features,output_features,pool.clone());
         let dropout = true;
         let nodes = Vec::new();
         let weights = None;
@@ -62,15 +62,38 @@ impl Tree {
     }
 
     pub fn grow_branches(&mut self) {
-        self.nodes = grow_branches(&mut self.root, self.size_limit);
+        grow_branches(&mut self.root, self.size_limit);
     }
 
     pub fn report_node_structure(&self) {
         let mut tree_dump = File::create("tree_dump.txt").unwrap();
-        for node in &self.nodes {
-            tree_dump.write(&node.upgrade().unwrap().data_dump().as_bytes());
+        for node in self.nodes() {
+            // println!("{}",node.data_dump());
+            tree_dump.write(&node.data_dump().as_bytes());
         }
 
+    }
+
+    pub fn nodes(&self) -> Vec<&Node> {
+        let mut nodes = vec![&self.root];
+        let mut finished = false;
+
+        while !finished {
+            finished = true;
+            let mut new_nodes = Vec::new();
+            for node in nodes {
+                if node.children.len() > 0 {
+                    new_nodes.append(&mut node.children.iter().collect());
+                    finished = false;
+                }
+                else {
+                    new_nodes.push(node);
+                }
+            }
+            nodes = new_nodes;
+        }
+        println!("Finished crawling nodes!");
+        nodes
     }
 
     // pub fn grow_recursively(&mut self, target: ) {
@@ -134,17 +157,13 @@ pub struct Tree {
     size_limit: usize,
 }
 
-pub fn grow_branches(target:&mut Node, size_limit:usize) -> Vec<Weak<Node>> {
-    let mut weak_refs = Vec::new();
-    weak_refs.push(target.self_reference.get_mut().clone().unwrap());
+pub fn grow_branches(target:&mut Node, size_limit:usize) {
     if target.internal_report().len() > size_limit {
-        target.derive_children();
+        target.parallel_derive();
         for child in target.children.iter_mut() {
-            weak_refs.append(&mut grow_branches(child,size_limit));
+            grow_branches(child, size_limit)
         }
     }
-    weak_refs
-
 }
 
 // impl<'a, U:Clone + std::cmp::Eq + std::hash::Hash + Debug,T:Clone + std::cmp::Eq + std::hash::Hash + Debug> LeafCrawler<'a, U, T> {
