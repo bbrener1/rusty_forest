@@ -152,7 +152,7 @@ pub struct Tree {
 }
 
 pub fn report_node_structure(node:&Node) {
-    let mut tree_dump = OpenOptions::new().append(true).open("tree_dump.txt").unwrap();
+    let mut tree_dump = OpenOptions::new().create(true).append(true).open("tree_dump.txt").unwrap();
     tree_dump.write(node.data_dump().as_bytes());
 }
 

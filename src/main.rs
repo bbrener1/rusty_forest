@@ -63,7 +63,7 @@ fn main() {
 
         for gene in gene_line.split_whitespace().enumerate() {
 
-            if gene.0%200 == 0 {
+            if line.0%200==0 && gene.0%200 == 0 {
                 println!("{}", gene.0);
                 println!("{}", gene.1.parse::<f64>().unwrap_or(-1.) );
             }
