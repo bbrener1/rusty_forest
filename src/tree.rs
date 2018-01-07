@@ -26,7 +26,7 @@ use thread_pool::ThreadPool;
 impl Tree {
 
     pub fn plant_tree(counts:&Vec<Vec<f64>>,feature_names:&[String],sample_names:&[String],input_features: Vec<String>,output_features:Vec<String>,size_limit:usize) -> Tree {
-        let pool = ThreadPool::new(10);
+        let pool = ThreadPool::new(80);
         let mut root = Node::root(counts,feature_names,sample_names,input_features,output_features,pool.clone());
         let dropout = true;
         let nodes = Vec::new();
