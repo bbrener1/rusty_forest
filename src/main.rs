@@ -398,7 +398,6 @@ fn main() {
     let mut parallel_tree = Tree::plant_tree(&matrix_flip(&count_array),&names.clone(),&samples.clone(),input_features,names.clone(), 100);
 
     parallel_tree.grow_branches();
-    parallel_tree.report_node_structure();
 
     // tree.test_splits();
     // parallel_tree.test_parallel_splits();

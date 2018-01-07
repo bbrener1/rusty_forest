@@ -67,14 +67,6 @@ impl Tree {
         grow_branches(&mut self.root, self.size_limit);
     }
 
-    pub fn report_node_structure(&self) {
-        let mut tree_dump = File::create("tree_dump.txt").unwrap();
-        for node in self.nodes() {
-            // println!("{}",node.data_dump());
-            tree_dump.write(&node.data_dump().as_bytes());
-        }
-
-    }
 
     pub fn nodes(&self) -> Vec<&Node> {
         let mut nodes = vec![&self.root];
@@ -159,6 +151,11 @@ pub struct Tree {
     size_limit: usize,
 }
 
+pub fn report_node_structure(node:&Node) {
+    let mut tree_dump = OpenOptions::new().append(true).open("tree_dump.txt").unwrap();
+    tree_dump.write(node.data_dump().as_bytes());
+}
+
 pub fn grow_branches(target:&mut Node, size_limit:usize) {
     if target.internal_report().len() > size_limit {
         target.parallel_derive();
@@ -166,6 +163,7 @@ pub fn grow_branches(target:&mut Node, size_limit:usize) {
             grow_branches(child, size_limit)
         }
     }
+    report_node_structure(target);
 }
 
 // impl<'a, U:Clone + std::cmp::Eq + std::hash::Hash + Debug,T:Clone + std::cmp::Eq + std::hash::Hash + Debug> LeafCrawler<'a, U, T> {
