@@ -207,6 +207,8 @@ impl Node {
 
         let best_feature = self.input_features[feature_index].clone();
 
+        println!("Best split: {:?}", (best_feature.clone(),split_index,split_dispersion));
+
         (best_feature,split_dispersion,split_order[..split_index].iter().cloned().collect(),split_order[split_index..].iter().cloned().collect())
 
     }

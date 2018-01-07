@@ -132,20 +132,23 @@ fn split (feature_index: usize, forward: RankTableSplitter, reverse: RankTableSp
     let (mut split_index, mut split_dispersion) = (0,std::f64::INFINITY);
 
     for (i,(fw,rv)) in fw_dsp.iter().zip(rv_dsp).enumerate() {
+
+        let weighted_split = fw * ((fw_dsp.len()-i) as f64 / fw_dsp.len() as f64) + rv * (i as f64/ fw_dsp.len() as f64);
+
         if fw_dsp.len() > 6 && i > 2 && i < fw_dsp.len() - 3 {
-            if fw+rv < split_dispersion {
+            if weighted_split < split_dispersion {
                 split_index = i;
                 split_dispersion = fw+rv;
             }
         }
         else if fw_dsp.len() > 3 && fw_dsp.len() < 6 && i > 1 && i < fw_dsp.len() -1 {
-            if fw+rv < split_dispersion {
+            if weighted_split < split_dispersion {
                 split_index = i;
                 split_dispersion = fw+rv;
             }
         }
         else if fw_dsp.len() < 3 {
-            if fw+rv < split_dispersion {
+            if weighted_split < split_dispersion {
                 split_index = i;
                 split_dispersion = fw+rv;
             }

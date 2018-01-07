@@ -13,6 +13,8 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::thread;
 use std::sync::mpsc;
+use std::fs::OpenOptions;
+
 
 extern crate rand;
 use rand::Rng;
