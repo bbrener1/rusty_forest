@@ -82,9 +82,9 @@ impl Tree {
         new_root.input_features = input_features;
         new_root.output_features = output_features;
 
-        let mut address: Vec<&str> = self.report_address.split('.').collect();
-        let iteration = address.last().unwrap_or(&"0").parse::<usize>().unwrap_or(0);
-        *address.last_mut().unwrap() = &(iteration+1).to_string();
+        let mut address: Vec<String> = self.report_address.split('.').map(|x| x.to_string()).collect();
+        let iteration = (address.last().unwrap_or(&"0".to_string()).parse::<usize>().unwrap_or(0) + 1).to_string();
+        *address.last_mut().unwrap() = iteration;
         let address_string: String = address.iter().zip(repeat(".")).fold(String::new(),|mut acc,x| {acc.push_str(x.0); acc.push_str(x.1); acc});
 
         Tree{
