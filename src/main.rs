@@ -30,6 +30,8 @@ mod rank_table;
 mod node;
 mod tree;
 mod thread_pool;
+mod random_forest;
+
 
 use node::Node;
 use tree::Tree;
@@ -50,950 +52,96 @@ fn main() {
 
     println!("Reading data");
 
-    let count_array_file = File::open(args[1].clone()).expect("File error!");
+    let mut count_array: Vec<Vec<f64>> = read_counts(args[1].clone());
+
+
+    println!("##############################################################################################################");
+    println!("##############################################################################################################");
+    println!("##############################################################################################################");
+
+
+
+    // let names: Vec<String> = (0..count_array[0].len()).map(|x| x.to_string()).collect();
+    // let samples: Vec<String> = (0..count_array.len()).map(|x| x.to_string()).collect();
+
+    // let medium_case = vec![vec![-1.,0.,-2.,10.,-3.,-4.,-20.,15.,20.,25.,100.]];
+    //
+    // let simple_case = vec![vec![0.,-1.,0.,-2.,10.,-3.,15.,20.]];
+    //
+
+    // let mut rng = rand::thread_rng();
+    // let input_features = rand::seq::sample_iter(&mut rng, names.clone(), 1000).expect("Couldn't generate input features");
+
+    // let mut tree = Tree::plant_tree(&matrix_flip(&count_array),&names.clone(),&samples.clone(),names.clone(),names.clone(), 20);
+    // let mut parallel_tree = Tree::plant_tree(&matrix_flip(&count_array),&names.clone(),&samples.clone(),input_features,names.clone(), 100);
+    //
+    // parallel_tree.grow_branches();
+
+    let mut rnd_forest = random_forest::Forest::initialize(count_array, 10, 100);
+    rnd_forest.generate();
+
+}
+
+
+fn read_counts(location:String) -> Vec<Vec<f64>> {
+
+    let count_array_file = File::open(location).expect("File error!");
     let mut count_array_lines = io::BufReader::new(&count_array_file).lines();
 
     let mut count_array: Vec<Vec<f64>> = Vec::new();
 
-    for line in count_array_lines.by_ref().enumerate() {
+    for (i,line) in count_array_lines.by_ref().enumerate() {
 
-        count_array.push(Vec::new());
+        let mut gene_vector = Vec::new();
 
-        let gene_line = line.1.expect("Readline error");
+        let gene_line = line.expect("Readline error");
 
-        for gene in gene_line.split_whitespace().enumerate() {
+        for (j,gene) in gene_line.split_whitespace().enumerate() {
 
-            if line.0%200==0 && gene.0%200 == 0 {
-                println!("{}", gene.0);
-                println!("{}", gene.1.parse::<f64>().unwrap_or(-1.) );
+            if j == 0 {
+                print!("\n");
+            }
+
+            if i%200==0 && j%200 == 0 {
+                print!("{} ", gene.parse::<f64>().unwrap_or(-1.) );
             }
 
             // if !((gene.0 == 1686) || (gene.0 == 4660)) {
             //     continue
             // }
 
-            match gene.1.parse::<f64>() {
+            match gene.parse::<f64>() {
                 Ok(exp_val) => {
-                    match count_array.last_mut() {
-                        Some(last_vec) => last_vec.push(exp_val),
-                        None => {
-                            println!("0th Dimension of count array empty!");
-                            panic!("Check count array creation rules or input file!")
-                        }
-                    }
+
+                    gene_vector.push(exp_val);
 
                 },
                 Err(msg) => {
                     println!("Couldn't parse a cell in the text file, Rust sez: {:?}",msg);
-                    println!("Cell content: {:?}", gene.1);
-                    match count_array.last_mut() {
-                        Some(last_vec) => last_vec.push(0f64),
-                        None => {
-                            println!("0th Dimension of count array empty! ln 31");
-                            panic!("Check count array creation rules or input file!")
-                        }
-                    }
+                    println!("Cell content: {:?}", gene);
+                    gene_vector.push(0.);
                 }
             }
+
         }
 
-            // if let Result::Ok(exp_val) = gene.1.parse::<f64>() {
-            //     match count_array.last() {
-            //         Some(last_vec) => last_vec.push(exp_val),
-            //         None => None
-            //     }
+        count_array.push(gene_vector);
 
-        if line.0 % 100 == 0 {
-            println!("{}", line.0);
+        if i % 100 == 0 {
+            println!("{}", i);
         }
 
-        // count_array.push(
-        //     gene_line.split_whitespace()
-        //         .map(|x| {x.parse::<f64>().unwrap()}).collect::<Vec<f64>>());
-
-
-
-        if line.0%100 == 0 && line.0 > 0 {
-
-        //     println!("===========");
-            println!("{}",line.0);
-        //     println!("{:?}", &count_array.iter().take(3).map(|x| x.iter().take(3)));
-        }
 
     };
 
     println!("===========");
-    //
-    // for i in 0..100 {
-    //     for j in 0..100 {
-    //         print!("{}, ", count_array[i][j]);
-    //     }
-    //     print!("\n");
-    // }
-    //
-    // let model = OnlineMADM::new(count_array);
-    //
-    // for i in 0..100 {
-    //     for j in 0..100 {
-    //         print!("{}, ", model.counts[i][j]);
-    //     }
-    //     print!("\n");
-    // }
-    //
-    // for i in 0..10 {
-    //     for j in 0..10 {
-    //         print!("{:?}, ", model.upper_sorted_rank_table[i][j]);
-    //     }
-    //     print!("\n");
-    // }
-    //
-    // for i in 0..10 {
-    //     for j in 0..10 {
-    //         print!("{:?}, ", model.dispersion_history[i][j]);
-    //     }
-    //     print!("\n");
-    // }
 
-
-    // let temp = tree {nodes: Vec::new(),counts: Vec::new()};
-    // for cell in &mut count_array.into_iter() {
-    //     for gene in &mut cell.into_iter() {
-    //         println!("Test? {}", gene);
-    //     }
-    // }
-
-    // let mut forest = Forest::grow_forest(count_array, 10, 1000);
-    // forest.test();
-    //
-    // println!("Argmin test: {},{}", argmin(&vec![1.,3.,0.,5.]).0,argmin(&vec![1.,3.,0.,5.]).1);
-    //
-    // println!("Argsort test: {:?}", argsort(&vec![1.,3.,0.,5.]));
-    //
-    // let mut axis_sum_test: Vec<Vec<f64>> = Vec::new();
-
-    println!("##############################################################################################################");
-    println!("##############################################################################################################");
-    println!("##############################################################################################################");
-
-
-    // axis_sum_test.push(vec![1.,2.,3.]);
-    // axis_sum_test.push(vec![4.,5.,6.]);
-    // axis_sum_test.push(vec![0.,1.,0.]);
-    // let temp: [f64;7] = [-3.,-2.,-1.,0.,10.,15.,20.];
-    // let temp2 = temp.into_iter().cloned().collect();
-    // let temp3 = vec![temp2];
-    // let temp4 = matrix_flip(&temp3);
-    //
-    //
-    // let mut thr_rng = rand::thread_rng();
-    //
-    // let mut counts = Vec::new();
-    //
-    // let mut rng = thr_rng.gen_iter::<f64>();
-    //
-    // for feature in 0..10 {
-    //
-    //     println!("{:?}",counts);
-    //
-    //     counts.push(Vec::new());
-    //
-    //     let loc_f = counts.last_mut().unwrap();
-    //
-    //     for sample in 0..100 {
-    //         if rng.next().unwrap() < 0.7 {
-    //             loc_f.push(rng.next().unwrap());
-    //         }
-    //         else {
-    //             loc_f.push(0.0);
-    //         }
-    //     }
-    //         // counts.push(rng.take(6).collect());
-    //
-    // }
-
-    // println!("{:?}",counts);
-    //
-    //
-    // counts = matrix_flip(&counts);
-    //
-    // let model = OnlineMADM::new(counts.clone(),true);
-    //
-    // let second_model = OnlineMADM::new(counts.clone(),false);
-    //
-    // println!("{:?}", model);
-    // println!("{:?}", second_model);
-
-    // let temp6 = matrix_flip(&counts);
-
-    // let mut thr_rng = rand::thread_rng();
-    // let rng = thr_rng.gen_iter::<f64>();
-    // let temp5: Vec<f64> = rng.take(49).collect();
-    // let temp6 = matrix_flip(&(vec![temp5.clone()]));
-
-    // axis_sum_test.push(vec![1.,2.,3.]);
-    // axis_sum_test.push(vec![4.,5.,6.]);
-    // axis_sum_test.push(vec![7.,8.,9.]);
-
-    // println!("Source floats: {:?}", matrix_flip(&counts));
-
-    // println!("{:?}", count_array);
-    //
-    // let mut raw = RawVector::raw_vector(&matrix_flip(&count_array)[0]);
-    //
-    // println!("{:?}",raw);
-    //
-    // println!("{:?}", raw.iter_full().cloned().collect::<Vec<(usize,usize,usize,f64,usize)>>());
-    //
-    // println!("Crawlers:");
-    //
-    // println!("{:?}", raw.crawl_right(raw.first).cloned().collect::<Vec<(usize,usize,usize,f64,usize)>>());
-    //
-    // println!("{:?}", raw.crawl_left(raw.first).cloned().collect::<Vec<(usize,usize,usize,f64,usize)>>());
-    //
-    // println!("Dropping zeroes:");
-    //
-    // raw.drop_zeroes();
-    //
-    // println!("Crawling dropped list:");
-    //
-    // println!("{:?}", raw.crawl_right(raw.first).cloned().collect::<Vec<(usize,usize,usize,f64,usize)>>());
-    //
-    // println!("Skipping dropped items:");
-    //
-    // println!("{:?}", raw.drop_skip().cloned().collect::<Vec<(usize,usize,usize,f64,usize)>>());
-    //
-    // println!("Printing non-zero values");
-    //
-    // println!("{:?}", raw.drop_skip().cloned().map(|x| x.3).collect::<Vec<f64>>());
-    //
-    // println!("Printing non-zero indecies");
-    //
-    // println!("{:?}", raw.drop_skip().cloned().map(|x| x.1).collect::<Vec<usize>>());
-    //
-    // println!("Printing noned-out drops");
-    // for i in raw.drop_none() {
-    //     println!("{:?}",i);
-    // }
-    //
-    // println!("Skipping drops");
-    // for i in raw.drop_skip() {
-    //     println!("{:?}",i);
-    // }
-    //
-    // println!("{:?}",raw.left_to_right().cloned().collect::<Vec<(usize,usize,usize,f64,usize)>>());
-    //
-    // println!("Finding dead center:");
-    //
-    // let dead_center = rank_vector::DeadCenter::center(&raw);
-    //
-    // println!("{:?}", dead_center);
-    //
-    // println!("{:?}", dead_center.median());
-
-    println!("=================================================================");
-
-    // println!("Indecies: {:?}", matrix_flip(&count_array)[0]);
-    //
-    // println!("Testing Ranked Vector!");
-    //
-    // let degenerate_case = vec![0.;10];
-    //
-    // let mut ranked: RankVector<String,usize> = RankVector::new(&matrix_flip(&count_array)[0],String::from("test"), Vec::new());
-    //
-    // ranked.drop_zeroes();
-    //
-    // ranked.initialize();
-    //
-    // println!("Dropped values, ranked vector");
-    //
-    // println!("{:?}", ranked.vector.drop_skip().cloned().collect::<Vec<(usize,usize,usize,f64,usize)>>());
-    //
-    // println!("{:?}", ranked.clone());
-    //
-    // ranked.set_boundaries();
-    //
-    // println!("{:?}", ranked.clone());
-    //
-    // println!("{:?},{:?},{:?},{:?},{:?},{:?}", ranked.left_zone.size,ranked.left_zone.index_set.len(),ranked.median_zone.size,ranked.median_zone.index_set.len(),ranked.right_zone.size,ranked.right_zone.index_set.len());
-    //
-    // let ranked_clone = ranked.clone();
-    //
-    // {
-    //     let ordered_draw = OrderedDraw::new(&mut ranked);
-    //
-    //     println!("{:?}", ordered_draw.vector.vector.left_to_right().cloned().collect::<Vec<(usize,usize,usize,f64,usize)>>());
-    //
-    //     for sample in ordered_draw {
-    //         println!("Drawing: {:?}", sample);
-    //     }
-    // }
-    //
-    // println!("Dumping ranked vector:");
-    //
-    // let mut backup_debug_file = File::create("ranked_vec_debug.txt").unwrap();
-    // backup_debug_file.write_fmt(format_args!("{:?}", ranked));
-    //
-    // println!("Dumping ranked clone:");
-    //
-    // let mut backup_debug_file = File::create("ranked_vec_clone.txt").unwrap();
-    // backup_debug_file.write_fmt(format_args!("{:?}", ranked_clone));
-
-    let names: Vec<String> = (0..count_array[0].len()).map(|x| x.to_string()).collect();
-    let samples: Vec<String> = (0..count_array.len()).map(|x| x.to_string()).collect();
-    // let names_prime: &[&str] = &names.iter().map(|x| &x[..]).collect()[..];
-    // let samples_prime: &[&str] = &samples.iter().map(|x| &x[..]).collect()[..];
-    //
-    // let medium_case = vec![vec![-1.,0.,-2.,10.,-3.,-4.,-20.,15.,20.,25.,100.]];
-    //
-    let simple_case = vec![vec![0.,-1.,0.,-2.,10.,-3.,15.,20.]];
-    //
-    // println!("Trying to make a rank table:");
-    //
-    // // let mut table = RankTable::new(simple_case,&names,&samples);
-    //
-    // println!("{},{}",count_array.len(),count_array[0].len());
-    //
-    // let mut table = RankTable::new(matrix_flip(&count_array),&names,&samples);
-    //
-    // println!("Finished making a rank table, trying to iterate:");
-    //
-    // let mut variance_table = Vec::new();
-    //
-    // for (j,i) in table.split(String::from("Test")).0.enumerate() {
-    //     // variance_table.push(vec![i[0].1/i[0].0,i[1].1/i[1].0,i[2].1/i[2].0,i[3].1/i[3].0]);
-    //     variance_table.push(vec![i[0].1/i[0].0]);
-    //     println!("{},{:?}",j,i)
-    // }
-    //
-    // println!("Variance table:");
-
-
-
-    // let minimal = variance_table.iter().map(|x| x.clone().sum()/(x.len() as f64)).enumerate().min_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Greater));
-    //
-    // println!("Minimal split is: {:?}", minimal);
-
-    // let mut node = Node::root(&vec![matrix_flip(&count_array)[1].clone()],&names,&samples,names[..1].iter().cloned().collect(),names[1..].iter().cloned().collect());
-
-    // let mut node = Node::root(&matrix_flip(&count_array),&names,&samples,names[..1].iter().cloned().collect(),names[1..].iter().cloned().collect());
-
-    // let mut node = Node::root(&matrix_flip(&count_array),&names.clone(),&samples.clone(),names.clone(),names.clone());
-
-    // let mut node = Node::root(&simple_case,&names,&samples,names[..1].iter().cloned().collect(),names[1..].iter().cloned().collect());
-
-
-    //
-    // println!("{:?}",node.rank_table.sort_by_feature(0));
-
-    // node.parallel_derive();
-    //
-    // for child in node.children.iter_mut() {
-    //     child.derive_children();
-    // }
-
-    let mut rng = rand::thread_rng();
-    let input_features = rand::seq::sample_iter(&mut rng, names.clone(), 1000).expect("Couldn't generate input features");
-
-    // let mut tree = Tree::plant_tree(&matrix_flip(&count_array),&names.clone(),&samples.clone(),names.clone(),names.clone(), 20);
-    let mut parallel_tree = Tree::plant_tree(&matrix_flip(&count_array),&names.clone(),&samples.clone(),input_features,names.clone(), 100);
-
-    parallel_tree.grow_branches();
-
-    // tree.test_splits();
-    // parallel_tree.test_parallel_splits();
-
-
-
-    // let mut forest = Forest::grow_forest(count_array, 1, 4, true);
-    // forest.test();
-
-    // println!("Inner axist test! {:?}", inner_axis_mean(&axis_sum_test));
-    // println!("Matrix flip test! {:?}", matrix_flip(&axis_sum_test));
-
-    // slow_description_test();
-    // slow_vs_fast();
-
-
-    // let mut ranked1: RankVector<String,usize> = RankVector::new(&matrix_flip(&count_array)[0],String::from("test"), Vec::new());
-    // let mut ranked2: RankVector<String,usize> = RankVector::new(&matrix_flip(&count_array)[1],String::from("test"), Vec::new());
-    // let mut ranked3: RankVector<String,usize> = RankVector::new(&matrix_flip(&count_array)[2],String::from("test"), Vec::new());
-    // let mut ranked4: RankVector<String,usize> = RankVector::new(&matrix_flip(&count_array)[3],String::from("test"), Vec::new());
-    //
-    // ranked1.drop_zeroes();
-    // ranked2.drop_zeroes();
-    // ranked3.drop_zeroes();
-    // ranked4.drop_zeroes();
-    //
-    //
-    // ranked1.initialize();
-    // ranked2.initialize();
-    // ranked3.initialize();
-    // ranked4.initialize();
-    //
-    // ranked1.set_boundaries();
-    // ranked2.set_boundaries();
-    // ranked3.set_boundaries();
-    // ranked4.set_boundaries();
-    //
-    // {
-    //     let ordered_draw = OrderedDraw::new(&mut ranked1);
-    //
-    //     println!("{:?}", ordered_draw.vector.vector.left_to_right().cloned().collect::<Vec<(usize,usize,usize,f64,usize)>>());
-    //
-    //     for sample in ordered_draw {
-    //         println!("Drawing: {:?}", sample);
-    //     }
-    // }
+    count_array
 
 }
 
-
-
+// fn read_header(location: String) Vec<String> {
 //
-// impl Forest {
-//
-//
-//
-//     fn grow_forest(counts : Vec<Vec<f64>>, forest_size: usize, tree_features: usize, dropout: bool) -> Forest {
-//
-//         let count_size1:usize = counts.len();
-//         let count_size2 = {&counts[0]}.len();
-//
-//         let mut forest = Forest{dropout: dropout, trees:Vec::new(),counts: Arc::new(counts),count_size:(count_size1,count_size2),tree_features:tree_features};
-//
-//         for n in 0..forest_size {
-//             let in_features = rand::sample(&mut rand::thread_rng(), 0..count_size2, tree_features);
-//             let out_features = {0..count_size2}.collect::<Vec<usize>>();
-//             let tree_vector : &mut Vec<Tree> = forest.trees.borrow_mut();
-//             tree_vector.push(Tree::plant_tree(in_features,out_features,forest.counts.clone(),forest.dropout))
-//         }
-//         forest
-//     }
-//
-//     fn test(&mut self) {
-//         println!("Printing {} trees!",self.trees.len());
-//         for (i,tree) in self.trees.iter().by_ref().enumerate() {
-//             println!("Printing tree {}",i);
-//             println!("{}", tree.input_features.len());
-//             println!("{}", tree.output_features.len());
-//             println!("Selection of input features");
-//             for feature in tree.input_features.iter().take(10).by_ref(){
-//                 print!("{},",feature);
-//             }
-//             print!("\n");
-//             // println!("Contains {} nodes", tree.nodes.len());
-//             //     for node in &tree.nodes {
-//             //         node.test()
-//             //         // println!("{}", node.feature.unwrap_or(0))
-//             //     }
-//
-//
-//         };
-//
-//         println!("Dumping the root node:");
-//
-//         let mut backup_debug_file = File::create("root_node_debug.txt").unwrap();
-//         backup_debug_file.write_fmt(format_args!("{:?}", self.trees[0].root.madm.0));
-//
-//         self.trees[0].root.meta_split(20);
-
-        // self.trees.push(Tree::plant_tree(vec![627],vec![3964],self.counts.clone()));
-
-        // let split_feature = 627;
-        //
-        // let split = self.trees[0].root.find_split(split_feature);
-        // println!("Best split for feature {} is found to be {},{}", split_feature, split.0,split.1);
-
-
-
-
-        // let split = self.trees[0].nodes[0].find_split(split_feature);
-        // println!("Trying to find split again: {},{}", split.0,split.1);
-        //
-        // let split = self.trees[0].nodes[0].find_split(1);
-        // println!("Splitting by the second feature: {},{}", split.0,split.1);
-        //
-        // let split = self.trees[0].nodes[0].find_split(2);
-        // println!("Splitting by the third feature: {},{}", split.0,split.1);
-        //
-        // let split = self.trees[0].nodes[0].find_split(split_feature);
-        // println!("Best split for feature {} is found to be {},{}", split_feature, split.0,split.1);
-
-//
-//     }
-// }
-
-// struct Forest {
-//     dropout: bool,
-//     trees: Vec<Tree>,
-//     count_size: (usize,usize),
-//     counts: Arc<Vec<Vec<f64>>>,
-//     tree_features: usize
-// }
-//
-//
-// impl Tree {
-//
-//     fn plant_tree(in_f:Vec<usize>,out_f:Vec<usize>,f:Arc<Vec<Vec<f64>>>, dropout: bool) -> Tree {
-//
-//         let root = Node::first(Arc::downgrade(&f),(0..f.len()).collect(),in_f.clone(),out_f.clone(),dropout);
-//
-//         println!("Exited the root node function, planting tree!");
-//
-//         let mut tree = Tree {
-//             dropout: dropout,
-//             nodes: Vec::new(),
-//             root: root.0,
-//             input_features:Arc::new(in_f),
-//             // input_samples:Arc::new(Vec::new()),
-//             input_samples:(0..f.len()).collect(),
-//             output_features:Arc::new(out_f),
-//             weights:Arc::new(Vec::new()),
-//             counts:Arc::downgrade(&f)};
-//         tree.nodes.push(root.1);
-//
-//         println!("Tree planted!");
-//
-//         tree
-//     }
-//
-//
-// }
-//
-// struct Tree {
-//     dropout: bool,
-//     nodes: Vec<Weak<Node>>,
-//     root: Node,
-//     input_features: Arc<Vec<usize>>,
-//     input_samples: Vec<usize>,
-//     output_features: Arc<Vec<usize>>,
-//     weights: Arc<Vec<f64>>,
-//     counts: Weak<Vec<Vec<f64>>>
-// }
-//
-// impl Node {
-//
-//     fn first(counts:Weak<Vec<Vec<f64>>>, samples:Vec<usize>, input_features:Vec<usize>, output_features:Vec<usize>, dropout: bool) -> (Node,Weak<Node>) {
-//
-//         let out_f_set : HashSet<usize> = output_features.iter().cloned().collect();
-//
-//         let mut weights = vec![1.;counts.upgrade().expect("Empty counts at node creation!")[0].len()];
-//
-//         let mut loc_counts: Vec<Vec<f64>> = samples.iter().cloned().map(|x| counts.upgrade().expect("Dead tree!")[x].clone()).collect();
-//
-//         loc_counts = matrix_flip(&loc_counts).iter().cloned().enumerate().filter(|x| out_f_set.contains(&x.0)).map(|y| y.1).collect();
-//
-//         loc_counts = matrix_flip(&loc_counts);
-//
-//         let fmadm = OnlineMADM::new(loc_counts.clone(),true);
-//
-//         let medians = fmadm.median_history[0].clone();
-//         let dispersion = fmadm.dispersion_history[0].iter().enumerate().map(|(i,x)| {
-//             x.1/medians[i].1
-//         }).collect();
-//
-//         let rmadm = fmadm.reverse();
-//
-//         let madm = (fmadm,rmadm);
-//
-//         println!("Finished computing a root node!");
-//
-//         // let means: Vec<f64> = loc_counts.iter().fold(vec![0f64;loc_counts[0].len()], |acc, x|
-//         //     {
-//         //         x.iter().zip(acc.iter()).map(|y| y.0 + y.1).collect::<Vec<f64>>()
-//         //     }).iter().map(|z| z/(loc_counts.len() as f64)).collect();
-//
-//         // let variance = loc_counts.iter().fold(vec![0f64;loc_counts[0].len()], |acc,x| {
-//         //         x.iter().enumerate().zip(acc.iter()).map(|y| ((y.0).1 - medians[(y.0).0]).powi(2) + y.1).collect()
-//         //     }
-//         //     ).iter().map(|z| z/(loc_counts.len() as f64)).collect();
-//
-//
-//
-//         let mut result = Node {
-//             dropout: dropout,
-//             selfreference: Cell::new(None),
-//             feature:None,
-//             split: None,
-//             medians: medians,
-//             output_features: output_features,
-//             input_features: input_features,
-//             indecies: samples,
-//             dispersion:dispersion,
-//             weights: weights,
-//             children:Vec::new(),
-//             parent: Cell::new(None),
-//             counts:counts,
-//             madm:madm
-//         };
-//
-//         // println!("Dumping feature information to disk");
-//         //
-//         // let mut backup_debug_file = File::create("root_node_debug.txt").unwrap();
-//         // backup_debug_file.write_fmt(format_args!("{:?}", result.madm.0));
-//
-//         println!("Root node object complete, setting up references!");
-//
-//         let mut res_arc = Arc::new(result);
-//
-//         let  res_weak = Arc::downgrade(&res_arc);
-//
-//         // let res_ref: &Node = res_arc.borrow();
-//
-//         res_arc.selfreference.set(Some(res_weak.clone()));
-//
-//         match Arc::try_unwrap(res_arc) {
-//             Ok(node) => return (node,res_weak),
-//             Err(arc) => panic!("Failed to unwrap a root node, something went wrong at tree construction")
-//         }
-//
-//     }
-//
-//     fn derive(&mut self, samples: Vec<usize>) -> Weak<Node> {
-//
-//         let mut weights = vec![1.;self.counts.upgrade().expect("Empty counts at node creation!")[0].len()];
-//
-//         let fmadm = self.madm.0.derive_subset(samples.clone());
-//
-//         let medians = fmadm.median_history[0].clone();
-//         let dispersion = fmadm.dispersion_history[0].iter().enumerate().map(|(i,x)| {
-//             x.1/medians[i].1
-//         }).collect();
-//
-//         let rmadm = self.madm.1.derive_subset(samples.clone());
-//
-//         let madm = (fmadm,rmadm);
-//
-//         println!("Derived rank tables!");
-//
-//         let child = Node{
-//             dropout: self.dropout,
-//             selfreference: Cell::new(None),
-//             feature: None,
-//             split: None,
-//             output_features: self.output_features.clone(),
-//             input_features: self.input_features.clone(),
-//             indecies: samples,
-//             medians: medians,
-//             weights: weights,
-//             dispersion: dispersion,
-//             children: Vec::new(),
-//             parent: Cell::new(None),
-//             counts: self.counts.clone(),
-//             madm: madm
-//         };
-//
-//         println!("Constructed a child object, trying to insert labels!");
-//
-//         let self_weak_option = self.selfreference.take();
-//
-//         println!("{:?}",self_weak_option.is_some());
-//
-//         let self_weak = self_weak_option.unwrap();
-//         // let self_weak = self.selfreference.take().unwrap();
-//
-//         child.parent.set(Some(self_weak.clone()));
-//
-//         self.selfreference.set(Some(self_weak.clone()));
-//
-//         let arc_child = Arc::new(child);
-//
-//         let weak_child = Arc::downgrade(&arc_child.clone());
-//
-//         match Arc::try_unwrap(arc_child) {
-//             Ok(child) => {
-//                 child.selfreference.set(Some(weak_child.clone()));
-//                 self.children.push(child);
-//                 return weak_child
-//             },
-//             Err(error) => panic!("Failed to derive a node, pointers broken!")
-//         }
-//
-//     }
-//
-//
-//     fn test(&self) {
-//         println!("Node test (feature, split,indecies)");
-//         println!("{}", self.feature.unwrap_or(0));
-//         println!("{}", self.split.unwrap_or(0.0));
-//         println!("{}", self.indecies.len());
-//         println!("Weights");
-//         for weight in self.weights.iter().by_ref() {
-//             println!("{}", weight);
-//         }
-//
-//     }
-//
-//     // fn first(tree: &Tree) -> Node {
-//     //     Node {
-//     //         feature:None,
-//     //         indecies:Vec::new(),
-//     //         means:Vec::new(), weights:Vec::new()
-//     //         ,std_devs:Vec::new(),children:Vec::new(), parent:None, counts:tree.counts.clone()}
-//
-//
-//
-//
-//     fn find_split(&mut self, feature:usize) -> (usize,f64) {
-//
-//         println!("Finding split: {}", feature);
-//
-//         // println!("{:?}", self.madm.0.sorted_rank_table[feature]);
-//         // println!("{},{},{},{}", self.madm.0.left_zone[feature],self.madm.0.median_zone[feature],self.madm.0.right_zone[feature],self.indecies.len());
-//
-//         let weight_backup = self.weights[feature];
-//         self.weights[feature] = 0.;
-//
-//         let draw_order = self.madm.0.sort_by_feature(feature);
-//         self.madm.1.sort_by_feature(feature);
-//         self.madm.1.reverse_draw_order();
-//
-//         let mut forward_dispersions = Vec::new();
-//
-//         let mut drawn_samples = Vec::new();
-//
-//         // println!("{:?}" ,self.madm.0);
-//         // println!("{:?}" ,self.madm.1);
-//
-//         while let Some(x) = self.madm.0.next() {
-//
-//             if self.dropout && self.madm.1.sorted_rank_table[feature][x.2].3 == 0.
-//             {
-//                 continue
-//             }
-//
-//             let mut individual_dispersions = Vec::new();
-//
-//             // for (i,(med,disp)) in x.0.iter().zip(x.1.iter()).enumerate() {
-//             //     individual_dispersions.push((disp.1/med.1)*self.weights[i]);
-//             // }
-//             //
-//             // forward_dispersions.push(individual_dispersions.iter().sum::<f64>() / self.weights.iter().sum::<f64>());
-//
-//             for (i,(med,disp)) in x.0.iter().zip(x.1.iter()).enumerate() {
-//                 individual_dispersions.push((disp.1/med.1).powi(2)*self.weights[i]);
-//             }
-//
-//             forward_dispersions.push(individual_dispersions.sum().sqrt());
-//
-//
-//             if forward_dispersions.len()%150 == 0 {
-//                 // println!("{}", forward_dispersions.len());
-//             }
-//
-//             drawn_samples.push(x.2);
-//
-//         }
-//
-//         println!("Forward split found");
-//
-//         let mut reverse_dispersions = Vec::new();
-//
-//         // println!("{:?}" ,self.madm.1);
-//
-//         while let Some(x) = self.madm.1.next() {
-//
-//             if self.dropout && self.madm.1.sorted_rank_table[feature][x.2].3 == 0.
-//             {
-//                 continue
-//             }
-//
-//             let mut individual_dispersions = Vec::new();
-//
-//             for (i,(med,disp)) in x.0.iter().zip(x.1.iter()).enumerate() {
-//                 individual_dispersions.push((disp.1/med.1).powi(2)*self.weights[self.weights.len()-(i+1)]);
-//             }
-//
-//             // println!("{:?}",individual_dispersions);
-//
-//             reverse_dispersions.push(individual_dispersions.sum().sqrt());
-//
-//         }
-//
-//         println!("Reverse split found");
-//
-//         reverse_dispersions = reverse_dispersions.iter().cloned().rev().collect();
-//
-//         // for (i,(fw,rv)) in forward_dispersions.iter().zip(reverse_dispersions.clone()).enumerate() {
-//         //     if i%100 == 0 {println!("fw/rv: {},{}",fw,rv);}
-//         // }
-//
-//         let mut minimum = (0,f64::INFINITY, 0,0);
-//         // let mut individual_minima = vec![(0,f64::INFINITY);forward_dispersions[0].len()];
-//
-//         for (i,(fw,rv)) in forward_dispersions.iter().zip(reverse_dispersions.clone()).enumerate() {
-//
-//             if self.madm.0.sorted_rank_table[feature][drawn_samples[i]].3 == 0. {
-//                 continue
-//             }
-//
-//             minimum.3 += 1;
-//
-//             let proportion = (i as f64) / (forward_dispersions.len() as f64);
-//
-//
-//             let f_adj_disp = fw * (1. - proportion);
-//             let r_adj_disp = rv * proportion;
-//
-//             if (0 < i) && (i < (forward_dispersions.len()-1)) {
-//                 if minimum.1 > f_adj_disp + r_adj_disp {
-//                     minimum = (drawn_samples[i],f_adj_disp + r_adj_disp, i, minimum.3);
-//                 }
-//             }
-//
-//         }
-//
-//
-//         println!("Feature: {}", feature);
-//         println!("{:?}", minimum);
-//         println!("Split rank: {}, Split value: {}", self.madm.0.sorted_rank_table[feature][minimum.0].2, self.madm.0.sorted_rank_table[feature][minimum.0].3);
-//
-//
-//         self.madm.0.reset();
-//         self.madm.1.reset();
-//
-//         self.weights[feature] = weight_backup;
-//
-//
-//         (minimum.0, minimum.1)
-//     }
-//
-//     fn best_split(&mut self) -> (usize,(usize,f64)) {
-//
-//         println!("Trying to find the best split!");
-//
-//         let mut minima = Vec::new();
-//
-//         for feature in self.input_features.clone() {
-//             minima.push((feature,self.find_split(feature)));
-//         }
-//
-//         let best_split = minima.iter().min_by(|x,y| (x.1).1.partial_cmp(&(y.1).1).unwrap_or(Ordering::Greater)).unwrap();
-//
-//         println!("Best split: {:?}", best_split);
-//
-//         // best_split.unwrap().clone();
-//
-//         let mut left_split = Vec::new();
-//         let mut right_split = Vec::new();
-//
-//         println!("Deriving child nodes:");
-//
-//         let comparator = self.madm.0.sorted_rank_table[best_split.0][(best_split.1).0];
-//
-//         for sample in self.madm.0.sorted_rank_table[best_split.0].iter().cloned() {
-//
-//             // println!("{:?}", comparator);
-//             // println!("{:?}", sample);
-//
-//             if (self.dropout && sample.3 != 0.) || !self.dropout
-//             {
-//                 if sample.3 < comparator.3 {
-//                     // println!("Left");
-//                     left_split.push(sample.1);
-//                     // println!("{:?}",left_split.len());
-//                 }
-//                 else {
-//                     // println!("Right");
-//                     right_split.push(sample.1);
-//                     // println!("{:?}",right_split.len());
-//                 }
-//             }
-//             else {
-//                 // println!("Drop");
-//             }
-//         }
-//
-//         self.feature = Some(best_split.0);
-//         self.split = Some((best_split.1).1);
-//
-//         println!("Finished computing child indecies:");
-//
-//         println!("{:?}", left_split);
-//         println!("{:?}", right_split);
-//
-//         // println!("Synthesizing new nodes raw:");
-//         //
-//         // let left_raw_node = Node::first(self.counts.clone(), left_split.clone(), self.input_features.clone(), self.output_features.clone(), self.dropout.clone());
-//         //
-//         // println!("Dumping the left raw node:");
-//         //
-//         // let mut left_raw_file = File::create("left_raw_node.txt").unwrap();
-//         // left_raw_file.write_fmt(format_args!("{:?}", left_raw_node.0.madm.0));
-//         //
-//         //
-//         // let right_raw_node = Node::first(self.counts.clone(), right_split.clone(), self.input_features.clone() , self.output_features.clone(), self.dropout.clone());
-//         //
-//         // println!("Dumping the right raw node:");
-//         //
-//         // let mut right_raw_file = File::create("right_raw_node.txt").unwrap();
-//         // right_raw_file.write_fmt(format_args!("{:?}", right_raw_node.0.madm.0));
-//         //
-//         // println!("Done dumping raw nodes");
-//
-//         self.derive(left_split);
-//         self.derive(right_split);
-//
-//         // println!("Dumping the derived nodes:");
-//         //
-//         // let mut left_derived_file = File::create("left_derived_node.txt").unwrap();
-//         // left_derived_file.write_fmt(format_args!("{:?}", self.children[0].madm.0));
-//         //
-//         // let mut right_derived_file = File::create("right_derived_node.txt").unwrap();
-//         // right_derived_file.write_fmt(format_args!("{:?}", self.children[1].madm.0));
-//
-//
-//         println!("Child indecies:");
-//
-//         for child in &self.children {
-//             println!("{:?}" , child.indecies)
-//         }
-//
-//         println!("Found best split, derived children");
-//         println!("{:?}",best_split);
-//
-//         *best_split
-//     }
-//
-//     fn meta_split(&mut self,max_leaves:usize) {
-//         if self.indecies.len() < max_leaves {
-//             return
-//         }
-//         if self.children.len() > 0 {
-//             for child in &mut self.children {
-//
-//                 println!("Node with children found: {},{}",self.feature.unwrap(),self.split.unwrap());
-//
-//                 let mut node_dump_file = File::create(format!("node_dump_{}_{}.txt",self.feature.unwrap(),self.split.unwrap())).unwrap();
-//                 node_dump_file.write_fmt(format_args!("{:?}", self.madm.0));
-//
-//                 child.meta_split(max_leaves);
-//             }
-//         }
-//         else {
-//             println!("Splitting some node!");
-//             self.best_split();
-//             self.meta_split(max_leaves);
-//         }
-//     }
-//
-// }
-//
-// struct Node {
-//     dropout: bool,
-//     selfreference: Cell<Option<Weak<Node>>>,
-//     feature: Option<usize>,
-//     split: Option<f64>,
-//     output_features: Vec<usize>,
-//     input_features: Vec<usize>,
-//     indecies: Vec<usize>,
-//     medians: Vec<(usize,f64)>,
-//     weights: Vec<f64>,
-//     dispersion: Vec<f64>,
-//     children: Vec<Node>,
-//     parent: Cell<Option<Weak<Node>>>,
-//     counts: Weak<Vec<Vec<f64>>>,
-//     madm: (OnlineMADM,OnlineMADM)
 // }
 
 
@@ -1087,16 +235,6 @@ fn inner_axis_stats(in_mat: &Vec<Vec<f64>>) -> (Vec<f64>,Vec<f64>) {
     (m,v)
 }
 
-// impl Owned {
-//     fn mutate(&mut self, into: i32) {
-//         self.element = into
-//     }
-// }
-//
-// struct Owned {
-//     element: i32
-// }
-
 
 fn matrix_flip(in_mat: &Vec<Vec<f64>>) -> Vec<Vec<f64>> {
 
@@ -1152,3 +290,219 @@ fn median(input: &Vec<f64>) -> (usize,f64) {
     }
     (index,value)
 }
+
+
+/////TESTING CODE///////
+
+// axis_sum_test.push(vec![1.,2.,3.]);
+// axis_sum_test.push(vec![4.,5.,6.]);
+// axis_sum_test.push(vec![0.,1.,0.]);
+// let temp: [f64;7] = [-3.,-2.,-1.,0.,10.,15.,20.];
+// let temp2 = temp.into_iter().cloned().collect();
+// let temp3 = vec![temp2];
+// let temp4 = matrix_flip(&temp3);
+//
+//
+
+// let mut thr_rng = rand::thread_rng();
+// let rng = thr_rng.gen_iter::<f64>();
+// let temp5: Vec<f64> = rng.take(49).collect();
+// let temp6 = matrix_flip(&(vec![temp5.clone()]));
+
+// axis_sum_test.push(vec![1.,2.,3.]);
+// axis_sum_test.push(vec![4.,5.,6.]);
+// axis_sum_test.push(vec![7.,8.,9.]);
+
+// println!("Source floats: {:?}", matrix_flip(&counts));
+
+// println!("{:?}", count_array);
+//
+// let mut raw = RawVector::raw_vector(&matrix_flip(&count_array)[0]);
+//
+// println!("{:?}",raw);
+//
+// println!("{:?}", raw.iter_full().cloned().collect::<Vec<(usize,usize,usize,f64,usize)>>());
+//
+// println!("Crawlers:");
+//
+// println!("{:?}", raw.crawl_right(raw.first).cloned().collect::<Vec<(usize,usize,usize,f64,usize)>>());
+//
+// println!("{:?}", raw.crawl_left(raw.first).cloned().collect::<Vec<(usize,usize,usize,f64,usize)>>());
+//
+// println!("Dropping zeroes:");
+//
+// raw.drop_zeroes();
+//
+// println!("Crawling dropped list:");
+//
+// println!("{:?}", raw.crawl_right(raw.first).cloned().collect::<Vec<(usize,usize,usize,f64,usize)>>());
+//
+// println!("Skipping dropped items:");
+//
+// println!("{:?}", raw.drop_skip().cloned().collect::<Vec<(usize,usize,usize,f64,usize)>>());
+//
+// println!("Printing non-zero values");
+//
+// println!("{:?}", raw.drop_skip().cloned().map(|x| x.3).collect::<Vec<f64>>());
+//
+// println!("Printing non-zero indecies");
+//
+// println!("{:?}", raw.drop_skip().cloned().map(|x| x.1).collect::<Vec<usize>>());
+//
+// println!("Printing noned-out drops");
+// for i in raw.drop_none() {
+//     println!("{:?}",i);
+// }
+//
+// println!("Skipping drops");
+// for i in raw.drop_skip() {
+//     println!("{:?}",i);
+// }
+//
+// println!("{:?}",raw.left_to_right().cloned().collect::<Vec<(usize,usize,usize,f64,usize)>>());
+//
+// println!("Finding dead center:");
+//
+// let dead_center = rank_vector::DeadCenter::center(&raw);
+//
+// println!("{:?}", dead_center);
+//
+// println!("{:?}", dead_center.median());
+
+// println!("=================================================================");
+
+// println!("Indecies: {:?}", matrix_flip(&count_array)[0]);
+//
+// println!("Testing Ranked Vector!");
+//
+// let degenerate_case = vec![0.;10];
+//
+// let mut ranked: RankVector<String,usize> = RankVector::new(&matrix_flip(&count_array)[0],String::from("test"), Vec::new());
+//
+// ranked.drop_zeroes();
+//
+// ranked.initialize();
+//
+// println!("Dropped values, ranked vector");
+//
+// println!("{:?}", ranked.vector.drop_skip().cloned().collect::<Vec<(usize,usize,usize,f64,usize)>>());
+//
+// println!("{:?}", ranked.clone());
+//
+// ranked.set_boundaries();
+//
+// println!("{:?}", ranked.clone());
+//
+// println!("{:?},{:?},{:?},{:?},{:?},{:?}", ranked.left_zone.size,ranked.left_zone.index_set.len(),ranked.median_zone.size,ranked.median_zone.index_set.len(),ranked.right_zone.size,ranked.right_zone.index_set.len());
+//
+// let ranked_clone = ranked.clone();
+//
+// {
+//     let ordered_draw = OrderedDraw::new(&mut ranked);
+//
+//     println!("{:?}", ordered_draw.vector.vector.left_to_right().cloned().collect::<Vec<(usize,usize,usize,f64,usize)>>());
+//
+//     for sample in ordered_draw {
+//         println!("Drawing: {:?}", sample);
+//     }
+// }
+//
+// println!("Dumping ranked vector:");
+//
+// let mut backup_debug_file = File::create("ranked_vec_debug.txt").unwrap();
+// backup_debug_file.write_fmt(format_args!("{:?}", ranked));
+//
+// println!("Dumping ranked clone:");
+//
+// let mut backup_debug_file = File::create("ranked_vec_clone.txt").unwrap();
+// backup_debug_file.write_fmt(format_args!("{:?}", ranked_clone));
+
+// println!("Trying to make a rank table:");
+//
+// // let mut table = RankTable::new(simple_case,&names,&samples);
+//
+// println!("{},{}",count_array.len(),count_array[0].len());
+//
+// let mut table = RankTable::new(matrix_flip(&count_array),&names,&samples);
+//
+// println!("Finished making a rank table, trying to iterate:");
+//
+// let mut variance_table = Vec::new();
+//
+// for (j,i) in table.split(String::from("Test")).0.enumerate() {
+//     // variance_table.push(vec![i[0].1/i[0].0,i[1].1/i[1].0,i[2].1/i[2].0,i[3].1/i[3].0]);
+//     variance_table.push(vec![i[0].1/i[0].0]);
+//     println!("{},{:?}",j,i)
+// }
+//
+// println!("Variance table:");
+
+
+
+// let minimal = variance_table.iter().map(|x| x.clone().sum()/(x.len() as f64)).enumerate().min_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Greater));
+//
+// println!("Minimal split is: {:?}", minimal);
+
+// let mut node = Node::root(&vec![matrix_flip(&count_array)[1].clone()],&names,&samples,names[..1].iter().cloned().collect(),names[1..].iter().cloned().collect());
+
+// let mut node = Node::root(&matrix_flip(&count_array),&names,&samples,names[..1].iter().cloned().collect(),names[1..].iter().cloned().collect());
+
+// let mut node = Node::root(&matrix_flip(&count_array),&names.clone(),&samples.clone(),names.clone(),names.clone());
+
+// let mut node = Node::root(&simple_case,&names,&samples,names[..1].iter().cloned().collect(),names[1..].iter().cloned().collect());
+
+
+//
+// println!("{:?}",node.rank_table.sort_by_feature(0));
+
+// node.parallel_derive();
+//
+// for child in node.children.iter_mut() {
+//     child.derive_children();
+// }
+
+// tree.test_splits();
+// parallel_tree.test_parallel_splits();
+
+
+
+// let mut forest = Forest::grow_forest(count_array, 1, 4, true);
+// forest.test();
+
+// println!("Inner axist test! {:?}", inner_axis_mean(&axis_sum_test));
+// println!("Matrix flip test! {:?}", matrix_flip(&axis_sum_test));
+
+// slow_description_test();
+// slow_vs_fast();
+
+
+// let mut ranked1: RankVector<String,usize> = RankVector::new(&matrix_flip(&count_array)[0],String::from("test"), Vec::new());
+// let mut ranked2: RankVector<String,usize> = RankVector::new(&matrix_flip(&count_array)[1],String::from("test"), Vec::new());
+// let mut ranked3: RankVector<String,usize> = RankVector::new(&matrix_flip(&count_array)[2],String::from("test"), Vec::new());
+// let mut ranked4: RankVector<String,usize> = RankVector::new(&matrix_flip(&count_array)[3],String::from("test"), Vec::new());
+//
+// ranked1.drop_zeroes();
+// ranked2.drop_zeroes();
+// ranked3.drop_zeroes();
+// ranked4.drop_zeroes();
+//
+//
+// ranked1.initialize();
+// ranked2.initialize();
+// ranked3.initialize();
+// ranked4.initialize();
+//
+// ranked1.set_boundaries();
+// ranked2.set_boundaries();
+// ranked3.set_boundaries();
+// ranked4.set_boundaries();
+//
+// {
+//     let ordered_draw = OrderedDraw::new(&mut ranked1);
+//
+//     println!("{:?}", ordered_draw.vector.vector.left_to_right().cloned().collect::<Vec<(usize,usize,usize,f64,usize)>>());
+//
+//     for sample in ordered_draw {
+//         println!("Drawing: {:?}", sample);
+//     }
+// }

@@ -14,10 +14,12 @@ use std::fmt::Debug;
 use std::thread;
 use std::sync::mpsc;
 use std::fs::OpenOptions;
-
+use std::iter::repeat;
 
 extern crate rand;
 use rand::Rng;
+use rand::seq;
+
 
 use rank_table::RankTable;
 use rank_table::RankTableSplitter;
@@ -27,20 +29,19 @@ use thread_pool::ThreadPool;
 
 impl Tree {
 
-    pub fn plant_tree(counts:&Vec<Vec<f64>>,feature_names:&[String],sample_names:&[String],input_features: Vec<String>,output_features:Vec<String>,size_limit:usize) -> Tree {
-        let pool = ThreadPool::new(80);
+    pub fn plant_tree(counts:&Vec<Vec<f64>>,feature_names:&[String],sample_names:&[String],input_features: Vec<String>,output_features:Vec<String>,size_limit:usize,processor_limit:usize,report_address: String) -> Tree {
+        let pool = ThreadPool::new(processor_limit);
         let mut root = Node::root(counts,feature_names,sample_names,input_features,output_features,pool.clone());
         let dropout = true;
-        let nodes = Vec::new();
         let weights = None;
 
         Tree{
             pool: pool,
             root: root,
             dropout: dropout,
-            nodes: nodes,
             weights: weights,
             size_limit: size_limit,
+            report_address: report_address
         }
     }
 
@@ -64,9 +65,37 @@ impl Tree {
     }
 
     pub fn grow_branches(&mut self) {
-        grow_branches(&mut self.root, self.size_limit);
+        grow_branches(&mut self.root, self.size_limit,&self.report_address);
     }
 
+    pub fn derive_from_prototype(&mut self, features:usize,samples:usize) -> Tree {
+
+        let mut rng = rand::thread_rng();
+
+        let input_features = rand::seq::sample_iter(&mut rng, self.root.input_features.iter().cloned(), features).expect("Couldn't generate input features");
+        let output_features = self.root.output_features.clone();
+
+        let samples = rand::seq::sample_iter(&mut rng, (0..self.root.rank_table.dimensions.0), samples).expect("Couldn't generate a subsample");
+
+        let mut new_root = self.root.derive(&samples);
+
+        new_root.input_features = input_features;
+        new_root.output_features = output_features;
+
+        let mut address: Vec<&str> = self.report_address.split('.').collect();
+        let iteration = address.last().unwrap_or(&"0").parse::<usize>().unwrap_or(0);
+        *address.last_mut().unwrap() = &(iteration+1).to_string();
+        let address_string: String = address.iter().zip(repeat(".")).fold(String::new(),|mut acc,x| {acc.push_str(x.0); acc.push_str(x.1); acc});
+
+        Tree{
+            pool: self.pool.clone(),
+            root: new_root,
+            dropout: self.dropout,
+            weights: self.weights.clone(),
+            size_limit: self.size_limit,
+            report_address: address_string,
+        }
+    }
 
     pub fn nodes(&self) -> Vec<&Node> {
         let mut nodes = vec![&self.root];
@@ -146,24 +175,24 @@ pub struct Tree {
     pool: mpsc::Sender<((usize, (RankTableSplitter,RankTableSplitter,Vec<usize>),Vec<f64>), mpsc::Sender<(usize,usize,f64,Vec<usize>)>)>,
     pub root: Node,
     dropout: bool,
-    nodes: Vec<Weak<Node>>,
     weights: Option<Vec<f64>>,
     size_limit: usize,
+    report_address: String,
 }
 
-pub fn report_node_structure(node:&Node) {
-    let mut tree_dump = OpenOptions::new().create(true).append(true).open("tree_dump.txt").unwrap();
+pub fn report_node_structure(node:&Node,name:&str) {
+    let mut tree_dump = OpenOptions::new().create(true).append(true).open(&name).unwrap();
     tree_dump.write(node.data_dump().as_bytes());
 }
 
-pub fn grow_branches(target:&mut Node, size_limit:usize) {
+pub fn grow_branches(target:&mut Node, size_limit:usize,report_address:&str) {
     if target.internal_report().len() > size_limit {
         target.parallel_derive();
         for child in target.children.iter_mut() {
-            grow_branches(child, size_limit)
+            grow_branches(child, size_limit,report_address)
         }
     }
-    report_node_structure(target);
+    report_node_structure(target,report_address);
 }
 
 // impl<'a, U:Clone + std::cmp::Eq + std::hash::Hash + Debug,T:Clone + std::cmp::Eq + std::hash::Hash + Debug> LeafCrawler<'a, U, T> {

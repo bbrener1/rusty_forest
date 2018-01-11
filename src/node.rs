@@ -246,7 +246,7 @@ impl Node {
 
     }
 
-    pub fn derive(&mut self, indecies: &[usize]) -> Node {
+    pub fn derive(&self, indecies: &[usize]) -> Node {
         let new_rank_table = self.rank_table.derive(indecies);
 
         let medians = new_rank_table.medians();
@@ -352,6 +352,7 @@ impl Node {
 
 }
 
+#[derive(Clone)]
 pub struct Node {
 
     pool: mpsc::Sender<((usize,(RankTableSplitter,RankTableSplitter,Vec<usize>),Vec<f64>),mpsc::Sender<(usize,usize,f64,Vec<usize>)>)>,
@@ -364,8 +365,8 @@ pub struct Node {
     feature: Option<String>,
     split: Option<f64>,
 
-    output_features: Vec<String>,
-    input_features: Vec<String>,
+    pub output_features: Vec<String>,
+    pub input_features: Vec<String>,
 
     medians: Vec<f64>,
     pub feature_weights: Vec<f64>,
