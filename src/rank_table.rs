@@ -43,7 +43,7 @@ impl RankTable {
 
         let dim = (meta_vector.len(),meta_vector[0].vector.vector.len());
 
-        println!("Made rank table with {} features, {} samples:", meta_vector.len(),meta_vector[0].vector.len());
+        println!("Made rank table with {} features, {} samples:", dim.0,dim.1);
 
         RankTable{meta_vector:meta_vector,feature_names:feature_names.iter().cloned().collect(),sample_names:sample_names.iter().cloned().collect(),draw_order:draw_order,index:0,dimensions:dim, feature_dictionary: feature_dictionary, sample_dictionary: sample_dictionary}
 

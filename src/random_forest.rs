@@ -7,14 +7,16 @@ use rand::seq;
 
 
 impl Forest {
-    pub fn initialize(counts:Vec<Vec<f64>>,trees:usize,leaf_size:usize) -> Forest {
+    pub fn initialize(counts:Vec<Vec<f64>>,trees:usize,leaf_size:usize,processor_limit:usize) -> Forest {
 
         let dimensions = (counts.len(),counts.first().unwrap_or(&Vec::with_capacity(0)).len());
 
-        let feature_names: Vec<String> = (0..dimensions.1).map(|x| x.to_string()).collect();
-        let sample_names: Vec<String> = (0..dimensions.0).map(|x| x.to_string()).collect();
+        let feature_names: Vec<String> = (0..dimensions.0).map(|x| x.to_string()).collect();
+        let sample_names: Vec<String> = (0..dimensions.1).map(|x| x.to_string()).collect();
 
-        let prototype_tree = Tree::plant_tree(&counts,&feature_names,&sample_names,feature_names.clone(),sample_names.clone(),leaf_size,80,"test.tree.0".to_string());
+
+
+        let prototype_tree = Tree::plant_tree(&counts,&feature_names,&sample_names,feature_names.clone(),sample_names.clone(),leaf_size,processor_limit,"test.tree.0".to_string());
 
         Forest {
             feature_names: feature_names,
@@ -27,9 +29,10 @@ impl Forest {
         }
     }
 
-    pub fn generate(&mut self) {
-        for set in 0..self.size {
-            let mut new_tree = self.prototype_tree.derive_from_prototype(500,500);
+    pub fn generate(&mut self, features_per_tree:usize, samples_per_tree:usize) {
+        for tree in 0..self.size {
+            let mut new_tree = self.prototype_tree.derive_from_prototype(features_per_tree,samples_per_tree,tree);
+            println!("{:?}", new_tree.report_address);
             new_tree.grow_branches();
             self.trees.push(new_tree);
         }

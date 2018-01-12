@@ -68,24 +68,24 @@ impl Tree {
         grow_branches(&mut self.root, self.size_limit,&self.report_address);
     }
 
-    pub fn derive_from_prototype(&mut self, features:usize,samples:usize) -> Tree {
+    pub fn derive_from_prototype(&mut self, features:usize,samples:usize,iteration: usize) -> Tree {
 
         let mut rng = rand::thread_rng();
 
         let input_features = rand::seq::sample_iter(&mut rng, self.root.input_features.iter().cloned(), features).expect("Couldn't generate input features");
         let output_features = self.root.output_features.clone();
 
-        let samples = rand::seq::sample_iter(&mut rng, (0..self.root.rank_table.dimensions.0), samples).expect("Couldn't generate a subsample");
+        let samples = rand::seq::sample_iter(&mut rng, (0..self.root.rank_table.dimensions.1), samples).expect("Couldn't generate a subsample");
 
-        let mut new_root = self.root.derive(&samples);
+        let mut new_root = self.root.derive(&samples,"R");
 
         new_root.input_features = input_features;
         new_root.output_features = output_features;
 
         let mut address: Vec<String> = self.report_address.split('.').map(|x| x.to_string()).collect();
-        let iteration = (address.last().unwrap_or(&"0".to_string()).parse::<usize>().unwrap_or(0) + 1).to_string();
-        *address.last_mut().unwrap() = iteration;
-        let address_string: String = address.iter().zip(repeat(".")).fold(String::new(),|mut acc,x| {acc.push_str(x.0); acc.push_str(x.1); acc});
+        *address.last_mut().unwrap() = iteration.to_string();
+        let mut address_string: String = address.iter().zip(repeat(".")).fold(String::new(),|mut acc,x| {acc.push_str(x.0); acc.push_str(x.1); acc});
+        address_string.pop();
 
         Tree{
             pool: self.pool.clone(),
@@ -177,7 +177,7 @@ pub struct Tree {
     dropout: bool,
     weights: Option<Vec<f64>>,
     size_limit: usize,
-    report_address: String,
+    pub report_address: String,
 }
 
 pub fn report_node_structure(node:&Node,name:&str) {

@@ -39,6 +39,8 @@ impl Node {
             rank_table: rank_table,
             dropout: true,
 
+            id: "R".to_string(),
+            parent_id: "R".to_string(),
             children: Vec::new(),
 
             feature: None,
@@ -159,7 +161,7 @@ impl Node {
 
 
 
-    pub fn parallel_best_split(& mut self) -> (String,f64,Vec<usize>,Vec<usize>) {
+    pub fn parallel_best_split(& mut self) -> (String,f64,f64,Vec<usize>,Vec<usize>) {
 
         // pool: mpsc::Sender<((usize,(RankTableSplitter,RankTableSplitter,Vec<usize>),Vec<f64>),mpsc::Sender<(usize,usize,f64,Vec<usize>)>)>
 
@@ -207,14 +209,16 @@ impl Node {
 
         let best_feature = self.input_features[feature_index].clone();
 
-        println!("Best split: {:?}", (best_feature.clone(),split_index,split_dispersion));
+        let split_value = self.rank_table.feature_fetch(&best_feature,split_sample_index);
 
-        (best_feature,split_dispersion,split_order[..split_index].iter().cloned().collect(),split_order[split_index..].iter().cloned().collect())
+        println!("Best split: {:?}", (best_feature.clone(),split_index, split_value,split_dispersion));
+
+        (best_feature,split_dispersion,split_value,split_order[..split_index].iter().cloned().collect(),split_order[split_index..].iter().cloned().collect())
 
     }
 
     // pub fn best_split(&mut self) -> (U,usize,T,usize,f64,f64,Vec<usize>) {
-    pub fn best_split(&mut self) -> (String,Vec<usize>,Vec<usize>) {
+    pub fn best_split(&mut self) -> (String,f64,f64,Vec<usize>,Vec<usize>) {
 
         if self.input_features.len() < 1 {
             panic!("Tried to split with no input features");
@@ -242,16 +246,17 @@ impl Node {
 
         println!("Best split: {:?}", minimum_dispersion.clone());
 
-        (minimum_dispersion.0,minimum_dispersion.6[..minimum_dispersion.1].iter().cloned().collect(),minimum_dispersion.6[minimum_dispersion.1..].iter().cloned().collect())
+        (minimum_dispersion.0,minimum_dispersion.5,minimum_dispersion.4,minimum_dispersion.6[..minimum_dispersion.1].iter().cloned().collect(),minimum_dispersion.6[minimum_dispersion.1..].iter().cloned().collect())
 
     }
 
-    pub fn derive(&self, indecies: &[usize]) -> Node {
+    pub fn derive(&self, indecies: &[usize],new_id:&str) -> Node {
         let new_rank_table = self.rank_table.derive(indecies);
 
         let medians = new_rank_table.medians();
         let dispersions = new_rank_table.dispersions();
         let feature_weights = vec![1.;new_rank_table.dimensions.0];
+
 
         let child = Node {
             pool: self.pool.clone(),
@@ -259,6 +264,8 @@ impl Node {
             rank_table: new_rank_table,
             dropout: self.dropout,
 
+            parent_id: self.id.clone(),
+            id: new_id.to_string(),
             children: Vec::new(),
 
             feature: None,
@@ -277,9 +284,15 @@ impl Node {
     }
 
     pub fn parallel_derive(&mut self) {
-        let (feature, dispersion, left_indecies,right_indecies) = self.parallel_best_split();
-        let left_child = self.derive(&left_indecies);
-        let right_child = self.derive(&right_indecies);
+        let (feature, dispersion,split_value, left_indecies ,right_indecies) = self.parallel_best_split();
+
+        let mut left_child_id = self.id.clone();
+        let mut right_child_id = self.id.clone();
+        left_child_id.push_str(&format!("F{}S{}L",feature,split_value));
+        right_child_id.push_str(&format!("F{}S{}R",feature,split_value));
+
+        let left_child = self.derive(&left_indecies,&left_child_id);
+        let right_child = self.derive(&right_indecies,&right_child_id);
         println!("{:?}",left_child.samples());
         println!("{:?}", right_child.samples());
 
@@ -292,9 +305,15 @@ impl Node {
     }
 
     pub fn derive_children(&mut self) {
-        let (feature, left_indecies,right_indecies) = self.best_split();
-        let left_child = self.derive(&left_indecies);
-        let right_child = self.derive(&right_indecies);
+        let (feature,dispersion,split_value, left_indecies,right_indecies) = self.best_split();
+
+        let mut left_child_id = self.id.clone();
+        let mut right_child_id = self.id.clone();
+        left_child_id.push_str(&format!("F{}S{}L",feature,split_value));
+        right_child_id.push_str(&format!("F{}S{}R",feature,split_value));
+
+        let left_child = self.derive(&left_indecies, &left_child_id);
+        let right_child = self.derive(&right_indecies, &right_child_id);
         println!("{:?}",left_child.samples());
         println!("{:?}", right_child.samples());
 
@@ -328,6 +347,7 @@ impl Node {
 
     pub fn data_dump(&self) -> String {
         let mut report_string = String::new();
+        report_string.push_str(&format!("ID:{}\n",self.id));
         report_string.push_str(&format!("Feature: {:?}\n", self.feature));
         report_string.push_str(&format!("Split:{:?}\n",self.split));
         report_string.push_str(&format!("Output features:{:?}\n",self.output_features.len()));
@@ -360,6 +380,8 @@ pub struct Node {
     pub rank_table: RankTable,
     dropout: bool,
 
+    pub parent_id: String,
+    pub id: String,
     pub children: Vec<Node>,
 
     feature: Option<String>,

@@ -77,8 +77,8 @@ fn main() {
     //
     // parallel_tree.grow_branches();
 
-    let mut rnd_forest = random_forest::Forest::initialize(count_array, 10, 100);
-    rnd_forest.generate();
+    let mut rnd_forest = random_forest::Forest::initialize(count_array, 10, 100,80);
+    rnd_forest.generate(400,800);
 
 }
 
@@ -98,7 +98,7 @@ fn read_counts(location:String) -> Vec<Vec<f64>> {
 
         for (j,gene) in gene_line.split_whitespace().enumerate() {
 
-            if j == 0 {
+            if j == 0 && i%200==0{
                 print!("\n");
             }
 
@@ -135,8 +135,9 @@ fn read_counts(location:String) -> Vec<Vec<f64>> {
     };
 
     println!("===========");
+    println!("{},{}", count_array.len(),count_array[0].len());
 
-    count_array
+    matrix_flip(&count_array)
 
 }
 
