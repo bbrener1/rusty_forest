@@ -17,7 +17,7 @@ from sklearn.cluster import AgglomerativeClustering
 
 import sys
 
-read_tree(sys.argv[1])
+
 
 def read_tree(location):
 
@@ -38,3 +38,5 @@ def read_tree(location):
         nodes.append(node)
 
         print node
+
+read_tree(sys.argv[1])
