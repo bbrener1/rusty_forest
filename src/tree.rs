@@ -77,7 +77,7 @@ impl Tree {
 
         let samples = rand::seq::sample_iter(&mut rng, (0..self.root.rank_table.dimensions.1), samples).expect("Couldn't generate a subsample");
 
-        let mut new_root = self.root.derive(&samples,"R");
+        let mut new_root = self.root.derive(&samples,"RT");
 
         new_root.input_features = input_features;
         new_root.output_features = output_features;

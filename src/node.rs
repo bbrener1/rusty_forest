@@ -39,8 +39,8 @@ impl Node {
             rank_table: rank_table,
             dropout: true,
 
-            id: "R".to_string(),
-            parent_id: "R".to_string(),
+            id: "RT".to_string(),
+            parent_id: "RT".to_string(),
             children: Vec::new(),
 
             feature: None,
@@ -288,8 +288,8 @@ impl Node {
 
         let mut left_child_id = self.id.clone();
         let mut right_child_id = self.id.clone();
-        left_child_id.push_str(&format!("F{}S{}L",feature,split_value));
-        right_child_id.push_str(&format!("F{}S{}R",feature,split_value));
+        left_child_id.push_str(&format!(".F{}S{}L",feature,split_value));
+        right_child_id.push_str(&format!(".F{}S{}R",feature,split_value));
 
         let left_child = self.derive(&left_indecies,&left_child_id);
         let right_child = self.derive(&right_indecies,&right_child_id);
@@ -348,6 +348,7 @@ impl Node {
     pub fn data_dump(&self) -> String {
         let mut report_string = String::new();
         report_string.push_str(&format!("ID:{}\n",self.id));
+        report_string.push_str(&format!("ParentID:{}\n",self.parent_id));
         report_string.push_str(&format!("Feature: {:?}\n", self.feature));
         report_string.push_str(&format!("Split:{:?}\n",self.split));
         report_string.push_str(&format!("Output features:{:?}\n",self.output_features.len()));
