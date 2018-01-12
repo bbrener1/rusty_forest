@@ -16,7 +16,7 @@ impl Forest {
 
 
 
-        let prototype_tree = Tree::plant_tree(&counts,&feature_names,&sample_names,feature_names.clone(),sample_names.clone(),leaf_size,processor_limit,"test.tree.0".to_string());
+        let prototype_tree = Tree::plant_tree(&counts,&feature_names,&sample_names,feature_names.clone(),sample_names.clone(),leaf_size,processor_limit,"test.tree.10".to_string());
 
         Forest {
             feature_names: feature_names,
