@@ -26,6 +26,7 @@ def read_tree(location):
     nodes = []
     for node_string in tree_nodes:
         node_list = node_string.split("\n")
+        print node_list
         node = {}
         node["id"] = node_list[0].split(":")
         node["parent"] = node_list[1].split(":")[1:]
