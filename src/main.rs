@@ -77,7 +77,7 @@ fn main() {
     //
     // parallel_tree.grow_branches();
 
-    let mut rnd_forest = random_forest::Forest::initialize(count_array, 10, 100,80);
+    let mut rnd_forest = random_forest::Forest::initialize(count_array, 20, 100,80);
     rnd_forest.generate(400,800);
 
 }
