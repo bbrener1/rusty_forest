@@ -149,6 +149,12 @@ impl Arguments {
                 "-nd" | "-no_drop" => {
                     arg_struct.drop = false;
                 },
+                "-f" | "-h" | "-features" | "-header" => {
+                    arg_struct.feature_header_file = Some(args.next().expect("Error processing feature file"));
+                },
+                "-s" | "-samples" => {
+                    arg_struct.sample_header_file = Some(args.next().expect("Error processing feature file"));
+                }
                 &_ => {
                     println!("Warning, detected unexpected arguments, but so far nothing is wrong");
                 }
