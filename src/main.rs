@@ -54,6 +54,7 @@ fn main() {
 
     let mut count_array: Vec<Vec<f64>> = read_counts(args[1].clone());
 
+    let report_address = &args[2];
 
     println!("##############################################################################################################");
     println!("##############################################################################################################");
@@ -77,11 +78,76 @@ fn main() {
     //
     // parallel_tree.grow_branches();
 
-    let mut rnd_forest = random_forest::Forest::initialize(count_array, 20, 100,80);
+    let mut rnd_forest = random_forest::Forest::initialize(count_array, 20, 100,80, None, None, report_address);
     rnd_forest.generate(400,800);
 
 }
 
+pub struct Arguments {
+
+    count_array_file: String,
+    feature_header_file: Option<String>,
+    sample_header_file: Option<String>,
+    report_address: String,
+
+    processor_limit: usize,
+    tree_limit: usize,
+    leaf_size_cutoff: usize,
+    drop: bool,
+
+}
+
+impl Arguments {
+    fn new(args: &mut env::Args) -> Arguments {
+
+        let mut arg_struct = Arguments {
+                    count_array_file: "".to_string(),
+                    feature_header_file: None,
+                    sample_header_file: None,
+                    report_address: "./".to_string(),
+
+                    processor_limit: 1,
+                    tree_limit: 1,
+                    leaf_size_cutoff: 10000,
+                    drop: true,
+        };
+
+
+        // let mut current_arg = "";
+        // let mut current_arg_vec = Vec::new();
+        while let Some(arg) = args.next() {
+            match &arg[..] {
+                "-c" | "-counts" => {
+                    arg_struct.count_array_file = args.next().expect("Error parsing count location!");
+                },
+                "-p" | "-processors" | "-threads" => {
+                    arg_struct.processor_limit = args.next().expect("Error processing processor limit").parse::<usize>().expect("Error parsing processor limit");
+                },
+                "-o" | "-output" => {
+                    arg_struct.report_address = args.next().expect("Error processing output destination")
+                },
+                "-t" | "-trees" => {
+                    arg_struct.tree_limit = args.next().expect("Error processing tree count").parse::<usize>().expect("Error parsing tree count");
+                },
+                "-l" | "-leaves" => {
+                    arg_struct.leaf_size_cutoff = args.next().expect("Error processing leaf limit").parse::<usize>().expect("Error parsing leaf limit");
+                },
+                "-nd" | "-no_drop" => {
+                    arg_struct.drop = false;
+                },
+                &_ => {
+                    println!("Warning, detected unexpected arguments, but so far nothing is wrong");
+                }
+
+            }
+        }
+
+        arg_struct
+
+    }
+}
+
+// fn parse_args(arguments: env::Args) -> Arguments
 
 fn read_counts(location:String) -> Vec<Vec<f64>> {
 
@@ -141,9 +207,33 @@ fn read_counts(location:String) -> Vec<Vec<f64>> {
 
 }
 
-// fn read_header(location: String) Vec<String> {
-//
-// }
+fn read_header(location: String) -> Vec<String> {
+
+    let mut header_vector = Vec::new();
+
+    let header_file = File::open(location).expect("Header file error!");
+    let mut header_file_iterator = io::BufReader::new(&header_file).lines();
+
+    for line in header_file_iterator.by_ref() {
+        header_vector.push(line.expect("Error reading header line!").to_string());
+    }
+
+    header_vector
+}
+
+fn read_sample_names(location: String) -> Vec<String> {
+
+    let mut header_vector = Vec::new();
+
+    let count_array_file = File::open(location).expect("Sample name file error!");
+    let mut count_array_lines = io::BufReader::new(&count_array_file).lines();
+
+    for line in count_array_lines.by_ref() {
+        header_vector.push(line.expect("Error reading header line!").trim().to_string())
+    }
+
+    header_vector
+}
 
 
 fn argmin(in_vec: &Vec<f64>) -> (usize,f64) {

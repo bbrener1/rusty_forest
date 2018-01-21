@@ -7,16 +7,17 @@ use rand::seq;
 
 
 impl Forest {
-    pub fn initialize(counts:Vec<Vec<f64>>,trees:usize,leaf_size:usize,processor_limit:usize) -> Forest {
+    pub fn initialize(counts:Vec<Vec<f64>>,trees:usize,leaf_size:usize,processor_limit:usize, feature_option: Option<Vec<String>>, sample_option: Option<Vec<String>>, report_address:&str) -> Forest {
 
         let dimensions = (counts.len(),counts.first().unwrap_or(&Vec::with_capacity(0)).len());
 
-        let feature_names: Vec<String> = (0..dimensions.0).map(|x| x.to_string()).collect();
-        let sample_names: Vec<String> = (0..dimensions.1).map(|x| x.to_string()).collect();
+        let feature_names = feature_option.unwrap_or((0..dimensions.0).map(|x| x.to_string()).collect());
 
+        let sample_names = sample_option.unwrap_or((0..dimensions.1).map(|x| x.to_string()).collect());
 
+        let report_string = format!("{}.0",report_address).to_string();
 
-        let prototype_tree = Tree::plant_tree(&counts,&feature_names,&sample_names,feature_names.clone(),sample_names.clone(),leaf_size,processor_limit,"test.tree.0".to_string());
+        let prototype_tree = Tree::plant_tree(&counts,&feature_names,&sample_names,feature_names.clone(),sample_names.clone(),leaf_size,processor_limit,report_string);
 
         Forest {
             feature_names: feature_names,

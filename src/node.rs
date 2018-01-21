@@ -211,6 +211,9 @@ impl Node {
 
         let split_value = self.rank_table.feature_fetch(&best_feature,split_sample_index);
 
+        self.feature = Some(best_feature.clone());
+        self.split = Some(split_value.clone());
+
         println!("Best split: {:?}", (best_feature.clone(),split_index, split_value,split_dispersion));
 
         (best_feature,split_dispersion,split_value,split_order[..split_index].iter().cloned().collect(),split_order[split_index..].iter().cloned().collect())
