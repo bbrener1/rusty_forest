@@ -46,15 +46,28 @@ use online_madm::slow_description_test;
 
 fn main() {
 
-    let args:Vec<String> = env::args().collect();
+    // let args:Vec<String> = env::args().collect();
+
+    let args = Arguments::new(&mut env::args());
+
+    let mut feature_names = None;
+    let mut sample_names = None;
+
+    if args.feature_header_file.is_some() {
+        feature_names = Some(read_header(args.feature_header_file.clone().unwrap()));
+    }
+
+    if args.sample_header_file.is_some() {
+        sample_names = Some(read_sample_names(args.sample_header_file.clone().unwrap()));
+    }
 
     println!("Argumnets parsed: {:?}", args);
 
     println!("Reading data");
 
-    let mut count_array: Vec<Vec<f64>> = read_counts(args[1].clone());
+    let mut count_array: Vec<Vec<f64>> = read_counts(args.count_array_file.clone());
 
-    let report_address = &args[2];
+    let report_address = &args.report_address;
 
     println!("##############################################################################################################");
     println!("##############################################################################################################");
@@ -78,11 +91,12 @@ fn main() {
     //
     // parallel_tree.grow_branches();
 
-    let mut rnd_forest = random_forest::Forest::initialize(count_array, 20, 100,80, None, None, report_address);
+    let mut rnd_forest = random_forest::Forest::initialize(count_array, args.tree_limit, args.leaf_size_cutoff,args.processor_limit, feature_names, sample_names, report_address);
     rnd_forest.generate(400,800);
 
 }
 
+#[derive(Debug)]
 pub struct Arguments {
 
     count_array_file: String,
