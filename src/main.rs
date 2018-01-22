@@ -109,6 +109,9 @@ pub struct Arguments {
     leaf_size_cutoff: usize,
     drop: bool,
 
+    feature_subsample: usize,
+    sample_subsample: usize,
+
 }
 
 impl Arguments {
@@ -124,6 +127,9 @@ impl Arguments {
                     tree_limit: 1,
                     leaf_size_cutoff: 10000,
                     drop: true,
+
+                    feature_subsample: 1,
+                    sample_subsample: 1,
         };
 
 
@@ -131,6 +137,11 @@ impl Arguments {
         // let mut current_arg_vec = Vec::new();
         while let Some(arg) = args.next() {
             match &arg[..] {
+                "-default" => {
+                    let processor_limit = args.next().expect("Error processing processor limit").parse::<usize>().expect("Error parsing processor limit");
+                    return Arguments::default_vision(processor_limit);
+                },
+
                 "-c" | "-counts" => {
                     arg_struct.count_array_file = args.next().expect("Error parsing count location!");
                 },
@@ -155,6 +166,12 @@ impl Arguments {
                 "-s" | "-samples" => {
                     arg_struct.sample_header_file = Some(args.next().expect("Error processing feature file"));
                 }
+                "-fs" | "-feature_sub" => {
+                    arg_struct.feature_subsample = args.next().expect("Error processing feature subsample arg").parse::<usize>().expect("Error feature subsample arg");
+                },
+                "-ss" | "-sample_sub" => {
+                    arg_struct.sample_subsample = args.next().expect("Error processing sample subsample arg").parse::<usize>().expect("Error sample subsample arg");
+                },
                 &_ => {
                     println!("Warning, detected unexpected arguments, but so far nothing is wrong");
                 }
@@ -163,6 +180,24 @@ impl Arguments {
         }
 
         arg_struct
+
+    }
+
+    fn default_vision(processor_limit: usize) -> Arguments {
+        Arguments {
+            count_array_file: "./counts.txt".to_string(),
+            feature_header_file: Some("./header.txt".to_string()),
+            sample_header_file: None,
+            report_address: "./test.tree.".to_string(),
+
+            processor_limit: processor_limit,
+            tree_limit: 100,
+            leaf_size_cutoff: 100,
+            drop: true,
+
+            feature_subsample: 400,
+            sample_subsample: 800,
+        }
 
     }
 }
