@@ -8,15 +8,16 @@ use std::cmp::min;
 use std::sync::Weak;
 use std::fs::File;
 use std::io::prelude::*;
+use std::io::stdin;
 use std::borrow::BorrowMut;
 use std::borrow::Borrow;
 use std::ops::DerefMut;
 use std::cmp::PartialOrd;
 use std::cmp::Ordering;
 use std::thread::sleep;
-use std::time;
 use std::cell::Cell;
 extern crate rand;
+extern crate time;
 use rand::Rng;
 use rand::seq;
 use std::collections::HashSet;
@@ -130,16 +131,30 @@ impl Arguments {
 
                     feature_subsample: 1,
                     sample_subsample: 1,
+
         };
 
 
         // let mut current_arg = "";
         // let mut current_arg_vec = Vec::new();
-        while let Some(arg) = args.next() {
+        let mut supress_warnings = false;
+        let call_signature = args.next();
+        while let Some((i,arg)) = args.enumerate().next() {
             match &arg[..] {
+                "-sw" | "-suppress_warnings" => {
+                    if i!=1 {
+                        println!("If the supress warnings flag is not given first it may not function correctly!");
+                    }
+                    supress_warnings = true;
+                },
                 "-default" => {
-                    let processor_limit = args.next().expect("Error processing processor limit").parse::<usize>().expect("Error parsing processor limit");
-                    return Arguments::default_vision(processor_limit);
+                    if i == 1 {
+                        arg_struct = Arguments::default_vision()
+                    }
+                    else if !supress_warnings {
+                        eprintln!("WARNING, THE DEFAULT ARGUMENT MUST BE FIRST, IT OVERRIDES ALL ARGUMENTS GIVEN BEFORE IT, PRESS ENTER TO OVERRIDE OR CTRL-C TO STOP");
+                        stdin().read_line(&mut String::new());
+                    }
                 },
 
                 "-c" | "-counts" => {
@@ -173,7 +188,10 @@ impl Arguments {
                     arg_struct.sample_subsample = args.next().expect("Error processing sample subsample arg").parse::<usize>().expect("Error sample subsample arg");
                 },
                 &_ => {
-                    println!("Warning, detected unexpected arguments, but so far nothing is wrong");
+                    if !supress_warnings {
+                        eprintln!("Warning, detected unexpected argument:{}, press enter to continue",arg);
+                        stdin().read_line(&mut String::new());
+                    }
                 }
 
             }
@@ -183,14 +201,14 @@ impl Arguments {
 
     }
 
-    fn default_vision(processor_limit: usize) -> Arguments {
+    fn default_vision() -> Arguments {
         Arguments {
             count_array_file: "./counts.txt".to_string(),
             feature_header_file: Some("./header.txt".to_string()),
             sample_header_file: None,
             report_address: "./test.tree.".to_string(),
 
-            processor_limit: processor_limit,
+            processor_limit: 20,
             tree_limit: 100,
             leaf_size_cutoff: 100,
             drop: true,

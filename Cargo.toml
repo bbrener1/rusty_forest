@@ -5,3 +5,4 @@ authors = ["boris"]
 
 [dependencies]
 rand = "0.4"
+time = "0.1"

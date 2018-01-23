@@ -163,7 +163,7 @@ pub struct RankTable {
 impl<'a> RankTableIter<'a> {
     pub fn new(rank_table: &mut RankTable,limit:usize) -> RankTableIter {
 
-        println!("Starting new meta-iterator:");
+        // println!("Starting new meta-iterator:");
 
         let mut table = Vec::new();
 
@@ -171,7 +171,7 @@ impl<'a> RankTableIter<'a> {
             table.push(vector.ordered_draw());
         }
 
-        println!("Finished making iterators, yielding meta-iterator");
+        // println!("Finished making iterators, yielding meta-iterator");
 
         RankTableIter{table:table,index:0,limit:limit-1,current_sample:None}
     }
@@ -218,7 +218,7 @@ impl RankTableSplitter {
 
         let length = draw_order.len();
 
-        println!("Starting new meta-iterator:");
+        // println!("Starting new meta-iterator:");
 
         let mut table = Vec::new();
 
@@ -226,7 +226,7 @@ impl RankTableSplitter {
             table.push(vector.clone().consumed_draw());
         }
 
-        println!("Finished making iterators, yielding meta-iterator");
+        // println!("Finished making iterators, yielding meta-iterator");
 
         RankTableSplitter{table:table,index:0,draw_order:draw_order, length: length, current_sample:None}
     }

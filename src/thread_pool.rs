@@ -15,7 +15,7 @@ use std::sync::mpsc;
 use std::sync::Mutex;
 use std::sync::mpsc::Receiver;
 use std::sync::mpsc::Sender;
-
+use time;
 
 use std::thread;
 
@@ -85,6 +85,8 @@ struct Worker {
 fn split (feature_index: usize, forward: RankTableSplitter, reverse: RankTableSplitter, draw_order: Vec<usize>, feature_weights:Vec<f64>) -> (usize,usize,f64,Vec<usize>) {
 
     // println!("Splitting a node");
+
+    let start_time = time::PreciseTime::now();
 
     let mut fw_dsp = vec![0.;forward.length];
 
@@ -160,7 +162,11 @@ fn split (feature_index: usize, forward: RankTableSplitter, reverse: RankTableSp
 
     let output = (split_index,split_sample_index,split_dispersion,draw_order);
 
-    println!("Split output: {:?}",output.clone());
+    let end_time = time::PreciseTime::now();
+
+    println!("Single split time: {}", start_time.to(end_time));
+
+    // println!("Split output: {:?}",output.clone());
 
     output
 
