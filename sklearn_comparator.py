@@ -1,10 +1,12 @@
 from sklearn.ensemble import RandomForestRegressor
-import timeit
+import time
 import numpy as np
 import sys
 
 counts = np.loadtxt(sys.argv[1],dtype=float)
 
+
+start_time = time.time()
 
 for i in range(1000):
     sample_subsample_indecies = np.random.permutation(counts.shape[0])[:int(sys.argv[2])]
@@ -21,9 +23,13 @@ for i in range(1000):
     print input_subsample.shape
     print output_subsample.shape
 
-    forest = RandomForestRegressor(n_estimators=1, min_samples_split=100, n_jobs=sys.argv[4])
+    forest = RandomForestRegressor(n_estimators=1, min_samples_split=100, n_jobs=int(sys.argv[4]))
 
     forest.fit(input_subsample.T,output_subsample.T)
 
     print forest.n_features_
     print forest.n_outputs_
+
+end_time = time.time()
+
+print start_time - end_time

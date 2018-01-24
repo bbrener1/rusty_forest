@@ -233,6 +233,9 @@ impl RankVector {
 
     pub fn pop(&mut self, target: usize) -> (usize,usize,usize,f64,usize) {
 
+        // let start_time = time::PreciseTime::now();
+
+
         if self.vector.drop_set.contains(&target) {
             return self.vector[target]
         }
@@ -269,8 +272,21 @@ impl RankVector {
         }
         let medians = self.median_zone.dead_center.re_center(&target, &self.vector);
         let removed = self.vector.pop(target);
+
+        // let start_time = time::PreciseTime::now();
         self.zone_balance();
+        // let end_time = time::PreciseTime::now();
+        // if target == 300 {
+        //     println!("Time for a zone balance: {}ns", start_time.to(end_time).num_nanoseconds().unwrap_or(-1));
+        // }
+
+        // let start_time = time::PreciseTime::now();
         self.zone_shift(medians.0,medians.1);
+        // let end_time = time::PreciseTime::now();
+        // if target == 300 {
+        //     println!("Time for a zone shift: {}ns", start_time.to(end_time).num_nanoseconds().unwrap_or(-1));
+        // }
+
 
         if (self.vector.len() != (self.median_zone.size+self.left_zone.size+self.right_zone.size)) ||
             (self.vector.len() > 0 && (self.median_zone.dead_center.left.is_none() || self.median_zone.dead_center.right.is_none())) ||
@@ -282,6 +298,13 @@ impl RankVector {
                 println!("{:?}", self);
                 panic!("State de-sync");
             }
+
+        // let end_time = time::PreciseTime::now();
+        //
+        // if target == 300 {
+        //     println!("Time for a single pop: {}ns", start_time.to(end_time).num_nanoseconds().unwrap_or(-1));
+        // }
+
 
         removed
     }
@@ -963,6 +986,9 @@ impl ProceduralDraw {
     }
 
     pub fn next(&mut self,target:usize) -> Option<(f64,f64)> {
+
+        // let start_time = time::PreciseTime::now();
+
         if self.vector.vector.len() < 1{
             return None
         }
@@ -980,6 +1006,12 @@ impl ProceduralDraw {
         // println!("{:?}", self.vector.vector.left_to_right().cloned().collect::<Vec<(usize,usize,usize,f64,usize)>>());
 
         self.index +=1;
+
+        // let end_time = time::PreciseTime::now();
+        //
+        // if self.index == 300 {
+        //     println!("Time for a single iter: {}ns", start_time.to(end_time).num_nanoseconds().unwrap_or(-1));
+        // }
 
         Some(state)
     }

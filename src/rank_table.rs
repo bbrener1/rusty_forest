@@ -315,7 +315,7 @@ impl Iterator for RankTableSplitter {
 
         // let end_time = time::PreciseTime::now();
 
-        // println!("Time to serve a single splitter iteration {}", start_time.to(end_time).num_microseconds().unwrap_or(-1));
+        // println!("Time to serve a single splitter iteration {}", start_time.to(end_time).num_nanoseconds().unwrap_or(-1));
 
         Some(output)
     }
