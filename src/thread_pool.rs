@@ -86,7 +86,7 @@ fn split (feature_index: usize, forward: RankTableSplitter, reverse: RankTableSp
 
     // println!("Splitting a node");
 
-    let start_time = time::PreciseTime::now();
+    // let start_time = time::PreciseTime::now();
 
     let mut fw_dsp = vec![0.;forward.length];
 
@@ -162,11 +162,11 @@ fn split (feature_index: usize, forward: RankTableSplitter, reverse: RankTableSp
 
     let output = (split_index,split_sample_index,split_dispersion,draw_order);
 
-    let end_time = time::PreciseTime::now();
+    // let end_time = time::PreciseTime::now();
 
-    println!("Single split time: {}", start_time.to(end_time).num_microseconds().unwrap_or(-1));
-
-    println!("Split output: {}",&output.0);
+    // println!("Single split time: {}", start_time.to(end_time).num_microseconds().unwrap_or(-1));
+    //
+    // println!("Split output: {}",&output.0);
 
     output
 
