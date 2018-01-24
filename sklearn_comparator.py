@@ -21,7 +21,7 @@ for i in range(1000):
     print input_subsample.shape
     print output_subsample.shape
 
-    forest = RandomForestRegressor(n_estimators=1, min_samples_split=100)
+    forest = RandomForestRegressor(n_estimators=1, min_samples_split=100, n_jobs=sys.argv[4])
 
     forest.fit(input_subsample.T,output_subsample.T)
 
