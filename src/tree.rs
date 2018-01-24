@@ -68,24 +68,16 @@ impl Tree {
         grow_branches(&mut self.root, self.size_limit,&self.report_address);
     }
 
-    pub fn derive_from_prototype(&mut self, features:usize,samples:usize,iteration: usize) -> Tree {
+    pub fn derive_from_prototype(&mut self, features:usize,samples:usize,input_features:usize,output_features:usize,iteration: usize) -> Tree {
 
-        let mut rng = rand::thread_rng();
-
-        let input_features = rand::seq::sample_iter(&mut rng, self.root.input_features.iter().cloned(), features).expect("Couldn't generate input features");
-        let output_features = self.root.output_features.clone();
-
-        let samples = rand::seq::sample_iter(&mut rng, (0..self.root.rank_table.dimensions.1), samples).expect("Couldn't generate a subsample");
-
-        let mut new_root = self.root.derive(&samples,"RT");
-
-        new_root.input_features = input_features;
-        new_root.output_features = output_features;
+        let mut new_root = self.root.derive_from_prototype(features,samples,input_features,output_features,"RT");
 
         let mut address: Vec<String> = self.report_address.split('.').map(|x| x.to_string()).collect();
         *address.last_mut().unwrap() = iteration.to_string();
         let mut address_string: String = address.iter().zip(repeat(".")).fold(String::new(),|mut acc,x| {acc.push_str(x.0); acc.push_str(x.1); acc});
         address_string.pop();
+
+        // println!("Derived from prototype, rank table size: {:?}", new_root.rank_table.dimensions);
 
         Tree{
             pool: self.pool.clone(),

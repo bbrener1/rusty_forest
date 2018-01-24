@@ -254,12 +254,51 @@ impl Node {
     }
 
     pub fn derive(&self, indecies: &[usize],new_id:&str) -> Node {
-        let new_rank_table = self.rank_table.derive(indecies);
+            let new_rank_table = self.rank_table.derive(indecies);
+
+            let medians = new_rank_table.medians();
+            let dispersions = new_rank_table.dispersions();
+            let feature_weights = vec![1.;new_rank_table.dimensions.0];
+
+
+            let child = Node {
+                pool: self.pool.clone(),
+
+                rank_table: new_rank_table,
+                dropout: self.dropout,
+
+                parent_id: self.id.clone(),
+                id: new_id.to_string(),
+                children: Vec::new(),
+
+                feature: None,
+                split: None,
+
+                output_features: self.output_features.clone(),
+                input_features: self.input_features.clone(),
+
+                medians: medians,
+                feature_weights: feature_weights,
+                dispersions: dispersions,
+            };
+
+
+            child
+        }
+
+
+    pub fn derive_from_prototype(&self,features:usize, samples: usize, input_features: usize, output_features: usize, new_id:&str, ) -> Node {
+
+        let mut rng = rand::thread_rng();
+
+        let new_rank_table = self.rank_table.derive_from_prototype(features, samples);
+
+        let new_input_features = rand::seq::sample_iter(&mut rng, new_rank_table.feature_names.iter().cloned(), input_features).expect("Couldn't generate input features");
+        let new_output_features = rand::seq::sample_iter(&mut rng, new_rank_table.feature_names.iter().cloned(), output_features).expect("Couldn't generate output features");
 
         let medians = new_rank_table.medians();
         let dispersions = new_rank_table.dispersions();
         let feature_weights = vec![1.;new_rank_table.dimensions.0];
-
 
         let child = Node {
             pool: self.pool.clone(),
@@ -274,8 +313,8 @@ impl Node {
             feature: None,
             split: None,
 
-            output_features: self.output_features.clone(),
-            input_features: self.input_features.clone(),
+            output_features: new_output_features,
+            input_features: new_input_features,
 
             medians: medians,
             feature_weights: feature_weights,
@@ -308,24 +347,24 @@ impl Node {
     }
 
     pub fn derive_children(&mut self) {
-        let (feature,dispersion,split_value, left_indecies,right_indecies) = self.best_split();
+            let (feature,dispersion,split_value, left_indecies,right_indecies) = self.best_split();
 
-        let mut left_child_id = self.id.clone();
-        let mut right_child_id = self.id.clone();
-        left_child_id.push_str(&format!(":F{}S{}L",feature,split_value));
-        right_child_id.push_str(&format!(":F{}S{}R",feature,split_value));
+            let mut left_child_id = self.id.clone();
+            let mut right_child_id = self.id.clone();
+            left_child_id.push_str(&format!(":F{}S{}L",feature,split_value));
+            right_child_id.push_str(&format!(":F{}S{}R",feature,split_value));
 
-        let left_child = self.derive(&left_indecies, &left_child_id);
-        let right_child = self.derive(&right_indecies, &right_child_id);
-        println!("{:?}",left_child.samples());
-        println!("{:?}", right_child.samples());
+            let left_child = self.derive(&left_indecies, &left_child_id);
+            let right_child = self.derive(&right_indecies, &right_child_id);
+            println!("{:?}",left_child.samples());
+            println!("{:?}", right_child.samples());
 
-        self.report(true);
-        left_child.report(true);
-        right_child.report(true);
+            self.report(true);
+            left_child.report(true);
+            right_child.report(true);
 
-        self.children.push(left_child);
-        self.children.push(right_child);
+            self.children.push(left_child);
+            self.children.push(right_child);
     }
 
     pub fn report(&self,verbose:bool) {

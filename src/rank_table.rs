@@ -6,6 +6,7 @@ use std::cmp::max;
 use std::collections::HashSet;
 use std::collections::HashMap;
 use std::fmt::Debug;
+use time;
 
 extern crate rand;
 use rand::Rng;
@@ -110,34 +111,78 @@ impl RankTable {
         &self.sample_names[..]
     }
 
-    pub fn derive(&self, indecies:&[usize]) -> RankTable {
 
-        let mut new_meta_vector: Vec<RankVector> = Vec::with_capacity(indecies.len());
+        pub fn derive(&self, indecies:&[usize]) -> RankTable {
 
-        let new_sample_dictionary: HashMap<String,usize> = indecies.iter().enumerate().map(|x| (self.sample_names[*x.1].clone(),x.0)).collect();
+            let mut new_meta_vector: Vec<RankVector> = Vec::with_capacity(indecies.len());
 
-        let mut new_sample_names: Vec<String> = Vec::with_capacity(indecies.len());
+            let new_sample_dictionary: HashMap<String,usize> = indecies.iter().enumerate().map(|x| (self.sample_names[*x.1].clone(),x.0)).collect();
 
-        for sample_name in &self.sample_names {
-            if new_sample_dictionary.contains_key(sample_name) {
-                new_sample_names.push(sample_name.clone());
+            let mut new_sample_names: Vec<String> = Vec::with_capacity(indecies.len());
+
+            for sample_name in &self.sample_names {
+                if new_sample_dictionary.contains_key(sample_name) {
+                    new_sample_names.push(sample_name.clone());
+                }
+            }
+
+            for feature in &self.meta_vector {
+                new_meta_vector.push(feature.derive(indecies));
+            }
+
+            let new_draw_order: Vec<usize> = (0..indecies.len()).collect();
+
+            let dimensions = (self.meta_vector.len(),self.meta_vector[0].vector.vector.len());
+
+            RankTable {
+
+                meta_vector: new_meta_vector,
+                feature_names: self.feature_names.clone(),
+                sample_names: new_sample_names,
+                feature_dictionary: self.feature_dictionary.clone(),
+                sample_dictionary: new_sample_dictionary,
+                draw_order: new_draw_order,
+                index: 0,
+                dimensions: dimensions,
             }
         }
 
-        for feature in &self.meta_vector {
-            new_meta_vector.push(feature.derive(indecies));
+
+    pub fn derive_from_prototype(&self, features:usize,samples:usize) -> RankTable {
+
+        let mut rng = rand::thread_rng();
+
+        let indecies = rand::seq::sample_iter(&mut rng, 0..self.sample_names.len(), samples).expect("Couldn't generate sample subset");
+
+        // println!("Derive debug {},{}", samples, indecies.len());
+
+        let mut new_meta_vector: Vec<RankVector> = Vec::with_capacity(features);
+
+        let mut new_sample_dictionary : HashMap<String,usize> = indecies.iter().enumerate().map(|(count,index)| (self.sample_names[*index].clone(),count)).collect();
+        let mut new_sample_names = indecies.iter().map(|index| self.sample_names[*index].clone()).collect();
+
+        let mut new_feature_dictionary = HashMap::with_capacity(features);
+        let mut new_feature_names = Vec::with_capacity(features);
+
+        for (i,feature) in rand::seq::sample_iter(&mut rng, self.feature_names.iter().enumerate(), features).expect("Couldn't process feature during subsampling") {
+            new_meta_vector.push(self.meta_vector[i].derive(&indecies));
+            new_feature_names.push(feature.clone());
+            new_feature_dictionary.insert(feature.clone(),new_feature_names.len()-1);
         }
 
         let new_draw_order: Vec<usize> = (0..indecies.len()).collect();
 
-        let dimensions = (self.meta_vector.len(),self.meta_vector[0].vector.vector.len());
+        let dimensions = (new_meta_vector.len(),new_meta_vector[0].vector.vector.len());
+
+        println!("Feature dict {:?}", new_feature_dictionary.clone());
+        println!("New sample dict {:?}", new_sample_dictionary.clone());
 
         RankTable {
 
             meta_vector: new_meta_vector,
-            feature_names: self.feature_names.clone(),
+            feature_names: new_feature_names,
             sample_names: new_sample_names,
-            feature_dictionary: self.feature_dictionary.clone(),
+            feature_dictionary: new_feature_dictionary,
             sample_dictionary: new_sample_dictionary,
             draw_order: new_draw_order,
             index: 0,
@@ -151,7 +196,7 @@ impl RankTable {
 #[derive(Debug,Clone)]
 pub struct RankTable {
     meta_vector: Vec<RankVector>,
-    feature_names: Vec<String>,
+    pub feature_names: Vec<String>,
     pub sample_names: Vec<String>,
     feature_dictionary: HashMap<String,usize>,
     sample_dictionary: HashMap<String,usize>,
@@ -249,11 +294,13 @@ impl Iterator for RankTableSplitter {
 
     fn next(&mut self) -> Option<Vec<(f64,f64)>> {
 
+        // let start_time = time::PreciseTime::now();
+
         if self.index > self.length - 1 {
             return None
         }
 
-        let mut output = Vec::new();
+        let mut output = Vec::with_capacity(self.table.len());
 
         let target = self.draw_order[self.index];
 
@@ -266,7 +313,9 @@ impl Iterator for RankTableSplitter {
 
         self.index += 1;
 
+        // let end_time = time::PreciseTime::now();
 
+        // println!("Time to serve a single splitter iteration {}", start_time.to(end_time).num_microseconds().unwrap_or(-1));
 
         Some(output)
     }

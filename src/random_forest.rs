@@ -32,7 +32,7 @@ impl Forest {
 
     pub fn generate(&mut self, features_per_tree:usize, samples_per_tree:usize) {
         for tree in 0..self.size {
-            let mut new_tree = self.prototype_tree.derive_from_prototype(features_per_tree,samples_per_tree,tree);
+            let mut new_tree = self.prototype_tree.derive_from_prototype(features_per_tree,samples_per_tree,features_per_tree,features_per_tree,tree);
             println!("{:?}", new_tree.report_address);
             new_tree.grow_branches();
             self.trees.push(new_tree);

@@ -164,9 +164,9 @@ fn split (feature_index: usize, forward: RankTableSplitter, reverse: RankTableSp
 
     let end_time = time::PreciseTime::now();
 
-    println!("Single split time: {}", start_time.to(end_time));
+    println!("Single split time: {}", start_time.to(end_time).num_microseconds().unwrap_or(-1));
 
-    // println!("Split output: {:?}",output.clone());
+    println!("Split output: {}",&output.0);
 
     output
 

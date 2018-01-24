@@ -6,6 +6,7 @@ use std::cmp::max;
 use std::collections::HashSet;
 use std::collections::HashMap;
 use std::fmt::Debug;
+use time;
 
 extern crate rand;
 use rand::Rng;

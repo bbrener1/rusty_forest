@@ -93,7 +93,7 @@ fn main() {
     // parallel_tree.grow_branches();
 
     let mut rnd_forest = random_forest::Forest::initialize(count_array, args.tree_limit, args.leaf_size_cutoff,args.processor_limit, feature_names, sample_names, report_address);
-    rnd_forest.generate(400,800);
+    rnd_forest.generate(args.feature_subsample,args.sample_subsample);
 
 }
 
