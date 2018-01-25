@@ -29,7 +29,7 @@ def read_tree(location):
     for node_string in tree_nodes[1:]:
         node_list = node_string.split("\n")
         # print node_list
-        print len(node_list)
+        # print len(node_list)
         node = {}
         node["id"] = node_list[0]
         node["children"] = node_list[1].split("!C:")[1:]
@@ -38,7 +38,7 @@ def read_tree(location):
         if node_list[4].split(":")[1] != "None":
             node["split"] = float(node_list[4].lstrip("Split:Some(").rstrip(")"))
         node["output_features"] = re.findall('"(.*?)"', node_list[6])
-        print re.findall('(\d+\.*\d*)', node_list[7])
+        # print re.findall('(\d+\.*\d*)', node_list[7])
         node["medians"] = map(lambda x: float(x),re.findall('(\d+\.*\d*)', node_list[7]))
         node["dispersions"] = map(lambda x: float(x),re.findall('(\d+\.*\d*)', node_list[8]))
         node["samples"] = re.findall('"(.*?)"', node_list[11])
@@ -47,10 +47,20 @@ def read_tree(location):
         if node["id"] == "RT":
             root = node
 
-        print node
+        # print node
 
-    print "Done with node construction"
+    # print "Done with node construction"
     return nodes, root
+
+def full_tree_construction(node,node_dictionary):
+    local_list = []
+    local_list.append(node)
+    for child in node["children"]:
+        local_list.append(tree_construction(node_dictionary[child],node_dictionary=node_dictionary))
+    return local_list
+
+def feature_feature_gain(node,rchild,lchild):
+
 
 def tree_construction(node,node_dictionary):
     local_list = []
@@ -71,15 +81,31 @@ def tree_translation(tree,header):
 
     return local_list
 
+def median_absolute_deviation(array):
+    median = np.median(array)
+    absolute_deviation = np.abs(array - (np.ones(array.shape) * median))
+    mad = np.median(absolute_deviation)
+    return mad
 
+def name_picker_index(features,shape):
+
+    indecies = map(lambda x: int(x),features)
+
+    picker = np.zeroes(shape,dtype=bool)
+    picker[indecies] = 1
+    return picker
 
 header = np.load(sys.argv[2])
+
+counts = np.load(sys.argv[3])
 
 tree_dict, root = read_tree(sys.argv[1])
 
 node_tree = tree_construction(root,tree_dict)
 
 print tree_translation(node_tree,header)
+
+print name_picker_index(["1","3","5"],5)
 
 # for child in node_tree[1:]:
 #     print tree_translation(child,header)
