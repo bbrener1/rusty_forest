@@ -61,72 +61,17 @@ def tree_construction(node,node_dictionary):
         local_list.append(tree_construction(node_dictionary[child],node_dictionary=node_dictionary))
     return local_list
 
-# def translating_construction(node,node_dictionary):
-#     local_list = []
-#     local_list.append(node["feature"])
-#     for child in node["children"]:
-#         local_list.append(tree_construction(node_dictionary[child],node_dictionary=node_dictionary))
-#     return local_list
-#
-# def translated_translation(node_tree,header):
-#     local_list = []
-#     try:
-#         feature_index = int(node_tree[0])
-#         local_list = [header[feature_index],]
-#     except:
-#         if node_tree[0] == "None":
-#             local_list = ["None",]
-#         else:
-#             local_list = ["error",]
-#
-#             try:
-#                 print "Regular error"
-#                 # print node_tree[0]
-#                 # print node_tree[0]
-#                 # print node_tree[0].split(":")[-1].split("S")[0]
-#             except:
-#                 print "SUPER ERROR"
-#                 # print node_tree
-#                 # print node_tree[0]
-#                 # print node_tree[0].split(":")
-#                 # print node_tree[0].split(":")[-1].split("S")
-#                 # print node_tree[0].split(":")[-1].split("S")[0]
-#                 # print node_tree[0].split(":")[-1].split("S")[0][1:]
-#
-#     for child in node_tree[1:]:
-#         local_list.append(tree_translation(child,header))
-#
-#     return local_list
-#
-#
-# def tree_translation(node_tree,header):
-#     local_list = []
-#     try:
-#         # print "Normal node"
-#         # print node_tree
-#         # print node_tree[0]
-#         feature_index = int(node_tree[0].split(":")[-1].split("S")[0][1:])
-#         local_list = [header[feature_index],]
-#     except:
-#         try:
-#             print "Regular error"
-#             # print node_tree[0]
-#             # print node_tree[0]
-#             # print node_tree[0].split(":")[-1].split("S")[0]
-#         except:
-#             print "SUPER ERROR"
-#             # print node_tree
-#             # print node_tree[0]
-#             # print node_tree[0].split(":")
-#             # print node_tree[0].split(":")[-1].split("S")
-#             # print node_tree[0].split(":")[-1].split("S")[0]
-#             # print node_tree[0].split(":")[-1].split("S")[0][1:]
-#
-#         local_list = ["error",]
-#     for child in node_tree[1:]:
-#         local_list.append(tree_translation(child,header))
-#
-#     return local_list
+def tree_translation(tree,header):
+    local_list = []
+    if tree[0] != "None":
+        feature_index = int(tree[0].lstrip("Some(").rstrip(")"))
+        local_list.append(header[feature_index])
+        for branch in tree[2:]:
+            local_list.append(tree_translation(branch,header))
+
+    return local_list
+
+
 
 header = np.load(sys.argv[2])
 
@@ -134,7 +79,7 @@ tree_dict, root = read_tree(sys.argv[1])
 
 node_tree = tree_construction(root,tree_dict)
 
-print node_tree
+print tree_translation(node_tree,header)
 
 # for child in node_tree[1:]:
 #     print tree_translation(child,header)
