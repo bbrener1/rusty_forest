@@ -211,6 +211,9 @@ impl RankVector {
         for sample in samples_to_drop {
             self.drop(sample);
         }
+
+        self.drop = true;
+
     }
 
     pub fn reset(&mut self) {

@@ -52,15 +52,31 @@ def read_tree(location):
     # print "Done with node construction"
     return nodes, root
 
-def full_tree_construction(node,node_dictionary):
+def full_tree_construction(node,node_dictionary,counts):
     local_list = []
     local_list.append(node)
+    check_node(node,counts)
     for child in node["children"]:
-        local_list.append(tree_construction(node_dictionary[child],node_dictionary=node_dictionary))
+        local_list.append(full_tree_construction(node_dictionary[child],node_dictionary,counts))
     return local_list
 
-def feature_feature_gain(node,rchild,lchild):
+def feature_cov(node):
+    covs = []
+    for i,dispersion in enumerate(node["dispersions"]):
+        covs.append(dispersion / node["medians"][i])
+    return covs
 
+def feature_feature_gain(parent,child):
+
+    parent_covs = feature_cov(parent)
+    child_covs = feature_cov(child)
+
+    gains = []
+
+    for i,pcov in enumerate(parent_covs):
+        gains.append(pcov - child_covs[i])
+
+    return gains
 
 def tree_construction(node,node_dictionary):
     local_list = []
@@ -81,31 +97,66 @@ def tree_translation(tree,header):
 
     return local_list
 
-def median_absolute_deviation(array):
-    median = np.median(array)
-    absolute_deviation = np.abs(array - (np.ones(array.shape) * median))
-    mad = np.median(absolute_deviation)
+def median_absolute_deviation(array, drop=True):
+    mad = np.ones(array.shape[1])
+    for i,feature in enumerate(array.T):
+
+        if drop:
+            feature = feature[feature != 0]
+        median = np.median(feature,axis=0)
+        absolute_deviation = np.abs(feature - (np.ones(feature.shape) * median))
+        mad[i] = np.median(absolute_deviation)
     return mad
 
-def name_picker_index(features,shape):
+def drop_median(array):
+    dm = np.ones(array.shape[1])
+    for i,feature in enumerate(array.T):
+        dm[i]=np.median(feature[feature != 0])
+    return dm
 
-    indecies = map(lambda x: int(x),features)
+def name_picker_index(names,shape):
 
-    picker = np.zeroes(shape,dtype=bool)
-    picker[indecies] = 1
-    return picker
+    indecies = map(lambda x: int(x),names)
+
+    # picker = np.zeros(shape,dtype=bool)
+    # picker[indecies] = 1
+    return indecies
+
+def check_node(node,counts):
+    feature_indecies = name_picker_index(node["output_features"],counts.shape[1])
+    sample_indecies = name_picker_index(node["samples"],counts.shape[0])
+
+    subsample = counts[sample_indecies]
+    subsample = subsample.T[feature_indecies].T
+
+    medians = drop_median(subsample)
+    mad = median_absolute_deviation(subsample)
+
+    print node["feature"]
+    print len(node["samples"])
+    print node["output_features"][:10]
+
+    print "Medians"
+    print node["medians"][:10]
+    print medians[:10]
+    print medians.shape
+    print "Dispersions"
+    print node["dispersions"][:10]
+    print mad[:10]
+    print mad.shape
 
 header = np.load(sys.argv[2])
 
-counts = np.load(sys.argv[3])
+counts = np.loadtxt(sys.argv[3])
 
 tree_dict, root = read_tree(sys.argv[1])
 
 node_tree = tree_construction(root,tree_dict)
 
+full_tree = full_tree_construction(root,tree_dict,counts)
+
 print tree_translation(node_tree,header)
 
-print name_picker_index(["1","3","5"],5)
 
 # for child in node_tree[1:]:
 #     print tree_translation(child,header)

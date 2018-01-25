@@ -112,40 +112,40 @@ impl RankTable {
     }
 
 
-        pub fn derive(&self, indecies:&[usize]) -> RankTable {
+    pub fn derive(&self, indecies:&[usize]) -> RankTable {
 
-            let mut new_meta_vector: Vec<RankVector> = Vec::with_capacity(indecies.len());
+        let mut new_meta_vector: Vec<RankVector> = Vec::with_capacity(indecies.len());
 
-            let new_sample_dictionary: HashMap<String,usize> = indecies.iter().enumerate().map(|x| (self.sample_names[*x.1].clone(),x.0)).collect();
+        let new_sample_dictionary: HashMap<String,usize> = indecies.iter().enumerate().map(|x| (self.sample_names[*x.1].clone(),x.0)).collect();
 
-            let mut new_sample_names: Vec<String> = Vec::with_capacity(indecies.len());
+        let mut new_sample_names: Vec<String> = Vec::with_capacity(indecies.len());
 
-            for sample_name in &self.sample_names {
-                if new_sample_dictionary.contains_key(sample_name) {
-                    new_sample_names.push(sample_name.clone());
-                }
-            }
-
-            for feature in &self.meta_vector {
-                new_meta_vector.push(feature.derive(indecies));
-            }
-
-            let new_draw_order: Vec<usize> = (0..indecies.len()).collect();
-
-            let dimensions = (self.meta_vector.len(),self.meta_vector[0].vector.vector.len());
-
-            RankTable {
-
-                meta_vector: new_meta_vector,
-                feature_names: self.feature_names.clone(),
-                sample_names: new_sample_names,
-                feature_dictionary: self.feature_dictionary.clone(),
-                sample_dictionary: new_sample_dictionary,
-                draw_order: new_draw_order,
-                index: 0,
-                dimensions: dimensions,
+        for sample_name in &self.sample_names {
+            if new_sample_dictionary.contains_key(sample_name) {
+                new_sample_names.push(sample_name.clone());
             }
         }
+
+        for feature in &self.meta_vector {
+            new_meta_vector.push(feature.derive(indecies));
+        }
+
+        let new_draw_order: Vec<usize> = (0..indecies.len()).collect();
+
+        let dimensions = (self.meta_vector.len(),self.meta_vector[0].vector.vector.len());
+
+        RankTable {
+
+            meta_vector: new_meta_vector,
+            feature_names: self.feature_names.clone(),
+            sample_names: new_sample_names,
+            feature_dictionary: self.feature_dictionary.clone(),
+            sample_dictionary: new_sample_dictionary,
+            draw_order: new_draw_order,
+            index: 0,
+            dimensions: dimensions,
+        }
+    }
 
 
     pub fn derive_from_prototype(&self, features:usize,samples:usize) -> RankTable {
