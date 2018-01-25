@@ -64,7 +64,7 @@ def tree_construction(node,node_dictionary):
 def tree_translation(tree,header):
     local_list = []
     if tree[0] != "None":
-        feature_index = int(tree[0].lstrip("Some(").rstrip(")"))
+        feature_index = int(tree[0].lstrip("Some(\"").rstrip("\")"))
         local_list.append(header[feature_index])
         for branch in tree[2:]:
             local_list.append(tree_translation(branch,header))
