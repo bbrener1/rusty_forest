@@ -254,6 +254,7 @@ impl Node {
     }
 
     pub fn derive(&self, indecies: &[usize],new_id:&str) -> Node {
+
             let new_rank_table = self.rank_table.derive(indecies);
 
             let medians = new_rank_table.medians();
