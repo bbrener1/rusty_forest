@@ -184,7 +184,7 @@ for tree in sys.argv[3:]:
 
     tree_dict, root = read_tree(tree,header)
 
-    print tree_level_construction(root,tree_dict,1,occurence_level_dict)
+    tree_level_construction(root,tree_dict,1,occurence_level_dict)
 
     # node_tree = tree_construction(root,tree_dict)
 
@@ -201,6 +201,7 @@ feature_score.sort(key=lambda x: x[1])
 print feature_score
 
 for feature in feature_score[-10:]:
+    print feature[0]
     print occurence_level_dict[feature[0]]
 
 # print "GAIN MAP DEBUG"
