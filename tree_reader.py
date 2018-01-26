@@ -113,7 +113,6 @@ def tree_level_construction(node,node_dictionary,level,occurence_level_dict):
         local_list.append(tree_construction(node_dictionary[child],node_dictionary=node_dictionary,level=level+1))
     return local_list
 
-def
 
 # def tree_translation(tree,header):
 #     local_list = []
