@@ -190,7 +190,7 @@ print gain_map.values()[:10]
 gain_freq = np.array(reduce(lambda x,y: x + y , gain_map.values(), []))
 
 plt.figure()
-plt.hist(gain_freq)
+plt.hist(gain_freq,bins=20)
 plt.savefig("gains.png")
 
 for value in gain_map:
