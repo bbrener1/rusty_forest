@@ -196,7 +196,7 @@ feature_frequency = map(lambda x: (x,len(occurence_level_dict[x])), occurence_le
 
 feature_score = map(lambda x: (x, reduce(lambda y,z: z + (5./float(y)), occurence_level_dict[x])), occurence_level_dict)
 
-sorted_features = sort(feature_score, key=lambda x: x[1])
+sorted_features = feature_score.sort(key=lambda x: x[1])
 
 print sorted_features
 
