@@ -193,10 +193,13 @@ plt.figure()
 plt.hist(gain_freq,bins=20)
 plt.savefig("gains.png")
 
+match_list = []
 for value in gain_map:
     for observation in gain_map[value]:
         if observation > .5:
-            print value
+            match_list.append(value)
+
+np.savetxt("match_list.txt",np.array(match_list),fmt='%s')
 
 # for child in node_tree[1:]:
 #     print tree_translation(child,header)
