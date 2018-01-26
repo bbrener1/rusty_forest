@@ -129,6 +129,8 @@ impl Arguments {
 
                     feature_subsample: 1,
                     sample_subsample: 1,
+                    input_features: 1,
+                    output_features:1,
 
         };
 
@@ -179,6 +181,12 @@ impl Arguments {
                 "-s" | "-samples" => {
                     arg_struct.sample_header_file = Some(args.next().expect("Error processing feature file"));
                 }
+                "-if" | "-in_features" => {
+                    arg_struct.output_features = args.next().expect("Error processing in feature arg").parse::<usize>().expect("Error in feature  arg");
+                },
+                "-of" | "-out_features" => {
+                    arg_struct.input_features = args.next().expect("Error processing out feature arg").parse::<usize>().expect("Error out feature arg");
+                },
                 "-fs" | "-feature_sub" => {
                     arg_struct.feature_subsample = args.next().expect("Error processing feature subsample arg").parse::<usize>().expect("Error feature subsample arg");
                 },
