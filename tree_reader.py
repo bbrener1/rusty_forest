@@ -173,7 +173,7 @@ gain_map = {}
 
 for tree in sys.argv[3:]:
 
-    tree_dict, root = read_tree(sys.argv[1],header)
+    tree_dict, root = read_tree(tree,header)
 
     # node_tree = tree_construction(root,tree_dict)
 
