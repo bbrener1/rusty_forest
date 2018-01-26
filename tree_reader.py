@@ -19,7 +19,7 @@ import sys
 
 
 
-def read_tree(location):
+def read_tree(location,header):
 
     tree_string = open(location).read()
     tree_nodes = tree_string.split("!ID:")
@@ -34,7 +34,10 @@ def read_tree(location):
         node["id"] = node_list[0]
         node["children"] = node_list[1].split("!C:")[1:]
         node["parent"] = node_list[2].split(":")[1:]
-        node["feature"] = node_list[3].split(":")[1]
+        if node_list[3].split(":")[1] != "None":
+            node["feature"] = header[int(node_list[3].split(":")[1].lstrip("Some(\"").rstrip("\")"))]
+        else:
+            node["feature"] = "None"
         if node_list[4].split(":")[1] != "None":
             node["split"] = float(node_list[4].lstrip("Split:Some(").rstrip(")"))
         node["output_features"] = re.findall('"(.*?)"', node_list[6])
@@ -63,7 +66,10 @@ def full_tree_construction(node,node_dictionary,counts):
 def feature_cov(node):
     covs = []
     for i,dispersion in enumerate(node["dispersions"]):
-        covs.append(dispersion / node["medians"][i])
+        try:
+            covs.append(dispersion / node["medians"][i])
+        except ZeroDivisionError:
+            covs.append(0.0)
     return covs
 
 def feature_feature_gain(parent,child):
@@ -78,6 +84,20 @@ def feature_feature_gain(parent,child):
 
     return gains
 
+def crawl_gains(tree,gain_dictionary,header):
+    if len(tree) > 1:
+        split_feature = tree[0]["feature"]
+        for branch in tree[1:]:
+            gain = feature_feature_gain(tree[0],branch[0])
+            feature_map = map(lambda x: header[int(x)], branch[0]["output_features"])
+            for i,feature in enumerate(feature_map):
+                if (split_feature,feature) in gain_dictionary:
+                    gain_dictionary[(split_feature,feature)].append(gain[i])
+                else:
+                    gain_dictionary[(split_feature,feature)] = [gain[i],]
+            crawl_gains(branch,gain_dictionary,header)
+    return gain_dictionary
+
 def tree_construction(node,node_dictionary):
     local_list = []
     local_list.append(node["feature"])
@@ -87,15 +107,15 @@ def tree_construction(node,node_dictionary):
         local_list.append(tree_construction(node_dictionary[child],node_dictionary=node_dictionary))
     return local_list
 
-def tree_translation(tree,header):
-    local_list = []
-    if tree[0] != "None":
-        feature_index = int(tree[0].lstrip("Some(\"").rstrip("\")"))
-        local_list.append(header[feature_index])
-        for branch in tree[2:]:
-            local_list.append(tree_translation(branch,header))
-
-    return local_list
+# def tree_translation(tree,header):
+#     local_list = []
+#     if tree[0] != "None":
+#         feature_index = int(tree[0])
+#         local_list.append(header[feature_index])
+#         for branch in tree[2:]:
+#             local_list.append(tree_translation(branch,header))
+#
+#     return local_list
 
 def median_absolute_deviation(array, drop=True):
     mad = np.ones(array.shape[1])
@@ -132,31 +152,51 @@ def check_node(node,counts):
     medians = drop_median(subsample)
     mad = median_absolute_deviation(subsample)
 
-    print node["feature"]
-    print len(node["samples"])
-    print node["output_features"][:10]
+    # print node["feature"]
+    # print len(node["samples"])
+    # print node["output_features"][:10]
+    #
+    # print "Medians"
+    # print node["medians"][:10]
+    # print medians[:10]
+    # print medians.shape
+    # print "Dispersions"
+    # print node["dispersions"][:10]
+    # print mad[:10]
+    # print mad.shape
 
-    print "Medians"
-    print node["medians"][:10]
-    print medians[:10]
-    print medians.shape
-    print "Dispersions"
-    print node["dispersions"][:10]
-    print mad[:10]
-    print mad.shape
+header = np.load(sys.argv[1])
 
-header = np.load(sys.argv[2])
+counts = np.loadtxt(sys.argv[2])
 
-counts = np.loadtxt(sys.argv[3])
+gain_map = {}
 
-tree_dict, root = read_tree(sys.argv[1])
+for tree in sys.argv[3:]:
 
-node_tree = tree_construction(root,tree_dict)
+    tree_dict, root = read_tree(sys.argv[1],header)
 
-full_tree = full_tree_construction(root,tree_dict,counts)
+    # node_tree = tree_construction(root,tree_dict)
 
-print tree_translation(node_tree,header)
+    full_tree = full_tree_construction(root,tree_dict,counts)
 
+    crawl_gains(full_tree,gain_map,header)
+
+
+print "GAIN MAP DEBUG"
+
+print list(gain_map)[:10]
+print gain_map.values()[:10]
+
+gain_freq = np.array(reduce(lambda x,y: x + y , gain_map.values(), []))
+
+plt.figure()
+plt.hist(gain_freq)
+plt.savefig("gains.png")
+
+for value in gain_map:
+    for observation in gain_map[value]:
+        if observation > .5:
+            print value
 
 # for child in node_tree[1:]:
 #     print tree_translation(child,header)
