@@ -184,7 +184,7 @@ for tree in sys.argv[3:]:
 
     tree_dict, root = read_tree(tree,header)
 
-    print tree_level_construction(root,tree_dict,0,occurence_level_dict)
+    print tree_level_construction(root,tree_dict,1,occurence_level_dict)
 
     # node_tree = tree_construction(root,tree_dict)
 
@@ -194,7 +194,7 @@ for tree in sys.argv[3:]:
 
 feature_frequency = map(lambda x: (x,len(occurence_level_dict[x])), occurence_level_dict)
 
-feature_score = map(lambda x: (x, reduce(lambda y,z: z + (5./float(y)), occurence_level_dict[x])), occurence_level_dict)
+feature_score = map(lambda x: (x, reduce(lambda y,z: y + (5./float(z)), occurence_level_dict[x])), occurence_level_dict)
 
 feature_score.sort(key=lambda x: x[1])
 
