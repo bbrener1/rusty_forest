@@ -88,11 +88,23 @@ fn split (feature_index: usize, forward: RankTableSplitter, reverse: RankTableSp
 
     // let start_time = time::PreciseTime::now();
 
-    let mut fw_dsp = vec![0.;forward.length];
+    // if forward.length != reverse.length {
+    if true {
+        println!("Parallel split, iterator check:");
+        println!("{}",forward.length);
+        println!("{}",reverse.length);
+        println!("{:?}",forward.draw_order);
+        println!("{:?}",reverse.draw_order);
+        // panic!("DESYNCED DRAW ORDER, PANICING");
+    }
+
+    let mut fw_dsp = vec![0.;forward.length as usize];
+
+    println!("Constructed zero length vector?");
 
     for (i,sample) in forward.enumerate() {
 
-        // println!("{:?}",sample);
+        println!("{:?}",sample);
         fw_dsp[i] = sample
             .iter()
             .enumerate()
@@ -107,7 +119,7 @@ fn split (feature_index: usize, forward: RankTableSplitter, reverse: RankTableSp
 
     }
 
-    let mut rv_dsp = vec![0.;reverse.length];
+    let mut rv_dsp = vec![0.;reverse.length as usize];
 
     // println!("Done with forward, printing reverse");
 
@@ -130,6 +142,8 @@ fn split (feature_index: usize, forward: RankTableSplitter, reverse: RankTableSp
     }
 
     rv_dsp.reverse();
+
+    println!("Got to reverse!");
 
     let (mut split_index, mut split_dispersion) = (0,std::f64::INFINITY);
 
@@ -157,8 +171,11 @@ fn split (feature_index: usize, forward: RankTableSplitter, reverse: RankTableSp
         }
     }
 
+    let split_sample_index = 0;
 
-    let split_sample_index = draw_order[split_index];
+    if draw_order.len() > 0 {
+        let split_sample_index = draw_order[split_index];
+    }
 
     let output = (split_index,split_sample_index,split_dispersion,draw_order);
 
@@ -166,7 +183,7 @@ fn split (feature_index: usize, forward: RankTableSplitter, reverse: RankTableSp
 
     // println!("Single split time: {}", start_time.to(end_time).num_microseconds().unwrap_or(-1));
     //
-    // println!("Split output: {}",&output.0);
+    println!("Split output: {}",&output.0);
 
     output
 

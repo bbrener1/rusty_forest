@@ -40,10 +40,6 @@ use rank_table::RankTable;
 use rank_vector::RankVector;
 use rank_vector::OrderedDraw;
 use raw_vector::RawVector;
-use online_madm::OnlineMADM;
-use online_madm::slow_vs_fast;
-use online_madm::slow_description;
-use online_madm::slow_description_test;
 
 fn main() {
 

@@ -172,9 +172,9 @@ impl RawVector {
             self.pop(i);
         }
         self.drop = true;
-        eprintln!("Drop set");
-        eprintln!("{:?}", self.drop_set);
-        eprintln!("{:?}", self.vector)
+        // eprintln!("Drop set");
+        // eprintln!("{:?}", self.drop_set);
+        // eprintln!("{:?}", self.vector)
     }
 
     pub fn iter(&self) -> RawVectDropNone {

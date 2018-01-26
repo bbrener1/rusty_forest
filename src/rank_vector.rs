@@ -318,6 +318,12 @@ impl RankVector {
 
     pub fn mad(&self) -> f64 {
         self.median_zone.mad(&self.vector)
+        // let fmad = self.median_zone.mad(&self.vector);
+        // if slow_mad(&self.vector) != fmad {
+        //     println!("{:?}", self);
+        //     panic!("MAD De-sync")
+        // }
+        // fmad
     }
 
     pub fn set_boundaries(&mut self) {
@@ -1024,4 +1030,30 @@ impl ProceduralDraw {
 pub struct ProceduralDraw{
     pub vector: RankVector,
     index: usize,
+}
+
+pub fn slow_mad(input: &RawVector) -> f64 {
+    let values: Vec<f64> = input.drop_skip().map(|x| x.3).collect();
+    let median: f64;
+    if values.len()%2==0 {
+        median = (values[values.len()/2] + values[values.len()/2 - 1]) as f64 / 2.;
+    }
+    else {
+        median = values[(values.len()-1)/2];
+    }
+
+    let mut abs_deviations: Vec<f64> = values.iter().map(|x| (x-median).abs()).collect();
+
+    abs_deviations.sort_by(|a,b| a.partial_cmp(&b).unwrap_or(Ordering::Greater));
+
+    let mad: f64;
+    if abs_deviations.len()%2==0 {
+        mad = (abs_deviations[abs_deviations.len()/2] + abs_deviations[abs_deviations.len()/2 - 1]) as f64 / 2.;
+    }
+    else {
+        mad = abs_deviations[(abs_deviations.len()-1)/2];
+    }
+
+    mad
+
 }

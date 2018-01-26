@@ -74,7 +74,7 @@ impl Node {
 
         let (forward,reverse,draw_order) = self.rank_table.split(feature);
 
-        let mut fw_dsp = vec![0.;forward.length];
+        let mut fw_dsp = vec![0.;forward.length as usize];
 
         for (i,sample) in forward.enumerate() {
 
@@ -93,7 +93,7 @@ impl Node {
 
         }
 
-        let mut rv_dsp = vec![0.;reverse.length];
+        let mut rv_dsp = vec![0.;reverse.length as usize];
 
         // println!("Done with forward, printing reverse");
 
@@ -405,6 +405,7 @@ impl Node {
         report_string.push_str(&format!("Feature weights:{:?}\n",self.feature_weights));
         report_string.push_str(&format!("Samples:{:?}\n",self.internal_report().len()));
         report_string.push_str(&format!("{:?}\n",self.internal_report()));
+        report_string.push_str(&format!("Full:{:?}\n",self.rank_table.full_ordered_values()));
         report_string
     }
 

@@ -116,13 +116,16 @@ impl RankTable {
 
         let mut new_meta_vector: Vec<RankVector> = Vec::with_capacity(indecies.len());
 
-        let new_sample_dictionary: HashMap<String,usize> = indecies.iter().enumerate().map(|x| (self.sample_names[*x.1].clone(),x.0)).collect();
+        let index_set: HashSet<&usize> = indecies.iter().collect();
+
+        let mut new_sample_dictionary: HashMap<String,usize> = HashMap::with_capacity(indecies.len());
 
         let mut new_sample_names: Vec<String> = Vec::with_capacity(indecies.len());
 
-        for sample_name in &self.sample_names {
-            if new_sample_dictionary.contains_key(sample_name) {
+        for (i,sample_name) in self.sample_names.iter().enumerate() {
+            if index_set.contains(&i) {
                 new_sample_names.push(sample_name.clone());
+                new_sample_dictionary.insert(sample_name.clone(),new_sample_names.len()-1);
             }
         }
 
@@ -154,12 +157,14 @@ impl RankTable {
 
         let indecies = rand::seq::sample_iter(&mut rng, 0..self.sample_names.len(), samples).expect("Couldn't generate sample subset");
 
+        let index_set: HashSet<&usize> = indecies.iter().collect();
+
         // println!("Derive debug {},{}", samples, indecies.len());
 
         let mut new_meta_vector: Vec<RankVector> = Vec::with_capacity(features);
 
-        let mut new_sample_dictionary : HashMap<String,usize> = indecies.iter().enumerate().map(|(count,index)| (self.sample_names[*index].clone(),count)).collect();
-        let mut new_sample_names = indecies.iter().map(|index| self.sample_names[*index].clone()).collect();
+        let mut new_sample_names: Vec<String> = self.sample_names.iter().enumerate().filter(|x| index_set.contains(&x.0)).map(|x| x.1).cloned().collect();
+        let mut new_sample_dictionary : HashMap<String,usize> = new_sample_names.iter().enumerate().map(|(count,sample)| (sample.clone(),count)).collect();
 
         let mut new_feature_dictionary = HashMap::with_capacity(features);
         let mut new_feature_names = Vec::with_capacity(features);
@@ -261,7 +266,7 @@ impl RankTableSplitter {
 
         let draw_order = rank_table.sort_by_feature(feature);
 
-        let length = draw_order.len();
+        let length = draw_order.len() as i32;
 
         // println!("Starting new meta-iterator:");
 
@@ -296,7 +301,7 @@ impl Iterator for RankTableSplitter {
 
         // let start_time = time::PreciseTime::now();
 
-        if self.index > self.length - 1 {
+        if self.index as i32 > self.length - 1 {
             return None
         }
 
@@ -324,8 +329,8 @@ impl Iterator for RankTableSplitter {
 #[derive(Clone)]
 pub struct RankTableSplitter {
     table: Vec<ProceduralDraw>,
-    draw_order: Vec<usize>,
+    pub draw_order: Vec<usize>,
     index: usize,
     current_sample: Option<String>,
-    pub length: usize,
+    pub length: i32,
 }
