@@ -89,7 +89,7 @@ fn main() {
     // parallel_tree.grow_branches();
 
     let mut rnd_forest = random_forest::Forest::initialize(count_array, args.tree_limit, args.leaf_size_cutoff,args.processor_limit, feature_names, sample_names, report_address);
-    rnd_forest.generate(args.feature_subsample,args.sample_subsample);
+    rnd_forest.generate(args.feature_subsample,args.sample_subsample,args.input_features,args.output_features);
 
 }
 
@@ -108,6 +108,8 @@ pub struct Arguments {
 
     feature_subsample: usize,
     sample_subsample: usize,
+    input_features: usize,
+    output_features: usize,
 
 }
 
@@ -209,8 +211,10 @@ impl Arguments {
             leaf_size_cutoff: 100,
             drop: true,
 
-            feature_subsample: 400,
+            feature_subsample: 4773,
             sample_subsample: 800,
+            input_features: 400,
+            output_features:4773,
         }
 
     }
