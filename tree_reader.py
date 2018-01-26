@@ -21,6 +21,8 @@ import sys
 
 def read_tree(location,header):
 
+    print location
+
     tree_string = open(location).read()
     tree_nodes = tree_string.split("!ID:")
     # print tree_nodes
@@ -172,6 +174,8 @@ def check_node(node,counts):
     # print mad[:10]
     # print mad.shape
 
+print sys.argv
+
 header = np.load(sys.argv[1])
 
 counts = np.loadtxt(sys.argv[2])
@@ -200,7 +204,7 @@ feature_score.sort(key=lambda x: x[1])
 
 print feature_score
 
-for feature in feature_score[-10:]:
+for feature in feature_score[-20:]:
     print feature[0]
     print occurence_level_dict[feature[0]]
 
