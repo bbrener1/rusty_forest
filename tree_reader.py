@@ -110,7 +110,7 @@ def tree_level_construction(node,node_dictionary,level,occurence_level_dict):
         else:
             occurence_level_dict[node["feature"]] = [level,]
     for child in node["children"]:
-        local_list.append(tree_construction(node_dictionary[child],node_dictionary=node_dictionary,level=level+1))
+        local_list.append(tree_level_construction(node_dictionary[child],node_dictionary,level+1,occurence_level_dict))
     return local_list
 
 
@@ -184,7 +184,7 @@ for tree in sys.argv[3:]:
 
     tree_dict, root = read_tree(tree,header)
 
-    tree_level_construction = (root,tree_dict,0,occurence_level_dict)
+    print tree_level_construction(root,tree_dict,0,occurence_level_dict)
 
     # node_tree = tree_construction(root,tree_dict)
 
@@ -200,7 +200,7 @@ feature_score.sort(key=lambda x: x[1])
 
 print feature_score
 
-for feature in feature_score[:10]:
+for feature in feature_score[-10:]:
     print occurence_level_dict[feature[0]]
 
 # print "GAIN MAP DEBUG"
