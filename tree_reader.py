@@ -98,14 +98,22 @@ def crawl_gains(tree,gain_dictionary,header):
             crawl_gains(branch,gain_dictionary,header)
     return gain_dictionary
 
-def tree_construction(node,node_dictionary):
+def tree_level_construction(node,node_dictionary,level,occurence_level_dict):
     local_list = []
     local_list.append(node["feature"])
+    # if node["feature"] != "None":
+    #     local_list.append(node["split"])
+    local_list.append(level)
     if node["feature"] != "None":
-        local_list.append(node["split"])
+        if node["feature"] in occurence_level_dict:
+            occurence_level_dict[node["feature"]].append(level)
+        else:
+            occurence_level_dict[node["feature"]] = [level,]
     for child in node["children"]:
-        local_list.append(tree_construction(node_dictionary[child],node_dictionary=node_dictionary))
+        local_list.append(tree_construction(node_dictionary[child],node_dictionary=node_dictionary,level=level+1))
     return local_list
+
+def
 
 # def tree_translation(tree,header):
 #     local_list = []
@@ -169,37 +177,51 @@ header = np.load(sys.argv[1])
 
 counts = np.loadtxt(sys.argv[2])
 
-gain_map = {}
+# gain_map = {}
+
+occurence_level_dict = {}
 
 for tree in sys.argv[3:]:
 
     tree_dict, root = read_tree(tree,header)
 
+    tree_level_construction = (root,tree_dict,0,occurence_level_dict)
+
     # node_tree = tree_construction(root,tree_dict)
 
-    full_tree = full_tree_construction(root,tree_dict,counts)
+    # full_tree = full_tree_construction(root,tree_dict,counts)
 
-    crawl_gains(full_tree,gain_map,header)
+    # crawl_gains(full_tree,gain_map,header)
 
+feature_frequency = map(lambda x: (x,len(occurence_level_dict[x])), occurence_level_dict)
 
-print "GAIN MAP DEBUG"
+feature_score = map(lambda x: (x, reduce(lambda y,z: z + (5./float(y)), occurence_level_dict[x])), occurence_level_dict)
 
-print list(gain_map)[:10]
-print gain_map.values()[:10]
+sorted_features = sort(feature_score, key=lambda x: x[1])
 
-gain_freq = np.array(reduce(lambda x,y: x + y , gain_map.values(), []))
+print sorted_features
 
-plt.figure()
-plt.hist(gain_freq,bins=20,log=True)
-plt.savefig("gains.png")
+for feature in sorted_features[:10]:
+    print occurence_level_dict[feature[0]]
 
-match_list = []
-for value in gain_map:
-    for observation in gain_map[value]:
-        if observation > .5:
-            match_list.append(value)
+# print "GAIN MAP DEBUG"
+#
+# print list(gain_map)[:10]
+# print gain_map.values()[:10]
 
-np.savetxt("match_list.txt",np.array(match_list),fmt='%s')
+# gain_freq = np.array(reduce(lambda x,y: x + y , gain_map.values(), []))
+
+# plt.figure()
+# plt.hist(gain_freq,bins=30,log=True)
+# plt.savefig("gains.png")
+#
+# match_list = []
+# for value in gain_map:
+#     for observation in gain_map[value]:
+#         if observation > .5:
+#             match_list.append(value)
+#
+# np.savetxt("match_list.txt",np.array(match_list),fmt='%s')
 
 # for child in node_tree[1:]:
 #     print tree_translation(child,header)
