@@ -60,7 +60,7 @@ def read_tree(location,header):
 def full_tree_construction(node,node_dictionary,counts):
     local_list = []
     local_list.append(node)
-    check_node(node,counts)
+    # check_node(node,counts)
     for child in node["children"]:
         local_list.append(full_tree_construction(node_dictionary[child],node_dictionary,counts))
     return local_list
@@ -99,6 +99,22 @@ def crawl_gains(tree,gain_dictionary,header):
                     gain_dictionary[(split_feature,feature)] = [gain[i],]
             crawl_gains(branch,gain_dictionary,header)
     return gain_dictionary
+
+def crawl_to_leaves(tree):
+    local_list = []
+    if len(tree) > 1:
+        for branch in tree[1:]:
+            local_list.extend(crawl_to_leaves(branch))
+    else:
+        local_list = [tree[0],]
+    return local_list
+
+def absolute_gain_frequency(tree):
+    root = tree[0]
+    leaves = crawl_to_leaves(tree)
+    total_gains = []
+    for leaf in leaves:
+        total_gains.extend(feature_feature_gain(root,leaf))
 
 def tree_level_construction(node,node_dictionary,level,occurence_level_dict):
     local_list = []
@@ -180,21 +196,25 @@ header = np.load(sys.argv[1])
 
 counts = np.loadtxt(sys.argv[2])
 
-# gain_map = {}
+gain_map = {}
 
 occurence_level_dict = {}
+
+absolute_gains = []
 
 for tree in sys.argv[3:]:
 
     tree_dict, root = read_tree(tree,header)
 
-    tree_level_construction(root,tree_dict,1,occurence_level_dict)
+    # tree_level_construction(root,tree_dict,1,occurence_level_dict)
 
     # node_tree = tree_construction(root,tree_dict)
 
-    # full_tree = full_tree_construction(root,tree_dict,counts)
+    full_tree = full_tree_construction(root,tree_dict,counts)
 
-    # crawl_gains(full_tree,gain_map,header)
+    crawl_gains(full_tree,gain_map,header)
+
+    absolute_gains.extend(absolute_gains(full_tree))
 
 feature_frequency = map(lambda x: (x,len(occurence_level_dict[x])), occurence_level_dict)
 
@@ -208,24 +228,21 @@ for feature in feature_score[-20:]:
     print feature[0]
     print occurence_level_dict[feature[0]]
 
-# print "GAIN MAP DEBUG"
-#
-# print list(gain_map)[:10]
-# print gain_map.values()[:10]
+print "GAIN MAP DEBUG"
 
-# gain_freq = np.array(reduce(lambda x,y: x + y , gain_map.values(), []))
+print list(gain_map)[:10]
+print gain_map.values()[:10]
 
-# plt.figure()
-# plt.hist(gain_freq,bins=30,log=True)
-# plt.savefig("gains.png")
-#
-# match_list = []
-# for value in gain_map:
-#     for observation in gain_map[value]:
-#         if observation > .5:
-#             match_list.append(value)
-#
-# np.savetxt("match_list.txt",np.array(match_list),fmt='%s')
+gain_freq = np.array(reduce(lambda x,y: x + y , gain_map.values(), []))
 
-# for child in node_tree[1:]:
-#     print tree_translation(child,header)
+plt.figure()
+plt.hist(gain_freq,bins=30,log=True)
+plt.savefig("gains.png")
+
+match_list = []
+for value in gain_map:
+    for observation in gain_map[value]:
+        if observation > .5:
+            match_list.append(value)
+
+np.savetxt("match_list.txt",np.array(match_list),fmt='%s')
