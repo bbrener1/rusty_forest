@@ -214,7 +214,7 @@ for tree in sys.argv[3:]:
 
     crawl_gains(full_tree,gain_map,header)
 
-    leaf_gains.extend(absolute_gains(full_tree))
+    leaf_gains.extend(absolute_gain_frequency(full_tree))
 
 feature_frequency = map(lambda x: (x,len(occurence_level_dict[x])), occurence_level_dict)
 
