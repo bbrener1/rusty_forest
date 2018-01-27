@@ -115,6 +115,7 @@ def absolute_gain_frequency(tree):
     total_gains = []
     for leaf in leaves:
         total_gains.extend(feature_feature_gain(root,leaf))
+    return total_gains
 
 def tree_level_construction(node,node_dictionary,level,occurence_level_dict):
     local_list = []
