@@ -200,7 +200,7 @@ gain_map = {}
 
 occurence_level_dict = {}
 
-absolute_gains = []
+leaf_gains = []
 
 for tree in sys.argv[3:]:
 
@@ -214,7 +214,7 @@ for tree in sys.argv[3:]:
 
     crawl_gains(full_tree,gain_map,header)
 
-    absolute_gains.extend(absolute_gains(full_tree))
+    leaf_gains.extend(absolute_gains(full_tree))
 
 feature_frequency = map(lambda x: (x,len(occurence_level_dict[x])), occurence_level_dict)
 
@@ -238,6 +238,10 @@ gain_freq = np.array(reduce(lambda x,y: x + y , gain_map.values(), []))
 plt.figure()
 plt.hist(gain_freq,bins=30,log=True)
 plt.savefig("gains.png")
+
+plt.figure()
+plt.hist(leaf_gains,bins=30)
+plt.savefig("leaf_gains.png")
 
 match_list = []
 for value in gain_map:
