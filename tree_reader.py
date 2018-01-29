@@ -223,12 +223,21 @@ def feature_co_occurence(trees,total_features):
     for i,tree in enumerate(trees):
         feature_encoding[i],local_feature_dict = running_named_encoding(tree_feature_list(tree),local_feature_dict,total_features)
 
-    feature_covariance = np.cov(feature_encoding)
+    feature_covariance = np.cov(feature_encoding.T)
 
     print "Feature cooccurence debug:"
     print feature_covariance.shape
 
+    x_coord,y_coord = np.where(feature_covariance > 0)
 
+    list_of_covs = map(lambda z: (x_coord[z],y_coord[z],feature_covariance[x_coord[z],y_coord[z]]), range(len(x_coord)))
+
+    list_of_covs.sort(key=lambda z: z[2],list_of_covs)
+
+    for feature_pair in list_of_covs:
+        print local_feature_dict[feature_pair[0]]
+        print local_feature_dict[feature_pair[1]]
+        print feature_pair[2]
 
 def node_sample_clustering(nodes,total_samples):
 
@@ -338,7 +347,7 @@ print "GAIN MAP DEBUG"
 print list(gain_map)[:10]
 print gain_map.values()[:10]
 
-gain_freq = np.array(reduce(lambda x,y: x + y , gain_map.values(), []))
+gain_freq = np.array(map(lambda z: reduce(lambda x,y: x + y, z) , gain_map.values()))
 
 plt.figure()
 plt.hist(gain_freq,bins=np.arange(-1,1,.05),log=True)
