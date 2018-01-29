@@ -5,8 +5,12 @@ matplotlib.use('agg')
 import matplotlib.pyplot as plt
 import scipy.special
 from scipy.stats import linregress
+from scipy.spatial.distance import jaccard
+from scipy.spatial.distance import pdist
 import re
 
+from sklearn.decomposition import KernelPCA
+from sklearn.manifold import TSNE
 
 import numpy as np
 
@@ -19,7 +23,7 @@ import sys
 
 
 
-def read_tree(location,header):
+def read_nodes(location,header):
 
     print location
 
@@ -86,6 +90,17 @@ def feature_feature_gain(parent,child):
 
     return gains
 
+def feature_feature_gain_tuple(parent,child):
+    parent_covs = feature_cov(parent)
+    child_covs = feature_cov(child)
+
+    gains = []
+
+    for i,pcov in enumerate(parent_covs):
+        gains.append((pcov,child_covs[i]))
+
+    return gains
+
 def crawl_gains(tree,gain_dictionary,header):
     if len(tree) > 1:
         split_feature = tree[0]["feature"]
@@ -117,6 +132,18 @@ def absolute_gain_frequency(tree):
         total_gains.extend(feature_feature_gain(root,leaf))
     return total_gains
 
+def absolute_gain_pairs(tree):
+    root = tree[0]
+    leaves = crawl_to_leaves(tree)
+    cov_root = []
+    cof_leaf = []
+    for leaf in leaves:
+        cov_root.extend(feature_cov(root))
+        cof_leaf.extend(feature_cov(leaf))
+    return cov_root,cof_leaf
+
+
+
 def tree_level_construction(node,node_dictionary,level,occurence_level_dict):
     local_list = []
     local_list.append(node["feature"])
@@ -132,16 +159,28 @@ def tree_level_construction(node,node_dictionary,level,occurence_level_dict):
         local_list.append(tree_level_construction(node_dictionary[child],node_dictionary,level+1,occurence_level_dict))
     return local_list
 
+def tree_feature_list(tree):
+    local_list = []
+    if len(tree) > 1:
+        local_list.append(tree[0]['feature'])
+        for branch in tree[1:]:
+            local_list.extend(tree_feature_list(branch))
+    return local_list
 
-# def tree_translation(tree,header):
-#     local_list = []
-#     if tree[0] != "None":
-#         feature_index = int(tree[0])
-#         local_list.append(header[feature_index])
-#         for branch in tree[2:]:
-#             local_list.append(tree_translation(branch,header))
-#
-#     return local_list
+def tree_translation(tree,header):
+    local_list = []
+    if tree[0]['feature'] != "None":
+        try:
+            local_list.append(header[int(tree[0]['feature'])])
+        except:
+            local_list.append("Error:" + tree[0]['feature'])
+    else:
+        local_list.append("None")
+    if len(tree) > 1:
+        for branch in tree[1:]:
+            local_list.append(tree_translation(branch,header))
+
+    return local_list
 
 def median_absolute_deviation(array, drop=True):
     mad = np.ones(array.shape[1])
@@ -160,6 +199,54 @@ def drop_median(array):
         dm[i]=np.median(feature[feature != 0])
     return dm
 
+def index_binary_encoding(samples, total_samples):
+    encoding = np.zeros(total_samples, dtype=bool)
+    for sample in samples:
+        encoding[sample] = True
+    return encoding
+
+def running_named_encoding(items,item_dictionary,total_items):
+    encoding = np.zeros(total_items,dtype=bool)
+    for item in items:
+        if item in item_dictionary:
+            encoding[item_dictionary[item]] = True
+        else:
+            item_dictionary[item] = len(item_dictionary)
+            encoding[item_dictionary[item]] = True
+    return encoding,item_dictionary
+
+def feature_co_occurence(trees,total_features):
+
+    feature_encoding = np.zeros((len(trees),total_features))
+    local_feature_dict = {}
+
+    for i,tree in enumerate(trees):
+        feature_encoding[i],local_feature_dict = running_named_encoding(tree_feature_list(tree),local_feature_dict,total_features)
+
+    feature_covariance = np.cov(feature_encoding)
+
+    print "Feature cooccurence debug:"
+    print feature_covariance.shape
+
+
+
+def node_sample_clustering(nodes,total_samples):
+
+    node_encoding = np.zeros((len(nodes),total_samples))
+
+    for i,node in enumerate(nodes.values()):
+
+        node_encoding[i] = index_binary_encoding(node['samples'],total_samples)
+
+    pre_computed_distance = pdist(node_encoding,metric='jaccard')
+
+    embedding_model = TSNE(n_components=2,metric='precomputed')
+
+    coordinates = embedding_model.fit_transform(pre_computed_distance)
+
+    return coordinates
+
+
 def name_picker_index(names,shape):
 
     indecies = map(lambda x: int(x),names)
@@ -177,6 +264,8 @@ def check_node(node,counts):
 
     medians = drop_median(subsample)
     mad = median_absolute_deviation(subsample)
+
+
 
     # print node["feature"]
     # print len(node["samples"])
@@ -197,25 +286,38 @@ header = np.load(sys.argv[1])
 
 counts = np.loadtxt(sys.argv[2])
 
+combined_leaves = []
+
 gain_map = {}
 
 occurence_level_dict = {}
 
-leaf_gains = []
+leaf_cov = []
+root_cov = []
 
 for tree in sys.argv[3:]:
 
-    tree_dict, root = read_tree(tree,header)
+    tree_dict, root = read_nodes(tree,header)
 
-    # tree_level_construction(root,tree_dict,1,occurence_level_dict)
+
+    combined_leaves.extend(map(lambda x: x["samples"], tree_dict.values()))
+
+    tree_level_construction(root,tree_dict,1,occurence_level_dict)
 
     # node_tree = tree_construction(root,tree_dict)
 
     full_tree = full_tree_construction(root,tree_dict,counts)
 
+    feature_co_occurence([full_tree,],4773)
+
+
     crawl_gains(full_tree,gain_map,header)
 
-    leaf_gains.extend(absolute_gain_frequency(full_tree))
+    abs_x,abs_y = absolute_gain_pairs(full_tree)
+
+    leaf_cov.extend(abs_x)
+    root_cov.extend(abs_y)
+
 
 feature_frequency = map(lambda x: (x,len(occurence_level_dict[x])), occurence_level_dict)
 
@@ -237,11 +339,15 @@ print gain_map.values()[:10]
 gain_freq = np.array(reduce(lambda x,y: x + y , gain_map.values(), []))
 
 plt.figure()
-plt.hist(gain_freq,bins=30,log=True)
+plt.hist(gain_freq,bins=np.arange(-1,1,.05),log=True)
 plt.savefig("gains.png")
 
-plt.figure()
-plt.hist(leaf_gains,bins=30)
+plt.figure(figsize=(4,4))
+plt.title("Change in Coefficient of Variance Root To Leaf (lower is better)")
+plt.xlabel("Root Feature CoV")
+plt.ylabel("Leaf Feature CoV")
+plt.scatter(root_cov,leaf_cov,s=.1)
+plt.plot([0,1],[0,1])
 plt.savefig("leaf_gains.png")
 
 match_list = []

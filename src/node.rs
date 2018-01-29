@@ -331,8 +331,8 @@ impl Node {
 
         let mut left_child_id = self.id.clone();
         let mut right_child_id = self.id.clone();
-        left_child_id.push_str(&format!(":F{}S{}L",feature,split_value));
-        right_child_id.push_str(&format!(":F{}S{}R",feature,split_value));
+        left_child_id.push_str(&format!(":F!{}S!{}L!",feature,split_value));
+        right_child_id.push_str(&format!(":F!{}S!{}R!",feature,split_value));
 
         let left_child = self.derive(&left_indecies,&left_child_id);
         let right_child = self.derive(&right_indecies,&right_child_id);
