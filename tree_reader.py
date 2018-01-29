@@ -230,14 +230,19 @@ def feature_co_occurence(trees,total_features):
 
     x_coord,y_coord = np.where(feature_covariance > 0)
 
-    list_of_covs = map(lambda z: (x_coord[z],y_coord[z],feature_covariance[x_coord[z],y_coord[z]]), range(len(x_coord)))
+    # list_of_covs = map(lambda z: (x_coord[z],y_coord[z],feature_covariance[x_coord[z],y_coord[z]]), range(len(x_coord)))
+    #
+    # list_of_covs.sort(key=lambda z: z[2])
 
-    list_of_covs.sort(key=lambda z: z[2])
+    list_of_local_covs = []
 
-    for feature_pair in list_of_covs:
-        print local_feature_dict[feature_pair[0]]
-        print local_feature_dict[feature_pair[1]]
-        print feature_pair[2]
+    for feature_1 in local_feature_dict:
+        for feature_2 in local_feature_dict:
+            list_of_local_covs.append(feature_1,feature_2,feature_covariance[local_feature_dict[feature_1],local_feature_dict[feature_2])
+
+    list_of_local_covs.sort(key=lambda z: z[2])
+
+    print list_of_local_covs
 
 def node_sample_clustering(nodes,total_samples):
 
