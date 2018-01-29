@@ -295,6 +295,8 @@ occurence_level_dict = {}
 leaf_cov = []
 root_cov = []
 
+trees = []
+
 for tree in sys.argv[3:]:
 
     tree_dict, root = read_nodes(tree,header)
@@ -308,8 +310,7 @@ for tree in sys.argv[3:]:
 
     full_tree = full_tree_construction(root,tree_dict,counts)
 
-    feature_co_occurence([full_tree,],4773)
-
+    trees.append(full_tree)
 
     crawl_gains(full_tree,gain_map,header)
 
