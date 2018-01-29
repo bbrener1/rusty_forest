@@ -319,6 +319,7 @@ for tree in sys.argv[3:]:
     leaf_cov.extend(abs_x)
     root_cov.extend(abs_y)
 
+feature_co_occurence(trees)
 
 feature_frequency = map(lambda x: (x,len(occurence_level_dict[x])), occurence_level_dict)
 
