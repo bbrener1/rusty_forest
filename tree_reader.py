@@ -240,11 +240,13 @@ def feature_co_occurence(trees,total_features):
         feature_1_ind = local_feature_dict[feature_1]
         for feature_2 in local_feature_dict:
             feature_2_ind = local_feature_dict[feature_2]
+            if feature_1 == feature_2:
+                continue
             list_of_local_covs.append((feature_1,feature_2,feature_covariance[feature_1_ind,feature_2_ind]))
 
     list_of_local_covs.sort(key=lambda z: z[2])
 
-    print list_of_local_covs
+    print list_of_local_covs[-100:]
 
 def node_sample_clustering(nodes,total_samples):
 
