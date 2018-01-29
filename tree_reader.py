@@ -232,7 +232,7 @@ def feature_co_occurence(trees,total_features):
 
     list_of_covs = map(lambda z: (x_coord[z],y_coord[z],feature_covariance[x_coord[z],y_coord[z]]), range(len(x_coord)))
 
-    list_of_covs.sort(key=lambda z: z[2],list_of_covs)
+    list_of_covs.sort(key=lambda z: z[2])
 
     for feature_pair in list_of_covs:
         print local_feature_dict[feature_pair[0]]
