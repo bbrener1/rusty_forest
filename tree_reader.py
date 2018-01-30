@@ -368,9 +368,9 @@ plt.figure(figsize=(4,4))
 plt.title("Change in Coefficient of Variance Root To Leaf (lower is better)")
 plt.xlabel("Root Feature CoV")
 plt.ylabel("Leaf Feature CoV")
-plt.scatter(root_cov,leaf_cov,s=.01)
+plt.scatter(root_cov,leaf_cov,s=.01,alpha=.1)
 plt.plot([0,1],[0,1])
-plt.savefig("leaf_gains.png")
+plt.savefig("leaf_gains.png",dpi=500)
 
 match_list = []
 for value in gain_map:
