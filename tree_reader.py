@@ -252,9 +252,12 @@ def node_sample_clustering(nodes,total_samples):
 
     node_encoding = np.zeros((len(nodes),total_samples))
 
+    node_ids = []
+
     for i,node in enumerate(nodes):
 
         node_encoding[i] = index_binary_encoding(node['samples'],total_samples)
+        node_ids.append(node['id'])
 
     pre_computed_distance = pdist(node_encoding,metric='jaccard')
 
@@ -262,7 +265,7 @@ def node_sample_clustering(nodes,total_samples):
 
     coordinates = embedding_model.fit_transform(scipy.spatial.distance.squareform(pre_computed_distance))
 
-    return coordinates
+    return coordinates, node_ids
 
 
 def name_picker_index(names,shape):
@@ -380,9 +383,14 @@ for value in gain_map:
 
 np.savetxt("match_list.txt",np.array(match_list),fmt='%s')
 
-leaf_embedding = node_sample_clustering(nodes,1656)
+leaf_embedding, leaf_ids = node_sample_clustering(nodes,1656)
 
 plt.figure("Leaf scatter")
 plt.title("Clustering of Tree Nodes (AU, tSNE)")
 plt.scatter(leaf_embedding[:,0],leaf_embedding[:,1],s=.1)
 plt.savefig("leaf_scatter.png")
+
+tsne_match_out = open("node_id_coordinate_match.txt",mode='w')
+for i in range(len(leaf_ids)):
+    tsne_match_out.write(leaf_ids[i] + "\t" + leaf_embedding[i] + "\n")
+tsne_match_out.close()
