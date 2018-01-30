@@ -252,7 +252,7 @@ def node_sample_clustering(nodes,total_samples):
 
     node_encoding = np.zeros((len(nodes),total_samples))
 
-    for i,node in enumerate(nodes.values()):
+    for i,node in enumerate(nodes):
 
         node_encoding[i] = index_binary_encoding(node['samples'],total_samples)
 
@@ -314,11 +314,13 @@ leaf_cov = []
 root_cov = []
 
 trees = []
+nodes = []
 
 for tree in sys.argv[3:]:
 
     tree_dict, root = read_nodes(tree,header)
 
+    nodes.extend(tree_dict.values())
 
     combined_leaves.extend(map(lambda x: x["samples"], tree_dict.values()))
 
@@ -377,3 +379,7 @@ for value in gain_map:
             match_list.append((value[0],value[1],observation))
 
 np.savetxt("match_list.txt",np.array(match_list),fmt='%s')
+
+plt.figure("Leaf scatter"):
+plt.scatter(node_sample_clustering(nodes),s=.1)
+plt.savefig("leaf_scatter.png")
