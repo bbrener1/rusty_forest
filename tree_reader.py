@@ -202,7 +202,7 @@ def drop_median(array):
 def index_binary_encoding(samples, total_samples):
     encoding = np.zeros(total_samples, dtype=bool)
     for sample in samples:
-        encoding[sample] = True
+        encoding[int(sample)] = True
     return encoding
 
 def running_named_encoding(items,item_dictionary,total_items):
@@ -380,6 +380,6 @@ for value in gain_map:
 
 np.savetxt("match_list.txt",np.array(match_list),fmt='%s')
 
-plt.figure("Leaf scatter"):
-plt.scatter(node_sample_clustering(nodes),s=.1)
+plt.figure("Leaf scatter")
+plt.scatter(node_sample_clustering(nodes,1656),s=.1)
 plt.savefig("leaf_scatter.png")
