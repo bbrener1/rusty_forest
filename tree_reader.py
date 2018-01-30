@@ -258,6 +258,8 @@ def node_sample_clustering(nodes,total_samples):
 
     pre_computed_distance = pdist(node_encoding,metric='jaccard')
 
+    print pre_computed_distance.shape
+
     embedding_model = TSNE(n_components=2,metric='precomputed')
 
     coordinates = embedding_model.fit_transform(pre_computed_distance)
