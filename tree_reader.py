@@ -380,6 +380,8 @@ for value in gain_map:
 
 np.savetxt("match_list.txt",np.array(match_list),fmt='%s')
 
+leaf_embedding = node_sample_clustering(nodes,1656)
+
 plt.figure("Leaf scatter")
-plt.scatter(node_sample_clustering(nodes,1656),s=.1)
+plt.scatter(leaf_embedding[:,0],leaf_embedding[:,1],s=.1)
 plt.savefig("leaf_scatter.png")
