@@ -336,8 +336,8 @@ for tree in sys.argv[3:]:
 
     abs_x,abs_y = absolute_gain_pairs(full_tree)
 
-    leaf_cov.extend(abs_x)
-    root_cov.extend(abs_y)
+    root_cov.extend(abs_x)
+    leaf_cov.extend(abs_y)
 
 feature_co_occurence(trees,4773)
 
@@ -368,9 +368,9 @@ plt.figure(figsize=(4,4))
 plt.title("Change in Coefficient of Variance Root To Leaf (lower is better)")
 plt.xlabel("Root Feature CoV")
 plt.ylabel("Leaf Feature CoV")
-plt.scatter(root_cov,leaf_cov,s=.01,alpha=.1)
+plt.scatter(root_cov,leaf_cov,s=.01,alpha=.01)
 plt.plot([0,1],[0,1])
-plt.savefig("leaf_gains.png",dpi=500)
+plt.savefig("leaf_gains.png",dpi=500,bbox_inches='tight')
 
 match_list = []
 for value in gain_map:
@@ -383,5 +383,6 @@ np.savetxt("match_list.txt",np.array(match_list),fmt='%s')
 leaf_embedding = node_sample_clustering(nodes,1656)
 
 plt.figure("Leaf scatter")
+plt.title("Clustering of Tree Nodes (AU, tSNE)")
 plt.scatter(leaf_embedding[:,0],leaf_embedding[:,1],s=.1)
 plt.savefig("leaf_scatter.png")
