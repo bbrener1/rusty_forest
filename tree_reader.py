@@ -374,6 +374,6 @@ match_list = []
 for value in gain_map:
     for observation in gain_map[value]:
         if observation > .3:
-            match_list.append((value,observation))
+            match_list.append((value[0],value[1],observation))
 
 np.savetxt("match_list.txt",np.array(match_list),fmt='%s')
