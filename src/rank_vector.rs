@@ -530,6 +530,24 @@ impl RankVector {
         OrderedDraw::new(self)
     }
 
+    pub fn ordered_mad(mut self,draw_order: &Vec<usize>) -> Vec<(f64,f64)> {
+
+        // let start_time = time::PreciseTime::now();
+
+        let mut meds_mads = Vec::with_capacity(draw_order.len());
+        for draw in draw_order {
+            self.pop(*draw);
+            meds_mads.push((self.median(),self.mad()))
+        }
+
+        // let end_time = time::PreciseTime::now();
+
+        // println!("Time for a single feature mad: {}ns", start_time.to(end_time).num_nanoseconds().unwrap_or(-1));
+
+
+        meds_mads
+    }
+
     pub fn give_draw_order(&self) -> Vec<usize> {
         self.vector.draw_order.clone()
     }
@@ -615,6 +633,7 @@ impl RankVector {
         derived
 
     }
+
 
     pub fn index() {
 

@@ -31,6 +31,7 @@ mod rank_table;
 mod node;
 mod tree;
 mod thread_pool;
+mod feature_thread_pool;
 mod random_forest;
 
 

@@ -25,18 +25,22 @@ use rank_table::RankTable;
 use rank_table::RankTableSplitter;
 use node::Node;
 use thread_pool::ThreadPool;
-
+use feature_thread_pool::FeatureThreadPool;
+use rank_vector::RankVector;
 
 impl Tree {
 
     pub fn plant_tree(counts:&Vec<Vec<f64>>,feature_names:&[String],sample_names:&[String],input_features: Vec<String>,output_features:Vec<String>,size_limit:usize,processor_limit:usize,report_address: String) -> Tree {
-        let pool = ThreadPool::new(processor_limit);
-        let mut root = Node::root(counts,feature_names,sample_names,input_features,output_features,pool.clone());
+        // let pool = ThreadPool::new(processor_limit);
+        let feature_pool = FeatureThreadPool::new(processor_limit);
+        // let mut root = Node::root(counts,feature_names,sample_names,input_features,output_features,pool.clone());
+        let mut root = Node::feature_root(counts,feature_names,sample_names,input_features,output_features,feature_pool.clone());
         let dropout = true;
         let weights = None;
 
         Tree{
-            pool: pool,
+            // pool: pool,
+            feature_pool: feature_pool,
             root: root,
             dropout: dropout,
             weights: weights,
@@ -58,9 +62,9 @@ impl Tree {
     }
 
     pub fn test_parallel_splits(&mut self) {
-        self.root.parallel_derive();
+        self.root.feature_parallel_derive();
         for child in self.root.children.iter_mut() {
-            child.parallel_derive();
+            child.feature_parallel_derive();
         }
     }
 
@@ -80,7 +84,8 @@ impl Tree {
         // println!("Derived from prototype, rank table size: {:?}", new_root.rank_table.dimensions);
 
         Tree{
-            pool: self.pool.clone(),
+            // pool: self.pool.clone(),
+            feature_pool: self.feature_pool.clone(),
             root: new_root,
             dropout: self.dropout,
             weights: self.weights.clone(),
@@ -111,60 +116,12 @@ impl Tree {
         nodes
     }
 
-    // pub fn grow_recursively(&mut self, target: ) {
-    //     if target.upgrade().unwrap().internal_report().len() < self.size_limit {
-    //         target.parallel_derive();
-    //         for child in target.children.iter_mut() {
-    //             self.grow_recursively(child);
-    //         }
-    //     }
-    // }
-    //
-    // pub fn crawl_to_leaves<'a>(&'a mut self, target: &'a mut Node<U,T>) -> Vec<&'a mut Node<U,T>> {
-    //     let mut output = Vec::new();
-    //     if target.children.len() < 1 {
-    //         return vec![target]
-    //     }
-    //     else {
-    //         for child in target.children.iter_mut() {
-    //             output.extend(self.crawl_to_leaves(child));
-    //         }
-    //     };
-    //     output
-    // }
-    //
-    // pub fn crawl_leaves<'a>(&'a mut self, target: &'a mut Node<U,T>) -> Vec<&'a mut Node<U,T>> {
-    //     let mut output = Vec::new();
-    //     if target.children.len() < 1 {
-    //         return vec![target]
-    //     }
-    //     else {
-    //         for child in target.children.iter_mut() {
-    //             output.extend(self.crawl_to_leaves(child));
-    //             output.push(&mut target);
-    //         }
-    //     };
-    //     output
-    // }
-    //
-    // pub fn weigh_leaves(&mut self) {
-    //     let root_dispersions = self.root.dispersions;
-    //     for leaf in self.crawl_leaves(&mut self.root) {
-    //
-    //         let leaf_weights = Vec::with_capacity(root_dispersions.len());
-    //
-    //         for (rv,lv) in leaf.dispersions.iter().zip(root_dispersions.iter()) {
-    //             if *lv != 0. && *rv != 0. {
-    //                 leaf_weights.push(rv)
-    //             }
-    //         }
-    //     }
-    // }
 
 }
 
 pub struct Tree {
-    pool: mpsc::Sender<((usize, (RankTableSplitter,RankTableSplitter,Vec<usize>),Vec<f64>), mpsc::Sender<(usize,usize,f64,Vec<usize>)>)>,
+    // pool: mpsc::Sender<((usize, (RankTableSplitter,RankTableSplitter,Vec<usize>),Vec<f64>), mpsc::Sender<(usize,usize,f64,Vec<usize>)>)>,
+    feature_pool: mpsc::Sender<(((RankVector,Arc<Vec<usize>>),mpsc::Sender<Vec<(f64,f64)>>))>,
     pub root: Node,
     dropout: bool,
     weights: Option<Vec<f64>>,
@@ -179,13 +136,65 @@ pub fn report_node_structure(node:&Node,name:&str) {
 
 pub fn grow_branches(target:&mut Node, size_limit:usize,report_address:&str) {
     if target.internal_report().len() > size_limit {
-        target.parallel_derive();
+        target.feature_parallel_derive();
         for child in target.children.iter_mut() {
             grow_branches(child, size_limit,report_address)
         }
     }
     report_node_structure(target,report_address);
 }
+
+
+// pub fn grow_recursively(&mut self, target: ) {
+//     if target.upgrade().unwrap().internal_report().len() < self.size_limit {
+//         target.parallel_derive();
+//         for child in target.children.iter_mut() {
+//             self.grow_recursively(child);
+//         }
+//     }
+// }
+//
+// pub fn crawl_to_leaves<'a>(&'a mut self, target: &'a mut Node<U,T>) -> Vec<&'a mut Node<U,T>> {
+//     let mut output = Vec::new();
+//     if target.children.len() < 1 {
+//         return vec![target]
+//     }
+//     else {
+//         for child in target.children.iter_mut() {
+//             output.extend(self.crawl_to_leaves(child));
+//         }
+//     };
+//     output
+// }
+//
+// pub fn crawl_leaves<'a>(&'a mut self, target: &'a mut Node<U,T>) -> Vec<&'a mut Node<U,T>> {
+//     let mut output = Vec::new();
+//     if target.children.len() < 1 {
+//         return vec![target]
+//     }
+//     else {
+//         for child in target.children.iter_mut() {
+//             output.extend(self.crawl_to_leaves(child));
+//             output.push(&mut target);
+//         }
+//     };
+//     output
+// }
+//
+// pub fn weigh_leaves(&mut self) {
+//     let root_dispersions = self.root.dispersions;
+//     for leaf in self.crawl_leaves(&mut self.root) {
+//
+//         let leaf_weights = Vec::with_capacity(root_dispersions.len());
+//
+//         for (rv,lv) in leaf.dispersions.iter().zip(root_dispersions.iter()) {
+//             if *lv != 0. && *rv != 0. {
+//                 leaf_weights.push(rv)
+//             }
+//         }
+//     }
+// }
+
 
 // impl<'a, U:Clone + std::cmp::Eq + std::hash::Hash + Debug,T:Clone + std::cmp::Eq + std::hash::Hash + Debug> LeafCrawler<'a, U, T> {
 //

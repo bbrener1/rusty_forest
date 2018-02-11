@@ -7,6 +7,8 @@ use std::collections::HashSet;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use time;
+use std::sync::Arc;
+
 
 extern crate rand;
 use rand::Rng;
@@ -150,6 +152,18 @@ impl RankTable {
         }
     }
 
+    pub fn individual_splitters(&self, feature:&str) -> (Vec<ProceduralDraw>,Arc<Vec<usize>>) {
+        let mut splitters = Vec::with_capacity(self.meta_vector.len());
+        for vector in self.meta_vector.iter() {
+            splitters.push(vector.clone().consumed_draw());
+        }
+        let draw_order = Arc::new(self.sort_by_feature(feature));
+        (splitters, draw_order)
+    }
+
+    pub fn cloned_features(&self) -> Vec<RankVector> {
+        self.meta_vector.clone()
+    }
 
     pub fn derive_from_prototype(&self, features:usize,samples:usize) -> RankTable {
 
