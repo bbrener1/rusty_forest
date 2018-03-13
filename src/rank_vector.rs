@@ -248,7 +248,12 @@ impl RankVector {
                 self.median_zone.dead_center.right = Some((0,0,0,0.,0));
                 self.median_zone.left = Some(target);
                 self.median_zone.right = Some(target);
-                return (0,0,0,0.,0)
+                if self.vector.len() == 1 {
+                    return self.vector.pop(target)
+                }
+                else {
+                    return (0,0,0,0.,0)
+                }
             }
             if self.median_zone.left.unwrap() == target {
                 self.median_zone.left = self.vector.right_ind(target);
@@ -556,13 +561,34 @@ impl RankVector {
         self.vector.dropped_draw_order()
     }
 
-    pub fn between(&self, begin:usize,end:usize) -> usize {
+    pub fn between_original(&self, begin:usize,end:usize) -> usize {
+        let mut number = 0;
+        if self.drop && (self.vector.drop_set.contains(&begin) || self.vector.drop_set.contains(&end) || (self.vector[begin].3 <= 0. && self.vector[end].3 >= 0.)) {
+            if self.vector[end].3 > 0. {
+                number = self.vector.crawl_left(end).enumerate().find(|x| (x.1).1 < 0).unwrap_or((1,&(0,0,0,0.,0))).0 + 1;
+            }
+            else if self.vector[begin].3 < 0. {
+                number = self.vector.crawl_right(begin).enumerate().find(|x| (x.1).1 > 0).unwrap_or((1,&(0,0,0,0.,0))).0 + 1;
+            }
+        }
+        else {
+            number = self.vector[end].2 - self.vector[begin].2;
+        }
+        number
+    }
+
+    pub fn crawl_between(&self, begin:usize,end:usize) -> usize {
         for (count,sample) in self.vector.crawl_right(begin).enumerate() {
             if sample.1 == end {
                 return count
             }
         }
         return 0
+    }
+
+    pub fn log_odds(&self, begin:usize,end:usize) -> f64 {
+        let interval = self.between_original(begin,end) as f64;
+        (interval / (self.vector.len() as f64 - interval)).log10()
     }
 
     pub fn draw_values(&self) -> Vec<f64> {
@@ -642,7 +668,7 @@ impl RankVector {
 
 }
 
-#[derive(Debug,Clone)]
+#[derive(Serialize,Deserialize,Debug,Clone)]
 pub struct RankVector {
     pub vector: RawVector,
 
@@ -752,7 +778,7 @@ impl MedianZone {
 
 }
 
-#[derive(Debug,Clone)]
+#[derive(Serialize,Deserialize,Debug,Clone)]
 pub struct MedianZone{
     pub size: usize,
     dead_center: DeadCenter,
@@ -868,7 +894,7 @@ impl DeadCenter {
 
 }
 
-#[derive(Debug,Clone)]
+#[derive(Serialize,Deserialize,Debug,Clone)]
 pub struct DeadCenter {
     left: Option<(usize,usize,usize,f64,usize)>,
     right: Option<(usize,usize,usize,f64,usize)>
@@ -914,7 +940,7 @@ impl LeftZone {
     }
 }
 
-#[derive(Debug,Clone)]
+#[derive(Serialize,Deserialize,Debug,Clone)]
 pub struct LeftZone{
     pub size: usize,
     // left: Option<(usize,usize,usize,f64,usize)>,
@@ -960,7 +986,7 @@ impl RightZone {
     }
 }
 
-#[derive(Debug,Clone)]
+#[derive(Serialize,Deserialize,Debug,Clone)]
 pub struct RightZone {
     pub size: usize,
     left: Option<usize>,
@@ -1051,28 +1077,134 @@ pub struct ProceduralDraw{
     index: usize,
 }
 
-pub fn slow_mad(input: &RawVector) -> f64 {
-    let values: Vec<f64> = input.drop_skip().map(|x| x.3).collect();
-    let median: f64;
-    if values.len()%2==0 {
-        median = (values[values.len()/2] + values[values.len()/2 - 1]) as f64 / 2.;
-    }
-    else {
-        median = values[(values.len()-1)/2];
+
+
+#[cfg(test)]
+mod rank_vector_tests {
+
+    use super::*;
+
+    fn slow_median(input: &RawVector) -> f64 {
+        let values: Vec<f64> = input.left_to_right().map(|x| x.3).collect();
+        let median: f64;
+        if values.len() < 1 {
+            return 0.
+        }
+        if values.len()%2==0 {
+            median = (values[values.len()/2] + values[values.len()/2 - 1]) as f64 / 2.;
+        }
+        else {
+            median = values[(values.len()-1)/2];
+        }
+
+        median
+
     }
 
-    let mut abs_deviations: Vec<f64> = values.iter().map(|x| (x-median).abs()).collect();
+    fn slow_mad(input: &RawVector) -> f64 {
+        let values: Vec<f64> = input.left_to_right().map(|x| x.3).collect();
+        let median: f64;
+        if values.len() < 1 {
+            return 0.
+        }
+        if values.len()%2==0 {
+            median = (values[values.len()/2] + values[values.len()/2 - 1]) as f64 / 2.;
+        }
+        else {
+            median = values[(values.len()-1)/2];
+        }
 
-    abs_deviations.sort_by(|a,b| a.partial_cmp(&b).unwrap_or(Ordering::Greater));
+        let mut abs_deviations: Vec<f64> = values.iter().map(|x| (x-median).abs()).collect();
 
-    let mad: f64;
-    if abs_deviations.len()%2==0 {
-        mad = (abs_deviations[abs_deviations.len()/2] + abs_deviations[abs_deviations.len()/2 - 1]) as f64 / 2.;
+        abs_deviations.sort_by(|a,b| a.partial_cmp(&b).unwrap_or(Ordering::Greater));
+
+        let mad: f64;
+        if abs_deviations.len()%2==0 {
+            mad = (abs_deviations[abs_deviations.len()/2] + abs_deviations[abs_deviations.len()/2 - 1]) as f64 / 2.;
+        }
+        else {
+            mad = abs_deviations[(abs_deviations.len()-1)/2];
+        }
+
+        mad
+
     }
-    else {
-        mad = abs_deviations[(abs_deviations.len()-1)/2];
+
+    #[test]
+    fn create_trivial() {
+        let mut vector = RankVector::new(&vec![],"".to_string());
+        vector.drop_zeroes();
+        vector.initialize();
+        vector.set_boundaries();
     }
 
-    mad
+    #[test]
+    fn create_very_simple_drop() {
+        let mut vector = RankVector::new(&vec![0.],"test".to_string());
+        vector.drop_zeroes();
+    }
+
+    #[test]
+    fn create_very_simple_initialize() {
+        let mut vector = RankVector::new(&vec![0.],"test".to_string());
+        vector.drop_zeroes();
+        vector.initialize();
+        vector.set_boundaries();
+    }
+
+    #[test]
+    fn create_simple() {
+        let mut vector = RankVector::new(&vec![10.,-3.,0.,5.,-2.,-1.,15.,20.],"test".to_string());
+        vector.drop_zeroes();
+        vector.initialize();
+        vector.set_boundaries();
+        assert_eq!(vector.draw_values(),vec![-3.,-2.,-1.,0.,5.,10.,15.,20.]);
+        assert_eq!(vector.vector.drop_skip().map(|x| x.3.clone()).collect::<Vec<f64>>(),vec![-3.,-2.,-1.,5.,10.,15.,20.])
+    }
+
+    #[test]
+    fn create_repetitive() {
+        let mut vector = RankVector::new(&vec![0.,0.,0.,-5.,-5.,-5.,10.,10.,10.,10.,10.],"test".to_string());
+        vector.drop_zeroes();
+        vector.initialize();
+        vector.set_boundaries();
+        assert_eq!(vector.draw_values(),vec![-5.,-5.,-5.,0.,0.,0.,10.,10.,10.,10.,10.]);
+        assert_eq!(vector.vector.drop_skip().map(|x| x.3.clone()).collect::<Vec<f64>>(),vec![-5.,-5.,-5.,10.,10.,10.,10.,10.])
+    }
+
+    #[test]
+    fn sequential_mad_simple() {
+        let mut vector = RankVector::new(&vec![10.,-3.,0.,5.,-2.,-1.,15.,20.],"test".to_string());
+        vector.drop_zeroes();
+        vector.initialize();
+        vector.set_boundaries();
+
+        let mut vm = vector.clone();
+
+
+        for draw in vector.draw_order {
+            println!("{:?}",vm.vector.left_to_right().cloned().collect::<Vec<(usize,usize,usize,f64,usize)>>());
+            println!("Median:{},{}",vm.median(),slow_median(&vm.vector));
+            println!("MAD:{},{}",vm.mad(),slow_mad(&vm.vector));
+            println!("{:?}",vm.pop(draw));
+            println!("{:?}",vm.vector.left_to_right().cloned().collect::<Vec<(usize,usize,usize,f64,usize)>>());
+            println!("Median:{},{}",vm.median(),slow_median(&vm.vector));
+            println!("MAD:{},{}",vm.mad(),slow_mad(&vm.vector));
+            assert_eq!(vm.median(),slow_median(&vm.vector));
+            assert_eq!(vm.mad(),slow_mad(&vm.vector));
+        }
+
+    }
+
+    // #[test]
+    // fn odds_ratio() {
+    //     let mut vector = RankVector::new(&vec![10.,-3.,0.,5.,-2.,-1.,15.,20.],"test".to_string());
+    //     vector.drop_zeroes();
+    //     vector.initialize();
+    //     vector.set_boundaries();
+    //
+    // }
+
+
 
 }

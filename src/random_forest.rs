@@ -1,13 +1,21 @@
+use std::fs::File;
+use std::io;
+use std::io::BufRead;
+use std::collections::HashMap;
 
 use tree::Tree;
+use node::Node;
 
 extern crate rand;
 use rand::Rng;
 use rand::seq;
 
+use PredictionMode;
+use TreeBackups;
+use feature_thread_pool::FeatureThreadPool;
 
 impl Forest {
-    pub fn initialize(counts:Vec<Vec<f64>>,trees:usize,leaf_size:usize,processor_limit:usize, feature_option: Option<Vec<String>>, sample_option: Option<Vec<String>>, report_address:&str) -> Forest {
+    pub fn initialize(counts:&Vec<Vec<f64>>,trees:usize,leaf_size:usize,processor_limit:usize, feature_option: Option<Vec<String>>, sample_option: Option<Vec<String>>, report_address:&str) -> Forest {
 
         let dimensions = (counts.len(),counts.first().unwrap_or(&Vec::with_capacity(0)).len());
 
@@ -31,14 +39,81 @@ impl Forest {
     }
 
     pub fn generate(&mut self, features_per_tree:usize, samples_per_tree:usize,input_features:usize,output_features:usize) {
-        for tree in 0..self.size {
+        self.prototype_tree.clone().serialize();
+        for tree in 1..self.size+1 {
             let mut new_tree = self.prototype_tree.derive_from_prototype(features_per_tree,samples_per_tree,input_features,output_features,tree);
             println!("{:?}", new_tree.report_address);
             new_tree.grow_branches();
+            new_tree.serialize();
             // self.trees.push(new_tree);
         }
     }
 
+    pub fn reconstitute(tree_locations: TreeBackups, feature_option: Option<Vec<String>>,sample_option:Option<Vec<String>>,processor_option: Option<usize>,report_address:&str) -> Forest {
+
+        let mut trees: Vec<Tree> = Vec::with_capacity(0);
+
+        let feature_pool = FeatureThreadPool::new(processor_option.unwrap_or(1));
+
+        match tree_locations {
+            TreeBackups::File(location) => {
+                let tree_file = File::open(location).expect("Count file error!");
+                let mut tree_locations: Vec<String> = io::BufReader::new(&tree_file).lines().map(|x| x.expect("Tree location error!")).collect();
+                trees = Vec::with_capacity(tree_locations.len());
+                for loc in tree_locations {
+                    trees.push(Tree::reload(&loc,feature_pool.clone(),1,"".to_string()));
+                }
+            }
+            TreeBackups::Vector(tree_locations) => {
+                trees = Vec::with_capacity(tree_locations.len());
+                for loc in tree_locations {
+                    trees.push(Tree::reload(&loc,feature_pool.clone(),1,"".to_string()));
+                }
+            }
+            TreeBackups::Trees(backup_trees) => {
+                trees = backup_trees;
+            }
+        }
+
+        let prototype_tree = trees.remove(0);
+
+        let dimensions = (prototype_tree.root().features().len(),prototype_tree.root().samples().len());
+
+        let feature_names = feature_option.unwrap_or((0..dimensions.0).map(|x| x.to_string()).collect());
+
+        let sample_names = sample_option.unwrap_or((0..dimensions.1).map(|x| x.to_string()).collect());
+
+        let report_string = format!("{}.0",report_address).to_string();
+
+
+        Forest {
+            feature_names: feature_names,
+            sample_names: sample_names,
+            size: trees.len(),
+            prototype_tree: trees.remove(0),
+            trees: trees,
+            counts: Vec::new(),
+            dropout: true
+        }
+    }
+
+    pub fn trees(&self) -> &Vec<Tree> {
+        &self.trees
+    }
+
+    pub fn dimensions(&self) -> (usize,usize) {
+        self.prototype_tree.dimensions()
+    }
+
+    pub fn feature_map(&self) -> HashMap<String,usize> {
+        self.feature_names.clone().into_iter().enumerate().map(|x| (x.1,x.0)).collect()
+    }
+
+}
+
+pub enum SampleMode {
+    Map(Vec<HashMap<String,f64>>),
+    VectorHeader(Vec<Vec<f64>>,HashMap<String,usize>),
 }
 
 pub struct Forest {

@@ -23,15 +23,17 @@ impl RawVector {
             // eprintln!("{}", i);
 
             if i == 0 {
-                vector.push((sample.0,sample.0,i,*sample.1,sorted_invec[i+1].0));
+                vector.push((sample.0,sample.0,i,*sample.1,sample.0));
                 draw_order.push(sample.0);
             }
-            if i == (sorted_invec.len() - 1) {
+            else if i == (sorted_invec.len() - 1) {
+                vector[i-1].4 = sample.0;
                 vector.push((sorted_invec[i-1].0,sample.0,i,*sample.1,sample.0));
                 draw_order.push(sample.0);
             }
             if {i != 0} && {i < (sorted_invec.len()-1)} {
-                vector.push((sorted_invec[i-1].0,sample.0,i,*sample.1,sorted_invec[i+1].0));
+                vector[i-1].4 = sample.0;
+                vector.push((sorted_invec[i-1].0,sample.0,i,*sample.1,sample.0));
                 draw_order.push(sample.0);
             }
         }
@@ -336,7 +338,7 @@ impl Index<usize> for RawVector {
 ////////////////////////
 // Iterator based on a set draw order from the raw vector
 
-#[derive(Debug,Clone)]
+#[derive(Serialize,Deserialize,Debug,Clone)]
 pub struct RawVector {
     pub vector: Vec<(usize,usize,usize,f64,usize)>,
     pub first: Option<usize>,
@@ -480,22 +482,18 @@ impl<'a> Iterator for RightVectCrawler<'a> {
 
     fn next(&mut self) -> Option<&'a (usize,usize,usize,f64,usize)> {
 
-        let index: usize;
-        if self.index.is_some(){
-            index = self.index.unwrap();
+        if let Some(index) = self.index {
+            if self.vector[index].1 == self.vector[index].4 {
+                self.index = None;
+                return Some(& self.vector[index])
+            }
+            let current = & self.vector[index];
+            self.index = Some(current.4);
+            return Some(& current)
         }
         else{
             return None
         }
-
-        if self.vector[index].1 == self.vector[index].4 {
-            self.index = None;
-            return Some(& self.vector[index])
-        }
-        let current = & self.vector[index];
-        self.index = Some(current.4);
-        Some(& current)
-
     }
 }
 
@@ -521,21 +519,18 @@ impl<'a> Iterator for LeftVectCrawler<'a> {
 
     fn next(&mut self) -> Option<&'a (usize,usize,usize,f64,usize)> {
 
-        let index: usize;
-        if self.index.is_some(){
-            index = self.index.unwrap();
+        if let Some(index) = self.index {
+            if self.vector[index].1 == self.vector[index].0 {
+                self.index = None;
+                return Some(& self.vector[index])
+            }
+            let current = & self.vector[index];
+            self.index = Some(current.0);
+            return Some(& current)
         }
         else{
             return None
         }
-
-        if self.vector[index].1 == self.vector[index].0 {
-            self.index = None;
-            return Some(& self.vector[index])
-        }
-        let current = & self.vector[index];
-        self.index = Some(current.0);
-        Some(& current)
 
     }
 }
@@ -545,6 +540,38 @@ pub struct LeftVectCrawler<'a> {
     index: Option<usize>
 }
 
+#[cfg(test)]
+mod raw_vector_tests {
+
+    use super::*;
+
+    #[test]
+    fn create_trivial() {
+        let mut vector = RawVector::raw_vector(&vec![]);
+    }
+
+    #[test]
+    fn create_very_simple() {
+        let mut vector = RawVector::raw_vector(&vec![0.]);
+    }
+
+    #[test]
+    fn create_simple() {
+        let mut vector = RawVector::raw_vector(&vec![10.,-3.,0.,5.,-2.,-1.,15.,20.]);
+        println!("{:?}",vector.left_to_right().cloned().collect::<Vec<(usize,usize,usize,f64,usize)>>());
+        assert_eq!(vector.left_to_right().cloned().map(|x| x.3).collect::<Vec<f64>>(), vec![-3.,-2.,-1.,0.,5.,10.,15.,20.])
+    }
+
+    #[test]
+    fn create_repetitive() {
+        let mut vector = RawVector::raw_vector(&vec![0.,0.,0.,10.,-5.,-5.,-5.,10.,10.,10.,10.]);
+        println!("{:?}",vector.left_to_right().cloned().collect::<Vec<(usize,usize,usize,f64,usize)>>());
+        assert_eq!(vector.left_to_right().cloned().map(|x| x.3).collect::<Vec<f64>>(), vec![-5.,-5.,-5.,0.,0.,0.,10.,10.,10.,10.,10.,])
+    }
+
+
+
+}
 
 
 // impl<'a> Iterator for GenericIter<'a> {

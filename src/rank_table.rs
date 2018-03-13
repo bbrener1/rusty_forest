@@ -42,13 +42,22 @@ impl RankTable {
             meta_vector.push(construct);
         }
 
-        let draw_order = (0..counts[0].len()).collect::<Vec<usize>>();
+        let draw_order = (0..counts.get(0).unwrap_or(&vec![]).len()).collect::<Vec<usize>>();
 
-        let dim = (meta_vector.len(),meta_vector[0].vector.vector.len());
+        let dim = (meta_vector.len(),meta_vector.get(0).unwrap_or(&RankVector::new(&vec![],"".to_string())).vector.vector.len());
 
         println!("Made rank table with {} features, {} samples:", dim.0,dim.1);
 
-        RankTable{meta_vector:meta_vector,feature_names:feature_names.iter().cloned().collect(),sample_names:sample_names.iter().cloned().collect(),draw_order:draw_order,index:0,dimensions:dim, feature_dictionary: feature_dictionary, sample_dictionary: sample_dictionary}
+        RankTable {
+            meta_vector:meta_vector,
+            feature_names:feature_names.iter().cloned().collect(),
+            sample_names:sample_names.iter().cloned().collect(),
+            draw_order:draw_order,
+            index:0,
+            dimensions:dim,
+            feature_dictionary: feature_dictionary,
+            sample_dictionary: sample_dictionary
+        }
 
     }
 
@@ -81,6 +90,10 @@ impl RankTable {
         self.meta_vector[self.feature_dictionary[feature]].vector[index].3
     }
 
+    pub fn features(&self) -> &Vec<String> {
+        &self.feature_names
+    }
+
     pub fn sample_name(&self, index:usize) -> String {
         self.sample_names[index].clone()
     }
@@ -94,7 +107,7 @@ impl RankTable {
     }
 
     pub fn between(&self, feature: &str,begin:&str,end:&str) -> usize {
-        self.meta_vector[self.feature_dictionary[feature]].between(self.sample_dictionary[begin],self.sample_dictionary[end])
+        self.meta_vector[self.feature_dictionary[feature]].crawl_between(self.sample_dictionary[begin],self.sample_dictionary[end])
     }
 
     pub fn full_values(&self) -> Vec<Vec<f64>> {
@@ -212,7 +225,7 @@ impl RankTable {
 }
 
 
-#[derive(Debug,Clone)]
+#[derive(Serialize,Deserialize,Debug,Clone)]
 pub struct RankTable {
     meta_vector: Vec<RankVector>,
     pub feature_names: Vec<String>,
@@ -347,4 +360,36 @@ pub struct RankTableSplitter {
     index: usize,
     current_sample: Option<String>,
     pub length: i32,
+}
+
+
+#[cfg(test)]
+mod rank_table_tests {
+
+    use super::*;
+
+    #[test]
+    fn rank_table_general_test() {
+        let table = RankTable::new(&vec![vec![1.,2.,3.],vec![4.,5.,6.],vec![7.,8.,9.]], &vec!["one".to_string(),"two".to_string(),"three".to_string()], &vec!["0".to_string(),"1".to_string(),"2".to_string()]);
+        assert_eq!(table.medians(),vec![2.,5.,8.]);
+        assert_eq!(table.dispersions(),vec![1.,1.,1.]);
+        assert_eq!(table.feature_index("one"),0);
+    }
+
+    #[test]
+    fn rank_table_trivial_test() {
+        let table = RankTable::new(&Vec::new(), &Vec::new(), &Vec::new());
+        let empty: Vec<f64> = Vec::new();
+        assert_eq!(table.medians(),empty);
+        assert_eq!(table.dispersions(),empty);
+    }
+
+    #[test]
+    pub fn rank_table_simple_test() {
+        let table = RankTable::new(&vec![vec![10.,-3.,0.,5.,-2.,-1.,15.,20.]], &vec!["one".to_string()], &(0..8).map(|x| x.to_string()).collect::<Vec<String>>()[..]);
+        let draw_order = table.sort_by_feature("one");
+        let mad_order = table.meta_vector[table.feature_index("one")].clone().ordered_mad(&draw_order);
+        assert_eq!(mad_order, vec![(7.5,8.),(10.,5.),(12.5,5.),(15.,5.),(17.5,2.5),(20.,0.),(0.,0.)]);
+    }
+
 }

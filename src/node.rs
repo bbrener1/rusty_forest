@@ -1,3 +1,4 @@
+
 use std;
 use std::cell::Cell;
 use std::sync::Arc;
@@ -11,6 +12,7 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::thread;
 use std::sync::mpsc;
+use serde_json;
 
 extern crate rand;
 use rand::Rng;
@@ -69,6 +71,8 @@ impl Node {
 
         let dispersions = rank_table.dispersions();
 
+        let local_gains = vec![0.;dispersions.len()];
+
         let new_node = Node {
             feature_pool: feature_pool,
 
@@ -88,6 +92,8 @@ impl Node {
             medians: medians,
             feature_weights: feature_weights,
             dispersions: dispersions,
+            local_gains: Some(local_gains),
+            absolute_gains: None
         };
 
         new_node
@@ -212,15 +218,6 @@ impl Node {
 
         println!("Derived children!");
 
-    }
-
-
-    pub fn between(&self, feature:&str, begin:&str, end:&str) -> usize {
-        self.rank_table.between(feature,begin,end)
-    }
-
-    pub fn samples(&self) -> Vec<String> {
-        self.rank_table.sample_names.clone()
     }
 
     pub fn split(&self, feature: &str) -> (String,usize,String,usize,f64,f64,Vec<usize>) {
@@ -361,6 +358,11 @@ impl Node {
             let dispersions = new_rank_table.dispersions();
             let feature_weights = vec![1.;new_rank_table.dimensions.0];
 
+            let mut local_gains = Vec::with_capacity(dispersions.len());
+
+            for ((nd,nm),(od,om)) in dispersions.iter().zip(medians.iter()).zip(self.dispersions.iter().zip(self.medians.iter())) {
+                local_gains.push((od/om)/(nd/nm));
+            }
 
             let child = Node {
                 // pool: self.pool.clone(),
@@ -382,6 +384,8 @@ impl Node {
                 medians: medians,
                 feature_weights: feature_weights,
                 dispersions: dispersions,
+                local_gains: Some(local_gains),
+                absolute_gains: None
             };
 
 
@@ -422,6 +426,8 @@ impl Node {
             medians: medians,
             feature_weights: feature_weights,
             dispersions: dispersions,
+            local_gains: None,
+            absolute_gains: None
         };
 
 
@@ -471,6 +477,21 @@ impl Node {
 
     }
 
+    pub fn id(&self) -> &str {
+        &self.id
+    }
+
+    pub fn summary(&self) -> String {
+        let mut report_string = "".to_string();
+        if self.children.len() > 1 {
+            report_string.push_str(&format!("!ID:{}\n",self.id));
+            report_string.push_str(&format!("F:{}\n",self.feature.clone().unwrap_or("".to_string())));
+            report_string.push_str(&format!("S:{}\n",self.split.unwrap_or(0.)));
+        }
+
+        report_string
+    }
+
     pub fn data_dump(&self) -> String {
         let mut report_string = String::new();
         report_string.push_str(&format!("!ID:{}\n",self.id));
@@ -503,6 +524,66 @@ impl Node {
         self.feature_weights = weights;
     }
 
+    pub fn wrap_consume(self) -> NodeWrapper {
+
+        let mut children: Vec<NodeWrapper> = Vec::with_capacity(self.children.len());
+
+        for child in self.children {
+            children.push(child.wrap_consume())
+        }
+
+        NodeWrapper {
+            rank_table: self.rank_table,
+            dropout: self.dropout,
+
+            parent_id: self.parent_id,
+            id: self.id,
+            children: children,
+
+            feature: self.feature,
+            split: self.split,
+
+            output_features: self.output_features,
+            input_features: self.input_features,
+
+            medians: self.medians,
+            feature_weights: self.feature_weights,
+            dispersions: self.dispersions,
+            local_gains: self.local_gains,
+            absolute_gains: self.absolute_gains
+
+        }
+
+    }
+
+    pub fn between(&self, feature:&str, begin:&str, end:&str) -> usize {
+        self.rank_table.between(feature,begin,end)
+    }
+
+    pub fn samples(&self) -> Vec<String> {
+        self.rank_table.sample_names.clone()
+    }
+
+    pub fn features(&self) -> &Vec<String> {
+        self.rank_table.features()
+    }
+
+    pub fn medians(&self) -> &Vec<f64> {
+        &self.medians
+    }
+
+    pub fn mads(&self) -> &Vec<f64> {
+        &self.dispersions
+    }
+
+    pub fn dimensions(&self) -> (usize,usize) {
+        self.rank_table.dimensions
+    }
+
+    pub fn wrap_clone(&self) -> NodeWrapper {
+        self.clone().wrap_consume()
+    }
+
 }
 
 #[derive(Clone)]
@@ -512,23 +593,87 @@ pub struct Node {
     feature_pool: mpsc::Sender<(((RankVector,Arc<Vec<usize>>),mpsc::Sender<Vec<(f64,f64)>>))>,
 
     pub rank_table: RankTable,
-    dropout: bool,
+    pub dropout: bool,
 
     pub parent_id: String,
     pub id: String,
     pub children: Vec<Node>,
 
-    feature: Option<String>,
-    split: Option<f64>,
+    pub feature: Option<String>,
+    pub split: Option<f64>,
 
     pub output_features: Vec<String>,
     pub input_features: Vec<String>,
 
-    medians: Vec<f64>,
+    pub medians: Vec<f64>,
     pub feature_weights: Vec<f64>,
     pub dispersions: Vec<f64>,
+    pub local_gains: Option<Vec<f64>>,
+    pub absolute_gains: Option<Vec<f64>>
 }
 
+impl NodeWrapper {
+    pub fn to_string(self) -> String {
+        serde_json::to_string(&self).unwrap()
+    }
+
+    pub fn unwrap(self,feature_pool: mpsc::Sender<(((RankVector,Arc<Vec<usize>>),mpsc::Sender<Vec<(f64,f64)>>))>) -> Node {
+        let mut children: Vec<Node> = Vec::with_capacity(self.children.len());
+        for child in self.children {
+            children.push(child.unwrap(feature_pool.clone()));
+        }
+
+        Node {
+
+            feature_pool: feature_pool,
+
+            rank_table: self.rank_table,
+            dropout: self.dropout,
+
+            parent_id: self.parent_id,
+            id: self.id,
+            children: children,
+
+            feature: self.feature,
+            split: self.split,
+
+            output_features: self.output_features,
+            input_features: self.input_features,
+
+            medians: self.medians,
+            feature_weights: self.feature_weights,
+            dispersions: self.dispersions,
+            local_gains: self.local_gains,
+            absolute_gains: self.absolute_gains
+        }
+
+    }
+
+}
+
+#[derive(Serialize,Deserialize)]
+pub struct NodeWrapper {
+
+    pub rank_table: RankTable,
+    pub dropout: bool,
+
+    pub parent_id: String,
+    pub id: String,
+    pub children: Vec<NodeWrapper>,
+
+    pub feature: Option<String>,
+    pub split: Option<f64>,
+
+    pub output_features: Vec<String>,
+    pub input_features: Vec<String>,
+
+    pub medians: Vec<f64>,
+    pub feature_weights: Vec<f64>,
+    pub dispersions: Vec<f64>,
+    pub local_gains: Option<Vec<f64>>,
+    pub absolute_gains: Option<Vec<f64>>
+
+}
 
 
 pub fn mad_minimum(forward:Vec<Vec<f64>>,reverse: Vec<Vec<f64>>,feature_weights: &mut Vec<f64>, exclusion: usize) -> (usize,f64) {
@@ -571,7 +716,21 @@ pub fn mad_minimum(forward:Vec<Vec<f64>>,reverse: Vec<Vec<f64>>,feature_weights:
 
 }
 
+#[cfg(test)]
+mod node_testing {
 
+    use super::*;
+
+    fn node_test_simple() {
+        let mut root = Node::feature_root(&vec![vec![10.,-3.,0.,5.,-2.,-1.,15.,20.]], &vec!["one".to_string()], &(0..8).map(|x| x.to_string()).collect::<Vec<String>>()[..], vec!["one".to_string()], vec!["one".to_string()], FeatureThreadPool::new(1));
+
+        root.derive_children();
+
+        assert_eq!(root.children[0].samples(),vec!["1".to_string(),"4".to_string(),"5".to_string()]);
+        assert_eq!(root.children[1].samples(),vec!["0".to_string(),"3".to_string(),"6".to_string(),"7".to_string()]);
+    }
+
+}
 
 // pub fn generate_weak<T>(target:T) -> (T,Weak<T>) {
 //     let arc_t = Arc::new(target);
