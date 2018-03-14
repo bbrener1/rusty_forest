@@ -12,11 +12,8 @@ use serde_json;
 extern crate rand;
 
 
-use rank_table::RankTable;
-use rank_table::RankTableSplitter;
 use node::Node;
 use node::NodeWrapper;
-use thread_pool::ThreadPool;
 use feature_thread_pool::FeatureThreadPool;
 use rank_vector::RankVector;
 

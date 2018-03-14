@@ -9,11 +9,7 @@ use std::sync::mpsc::Sender;
 use std::thread;
 
 extern crate rand;
-use rand::Rng;
-
-use rank_table::RankTable;
 use rank_table::RankTableSplitter;
-use node::Node;
 
 
 impl ThreadPool{

@@ -32,10 +32,6 @@ mod random_forest;
 mod predictor;
 
 use tree::Tree;
-use rank_table::RankTable;
-use rank_vector::RankVector;
-use rank_vector::OrderedDraw;
-use raw_vector::RawVector;
 use random_forest::Forest;
 
 fn main() {
