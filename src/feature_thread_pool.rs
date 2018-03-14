@@ -12,7 +12,6 @@ use std::thread;
 extern crate rand;
 
 use rank_vector::RankVector;
-use node::Node;
 
 
 impl FeatureThreadPool{

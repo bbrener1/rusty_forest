@@ -1,36 +1,12 @@
-use std;
-use std::cell::Cell;
-use std::sync::Arc;
-use std::sync::Weak;
-use std::fs::File;
-use std::io::Write;
-use std::io::Read;
-use std::io;
-use std::marker::PhantomData;
 use std::cmp::PartialOrd;
 use std::cmp::Ordering;
-use std::cmp::max;
-use std::collections::HashSet;
-use std::collections::HashMap;
-use std::fmt::Debug;
-use std::thread;
-use std::sync::mpsc;
-use random_forest::SampleMode;
 use PredictionMode;
-
+use std::collections::HashMap;
 
 extern crate rand;
-use rand::Rng;
-use rand::seq;
 
 
-use rank_table::RankTable;
-use rank_table::RankTableSplitter;
 use node::Node;
-use node::NodeWrapper;
-use thread_pool::ThreadPool;
-use feature_thread_pool::FeatureThreadPool;
-use rank_vector::RankVector;
 use tree::Tree;
 
 pub fn predict(trees: &Vec<Tree>, counts: &Vec<Vec<f64>>, features: &HashMap<String,usize>, prediction_mode: &PredictionMode) -> Vec<Vec<f64>> {
