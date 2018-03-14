@@ -7,13 +7,9 @@ use std::sync::mpsc;
 use std::fs::OpenOptions;
 use std::iter::repeat;
 use serde_json;
-use random_forest::SampleMode;
-use PredictionMode;
 
 
 extern crate rand;
-use rand::Rng;
-use rand::seq;
 
 
 use rank_table::RankTable;

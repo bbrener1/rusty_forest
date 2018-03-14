@@ -1,20 +1,10 @@
 
 use std;
-use std::cell::Cell;
 use std::sync::Arc;
-use std::sync::Weak;
-use std::marker::PhantomData;
-use std::cmp::PartialOrd;
-use std::cmp::Ordering;
-use std::cmp::max;
-use std::collections::HashSet;
-use std::collections::HashMap;
-use std::fmt::Debug;
 use std::sync::mpsc;
 use std::sync::Mutex;
 use std::sync::mpsc::Receiver;
 use std::sync::mpsc::Sender;
-use time;
 
 use std::thread;
 

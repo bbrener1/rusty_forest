@@ -4,7 +4,6 @@ use std::cmp::Ordering;
 use std::collections::HashSet;
 
 extern crate rand;
-use rand::Rng;
 
 use raw_vector::RawVector;
 use raw_vector::LeftVectCrawler;
