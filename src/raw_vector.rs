@@ -1,13 +1,9 @@
-use std;
-use std::marker::PhantomData;
 use std::cmp::PartialOrd;
 use std::cmp::Ordering;
 use std::collections::HashSet;
 use std::collections::HashMap;
 use std::ops::Index;
 
-extern crate rand;
-use rand::Rng;
 
 impl RawVector {
     pub fn raw_vector(in_vec:&Vec<f64>) -> RawVector {
