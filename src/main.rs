@@ -31,7 +31,6 @@ mod feature_thread_pool;
 mod random_forest;
 mod predictor;
 
-use node::Node;
 use tree::Tree;
 use rank_table::RankTable;
 use rank_vector::RankVector;
@@ -105,7 +104,7 @@ pub fn construct(args: ConstructionArguments) {
 
     println!("Reading data");
 
-    let mut count_array: Vec<Vec<f64>> = read_counts(args.count_array_file.clone());
+    let mut count_array: Vec<Vec<f64>> = read_counts(&args.count_array_file);
 
     let report_address = &args.report_address;
 
@@ -115,7 +114,7 @@ pub fn construct(args: ConstructionArguments) {
 
 
     let mut rnd_forest = random_forest::Forest::initialize(&count_array, args.tree_limit, args.leaf_size_cutoff,args.processor_limit, feature_names, sample_names, report_address);
-    rnd_forest.generate(args.feature_subsample,args.sample_subsample,args.input_features,args.output_features);
+    rnd_forest.generate(args.feature_subsample,args.sample_subsample,args.input_features,args.output_features,false);
 
 }
 
@@ -264,7 +263,7 @@ pub fn predict(args:PredictionArguments) {
         tree_backups = TreeBackups::File(args.backups);
     }
 
-    let counts = read_counts(args.count_array_file);
+    let counts = read_counts(&args.count_array_file);
 
     let dimensions = (counts.get(0).unwrap_or(&vec![]).len(),counts.len());
 
@@ -445,7 +444,7 @@ pub fn combined(args:CombinedArguments) {
 
     println!("Reading data");
 
-    let mut count_array: Vec<Vec<f64>> = read_counts(args.count_array_file.clone());
+    let mut count_array: Vec<Vec<f64>> = read_counts(&args.count_array_file);
 
     let report_address = &args.report_address;
 
@@ -455,7 +454,7 @@ pub fn combined(args:CombinedArguments) {
 
 
     let mut rnd_forest = random_forest::Forest::initialize(&count_array, args.tree_limit, args.leaf_size_cutoff,args.processor_limit, feature_names, sample_names, report_address);
-    rnd_forest.generate(args.feature_subsample,args.sample_subsample,args.input_features,args.output_features);
+    rnd_forest.generate(args.feature_subsample,args.sample_subsample,args.input_features,args.output_features,false);
 
     let dimensions = rnd_forest.dimensions();
 
@@ -617,7 +616,7 @@ pub struct CombinedArguments {
 
 // fn parse_args(arguments: env::Args) -> Arguments
 
-fn read_counts(location:String) -> Vec<Vec<f64>> {
+fn read_counts(location:&str) -> Vec<Vec<f64>> {
 
     let count_array_file = File::open(location).expect("Count file error!");
     let mut count_array_lines = io::BufReader::new(&count_array_file).lines();
@@ -880,12 +879,12 @@ pub mod primary_testing {
 
     #[test]
     fn test_read_counts_trivial() {
-        assert_eq!(read_counts("./testing/trivial.txt".to_string()),Vec::<Vec<f64>>::with_capacity(0))
+        assert_eq!(read_counts("./testing/trivial.txt"),Vec::<Vec<f64>>::with_capacity(0))
     }
 
     #[test]
     fn test_read_counts_simple() {
-        assert_eq!(read_counts("./testing/simple.txt".to_string()), vec![vec![10.,5.,-1.,0.,-2.,10.,-3.,20.]])
+        assert_eq!(read_counts("./testing/simple.txt"), vec![vec![10.,5.,-1.,0.,-2.,10.,-3.,20.]])
     }
 
     #[test]

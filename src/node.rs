@@ -361,7 +361,16 @@ impl Node {
             let mut local_gains = Vec::with_capacity(dispersions.len());
 
             for ((nd,nm),(od,om)) in dispersions.iter().zip(medians.iter()).zip(self.dispersions.iter().zip(self.medians.iter())) {
-                local_gains.push((od/om)/(nd/nm));
+                let mut old_cov = od/om;
+                if !old_cov.is_normal() {
+                    old_cov = 0.;
+                }
+                let mut new_cov = nd/nm;
+                if !new_cov.is_normal() {
+                    new_cov = 0.;
+                }
+                local_gains.push(old_cov-new_cov)
+                // local_gains.push((od/om)/(nd/nm));
             }
 
             let child = Node {
@@ -507,6 +516,8 @@ impl Node {
         report_string.push_str(&format!("{:?}\n",self.output_features));
         report_string.push_str(&format!("Medians:{:?}\n",self.medians));
         report_string.push_str(&format!("Dispersions:{:?}\n",self.dispersions));
+        report_string.push_str(&format!("Local gains:{:?}\n",self.local_gains));
+        report_string.push_str(&format!("Absolute gains:{:?}\n",self.absolute_gains));
         report_string.push_str(&format!("Feature weights:{:?}\n",self.feature_weights));
         report_string.push_str(&format!("Samples:{:?}\n",self.internal_report().len()));
         report_string.push_str(&format!("{:?}\n",self.internal_report()));
@@ -526,9 +537,11 @@ impl Node {
 
     pub fn wrap_consume(self) -> NodeWrapper {
 
+        // let mut children: Vec<String> = Vec::with_capacity(self.children.len());
         let mut children: Vec<NodeWrapper> = Vec::with_capacity(self.children.len());
 
         for child in self.children {
+            // children.push(child.wrap_consume().to_string())
             children.push(child.wrap_consume())
         }
 
@@ -620,8 +633,17 @@ impl NodeWrapper {
     pub fn unwrap(self,feature_pool: mpsc::Sender<(((RankVector,Arc<Vec<usize>>),mpsc::Sender<Vec<(f64,f64)>>))>) -> Node {
         let mut children: Vec<Node> = Vec::with_capacity(self.children.len());
         for child in self.children {
+            // println!("#######################################\n");
+            // println!("#######################################\n");
+            // println!("#######################################\n");
+            // println!("Unwrapping child:");
+            // println!("{}", child);
+            // children.push(serde_json::from_str::<NodeWrapper>(&child).unwrap().unwrap(feature_pool.clone()));
+            // println!("Unwrapped child");
             children.push(child.unwrap(feature_pool.clone()));
         }
+
+        println!("Recursive unwrap finished!");
 
         Node {
 
@@ -659,6 +681,7 @@ pub struct NodeWrapper {
 
     pub parent_id: String,
     pub id: String,
+    // pub children: Vec<String>,
     pub children: Vec<NodeWrapper>,
 
     pub feature: Option<String>,
@@ -679,7 +702,7 @@ pub struct NodeWrapper {
 pub fn mad_minimum(forward:Vec<Vec<f64>>,reverse: Vec<Vec<f64>>,feature_weights: &mut Vec<f64>, exclusion: usize) -> (usize,f64) {
 
     let x = forward.len();
-    let y = forward[0].len();
+    let y = forward.get(0).unwrap_or(&vec![]).len();
 
     // feature_weights[exclusion] = 0.;
 
@@ -708,6 +731,9 @@ pub fn mad_minimum(forward:Vec<Vec<f64>>,reverse: Vec<Vec<f64>>,feature_weights:
     }
     else if truncated.len() > 3 {
         truncated = truncated[1..truncated.len()-1].to_vec();
+    }
+    else if truncated.len() > 1 {
+        truncated = truncated[1..].to_vec();
     }
 
     // println!("{:?}", truncated.iter().min_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Greater)).unwrap_or(&(0,0.)));

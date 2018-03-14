@@ -1,19 +1,8 @@
-use std;
-use std::cell::Cell;
 use std::sync::Arc;
-use std::sync::Weak;
 use std::fs::File;
 use std::io::Write;
 use std::io::Read;
-use std::io;
-use std::marker::PhantomData;
-use std::cmp::PartialOrd;
-use std::cmp::Ordering;
-use std::cmp::max;
-use std::collections::HashSet;
-use std::collections::HashMap;
-use std::fmt::Debug;
-use std::thread;
+
 use std::sync::mpsc;
 use std::fs::OpenOptions;
 use std::iter::repeat;
@@ -59,6 +48,7 @@ impl<'a> Tree {
     pub fn serialize(self) {
 
         self.report_summary();
+        self.dump_data();
 
         println!("Serializing to:");
         println!("{}",self.report_address);
@@ -70,13 +60,21 @@ impl<'a> Tree {
 
     pub fn reload(location: &str,feature_pool: mpsc::Sender<(((RankVector,Arc<Vec<usize>>),mpsc::Sender<Vec<(f64,f64)>>))>, size_limit: usize , report_address: String) -> Tree {
 
+        println!("Reloading!");
+
         let mut json_file = File::open(location).expect("Deserialization error!");
         let mut json_string = String::new();
         json_file.read_to_string(&mut json_string);
 
+        println!("{}",json_string);
+
         let root_wrapper: NodeWrapper = serde_json::from_str(&json_string).unwrap();
 
+        println!("Deserialized root wrapper");
+
         let root = root_wrapper.unwrap(feature_pool.clone());
+
+        println!("Finished recursive unwrapping and obtained a Node tree");
 
         Tree {
             feature_pool: feature_pool,
@@ -200,7 +198,9 @@ pub struct Tree {
 
 pub fn report_node_structure(target:&Node,name:&str) {
     let mut tree_dump = OpenOptions::new().create(true).append(true).open(&name).unwrap();
-    tree_dump.write(target.data_dump().as_bytes());
+    for node in crawl_nodes(target) {
+        tree_dump.write(node.data_dump().as_bytes());
+    }
 }
 
 
@@ -270,6 +270,11 @@ pub fn crawl_absolute_gains<'a>(target:&'a mut Node,in_dispersions:Option<&'a Ve
     }
 
 }
+
+// #[cfg(test)]
+// mod tree_tests {
+//     fn test_reconstitution()
+// }
 
 // pub fn test_splits(&mut self) {
 //     self.root.derive_children();

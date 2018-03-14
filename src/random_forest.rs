@@ -38,14 +38,16 @@ impl Forest {
         }
     }
 
-    pub fn generate(&mut self, features_per_tree:usize, samples_per_tree:usize,input_features:usize,output_features:usize) {
+    pub fn generate(&mut self, features_per_tree:usize, samples_per_tree:usize,input_features:usize,output_features:usize, remember: bool) {
         self.prototype_tree.clone().serialize();
         for tree in 1..self.size+1 {
             let mut new_tree = self.prototype_tree.derive_from_prototype(features_per_tree,samples_per_tree,input_features,output_features,tree);
             println!("{:?}", new_tree.report_address);
             new_tree.grow_branches();
-            new_tree.serialize();
-            // self.trees.push(new_tree);
+            new_tree.clone().serialize();
+            if remember {
+                self.trees.push(new_tree);
+            }
         }
     }
 
@@ -77,20 +79,20 @@ impl Forest {
 
         let prototype_tree = trees.remove(0);
 
-        let dimensions = (prototype_tree.root().features().len(),prototype_tree.root().samples().len());
+        let dimensions = (prototype_tree.dimensions());
 
         let feature_names = feature_option.unwrap_or((0..dimensions.0).map(|x| x.to_string()).collect());
 
         let sample_names = sample_option.unwrap_or((0..dimensions.1).map(|x| x.to_string()).collect());
 
-        let report_string = format!("{}.0",report_address).to_string();
+        let report_string = format!("{}.reconstituted.0",report_address).to_string();
 
 
         Forest {
             feature_names: feature_names,
             sample_names: sample_names,
             size: trees.len(),
-            prototype_tree: trees.remove(0),
+            prototype_tree: prototype_tree,
             trees: trees,
             counts: Vec::new(),
             dropout: true
@@ -149,4 +151,87 @@ fn split_shuffle<T>(source_vector: Vec<T>, pieces: usize) -> Vec<Vec<T>> {
     }
 
     vector_pieces
+}
+
+#[cfg(test)]
+mod random_forest_tests {
+
+    use super::*;
+    use super::super::{read_counts,read_header};
+    use std::fs::remove_file;
+
+    #[test]
+    fn test_forest_initialization_trivial() {
+        Forest::initialize(&vec![], 0, 1, 1, None, None, "./testing/test_trees");
+    }
+
+    #[test]
+    fn test_forest_initialization_simple() {
+        let counts = vec![vec![10.,-3.,0.,5.,-2.,-1.,15.,20.]];
+        Forest::initialize(&counts, 1, 1, 1, Some(vec!["one".to_string()]), None, "./testing/test_trees");
+    }
+
+    #[test]
+    fn test_forest_initialization_iris() {
+        let counts = read_counts("./testing/iris.drop");
+        let features = read_header("./testing/iris.features");
+        Forest::initialize(&counts, 1, 10, 1, Some(features), None, "./testing/err");
+    }
+
+    #[test]
+    fn test_forest_reconstitution_simple() {
+        let new_forest = Forest::reconstitute(TreeBackups::Vector(vec!["./testing/precomputed_trees/simple.0".to_string(),"./testing/precomputed_trees/simple.1".to_string()]), None, None, Some(1), "./testing/");
+
+
+        let reconstituted_features: Vec<String> = new_forest.trees()[0].crawl_nodes().iter().map(|x| x.feature.clone()).filter(|x| x.is_some()).map(|x| x.unwrap()).collect();
+        let correct_features: Vec<String> = vec!["0","0","0","0","0","0"].iter().map(|x| x.to_string()).collect();
+        assert_eq!(reconstituted_features,correct_features);
+
+
+        let correct_splits: Vec<f64> = vec![-1.,-2.,20.,10.,10.,5.];
+        let reconstituted_splits: Vec<f64> = new_forest.trees()[0].crawl_nodes().iter().map(|x| x.split.clone()).filter(|x| x.is_some()).map(|x| x.unwrap()).collect();
+        assert_eq!(reconstituted_splits,correct_splits);
+    }
+
+
+    #[test]
+    fn test_forest_reconstitution() {
+        let new_forest = Forest::reconstitute(TreeBackups::Vector(vec!["./testing/precomputed_trees/iris.0".to_string(),"./testing/precomputed_trees/iris.1".to_string()]), None, None, Some(1), "./testing/");
+
+
+        let reconstituted_features: Vec<String> = new_forest.trees()[0].crawl_nodes().iter().map(|x| x.feature.clone()).filter(|x| x.is_some()).map(|x| x.unwrap()).collect();
+        let correct_features: Vec<String> = vec!["sepal_length","petal_length","sepal_width","sepal_width","sepal_length","sepal_width","sepal_width","sepal_width","sepal_width","sepal_width"].iter().map(|x| x.to_string()).collect();
+        assert_eq!(reconstituted_features,correct_features);
+
+
+        let correct_splits: Vec<f64> = vec![1.5,5.7,1.2,1.1,4.9,1.8,1.4,2.2,1.8,1.];
+        let reconstituted_splits: Vec<f64> = new_forest.trees()[0].crawl_nodes().iter().map(|x| x.split.clone()).filter(|x| x.is_some()).map(|x| x.unwrap()).collect();
+    }
+
+    #[test]
+    fn test_forest_generation() {
+        let counts = read_counts("./testing/iris.drop");
+        let features = read_header("./testing/iris.features");
+
+        let mut new_forest = Forest::initialize(&counts, 1, 10, 1, Some(features), None, "./testing/tmp_test");
+        new_forest.generate(4, 150, 4, 4, true);
+
+
+        let computed_features: Vec<String> = new_forest.trees[0].crawl_nodes().iter().map(|x| x.feature.clone()).filter(|x| x.is_some()).map(|x| x.unwrap()).collect();
+        let correct_features: Vec<String> = vec!["sepal_length","petal_length","sepal_width","sepal_width","sepal_length","sepal_width","sepal_width","sepal_width","sepal_width","sepal_width"].iter().map(|x| x.to_string()).collect();
+        assert_eq!(computed_features,correct_features);
+
+
+        let computed_splits: Vec<f64> = new_forest.trees()[0].crawl_nodes().iter().map(|x| x.split.clone()).filter(|x| x.is_some()).map(|x| x.unwrap()).collect();
+        let correct_splits: Vec<f64> = vec![1.5,5.7,1.2,1.1,4.9,1.8,1.4,2.2,1.8,1.];
+        assert_eq!(computed_splits,correct_splits);
+
+
+        remove_file("./testing/tmp_test.0");
+        remove_file("./testing/tmp_test.0.summary");
+        remove_file("./testing/tmp_test.0.dump");
+        remove_file("./testing/tmp_test.1");
+        remove_file("./testing/tmp_test.1.summary");
+        remove_file("./testing/tmp_test.1.dump");
+    }
 }
