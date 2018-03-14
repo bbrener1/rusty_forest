@@ -113,7 +113,7 @@ impl RankVector {
 
         // println!("Initializing!");
 
-        let mut dead_center = DeadCenter::center(&self.vector);
+        let dead_center = DeadCenter::center(&self.vector);
 
         let mut leftward: LeftVectCrawler;
         let mut rightward: RightVectCrawler;
@@ -128,13 +128,10 @@ impl RankVector {
             rightward = RightVectCrawler::empty(&self.vector.vector);
         }
 
-        let mut left_option = leftward.next();
-        let mut right_option = rightward.next();
-
-        let median = dead_center.median();
+        let left_option = leftward.next();
+        let right_option = rightward.next();
 
         let mut left_zone = 0;
-        let mut median_zone = 0;
         let mut right_zone = 0;
 
         let mut left_set: HashSet<usize> = HashSet::with_capacity(self.vector.vector.len()/2);
@@ -148,13 +145,11 @@ impl RankVector {
         if let (Some(left),Some(right)) = (left_option,right_option) {
             if left == right {
                 middle_set.insert(left.1);
-                median_zone = 1;
                 median_object = MedianZone{ size:1 ,dead_center:dead_center,left:Some(left.1),right:Some(right.1), index_set: middle_set};
             }
             else {
                 middle_set.insert(left.1);
                 middle_set.insert(right.1);
-                median_zone = 2;
                 median_object = MedianZone{ size:2 ,dead_center:dead_center,left:Some(left.1),right:Some(right.1), index_set: middle_set};
             }
 
@@ -473,7 +468,7 @@ impl RankVector {
         }
 
         if self.vector.len() == 1 {
-            if let Some(output) = self.median_zone.contract_left(&self.vector) {
+            if let Some(_output) = self.median_zone.contract_left(&self.vector) {
                 self.median_zone.left = None;
                 self.median_zone.right = None;
                 self.median_zone.dead_center.left = None;
@@ -602,22 +597,10 @@ impl RankVector {
     // pub fn derive(&self, indecies:Vec<usize>,) -> RankVector<U,T> {
     pub fn derive(&self, indecies:&[usize],) -> RankVector {
 
-        let derived_set: HashSet<usize> = indecies.iter().cloned().collect();
-
         let vector = self.vector.derive(indecies);
-
-        // let mut new_sample_names: Vec<T> = Vec::new();
-        //
-        // for (i,name) in self.sample_names.iter().cloned().enumerate() {
-        //     if derived_set.contains(&i) {
-        //         new_sample_names.push(name);
-        //     }
-        // }
 
         let empty_backup = RawVector::raw_vector(&Vec::new());
 
-        let left_boundary = 0;
-        let right_boundary = 0;
         let length = vector.len();
 
         let zones = RankVector::empty_zones();

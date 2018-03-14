@@ -105,8 +105,6 @@ impl Node {
             panic!("Tried to split with no input features");
         };
 
-        let mut feature_receivers: Vec<mpsc::Receiver<Vec<(f64,f64)>>> = Vec::with_capacity(self.input_features.len());
-
         let mut minima = Vec::with_capacity(self.input_features.len());
 
         for input_feature in &self.input_features {
@@ -118,21 +116,11 @@ impl Node {
                 continue
             }
 
-            // let mut forward_covs = Vec::with_capacity(forward_draw.len());
-            // let mut reverse_covs = Vec::with_capacity(reverse_draw.len());
             let mut forward_covs: Vec<Vec<f64>> = vec![vec![0.;self.rank_table.dimensions.0];forward_draw.len()];
             let mut reverse_covs: Vec<Vec<f64>> = vec![vec![0.;self.rank_table.dimensions.0];reverse_draw.len()];
 
-            // let forward_covs: Vec<Vec<f64>> = Vec::with_capacity(self.rank_table.dimensions.1);
-            // let reverse_covs: Vec<Vec<f64>> = Vec::with_capacity(self.rank_table.dimensions.1);
-
             let mut forward_receivers = Vec::with_capacity(self.rank_table.dimensions.0);
             let mut reverse_receivers = Vec::with_capacity(self.rank_table.dimensions.0);
-
-            // println!("{:?}", forward_covs);
-
-            // println!("{:?}", input_feature);
-            // println!("{:?}", forward_draw.len());
 
             for (feature_index,feature) in self.rank_table.cloned_features().into_iter().enumerate() {
 
@@ -145,9 +133,6 @@ impl Node {
                 reverse_receivers.push(rx);
 
             }
-
-            // println!("{:?}", forward_covs);
-            // println!("{:?}", self.rank_table.dimensions);
 
             for (i,(fr,rr)) in forward_receivers.iter().zip(reverse_receivers.iter()).enumerate() {
                 for (j,(m,d)) in fr.recv().unwrap().into_iter().enumerate() {
@@ -197,7 +182,7 @@ impl Node {
     }
 
     pub fn feature_parallel_derive(&mut self) {
-        let (feature,dispersion,split_value, left_indecies,right_indecies) = self.feature_parallel_best_split();
+        let (feature,_dispersion,split_value, left_indecies,right_indecies) = self.feature_parallel_best_split();
 
         let mut left_child_id = self.id.clone();
         let mut right_child_id = self.id.clone();
@@ -446,7 +431,7 @@ impl Node {
 
     pub fn derive_children(&mut self) {
 
-            let (feature,dispersion,split_value, left_indecies,right_indecies) = self.best_split();
+            let (feature,_dispersion,split_value, left_indecies,right_indecies) = self.best_split();
 
             let mut left_child_id = self.id.clone();
             let mut right_child_id = self.id.clone();

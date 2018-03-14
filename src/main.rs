@@ -104,7 +104,7 @@ pub fn construct(args: ConstructionArguments) {
 
     println!("Reading data");
 
-    let mut count_array: Vec<Vec<f64>> = read_counts(&args.count_array_file);
+    let count_array: Vec<Vec<f64>> = read_counts(&args.count_array_file);
 
     let report_address = &args.report_address;
 
@@ -444,7 +444,7 @@ pub fn combined(args:CombinedArguments) {
 
     println!("Reading data");
 
-    let mut count_array: Vec<Vec<f64>> = read_counts(&args.count_array_file);
+    let count_array: Vec<Vec<f64>> = read_counts(&args.count_array_file);
 
     let report_address = &args.report_address;
 

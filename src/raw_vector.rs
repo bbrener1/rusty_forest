@@ -297,7 +297,7 @@ impl RawVector {
 
         let last = new_index;
 
-        let mut new_drop_set = HashSet::new();
+        let new_drop_set = HashSet::new();
 
         // if self.drop {
         //     new_drop_set = derived_set.intersection(&self.drop_set).cloned().collect();
@@ -439,7 +439,7 @@ impl<'a> Iterator for RawVectDropNone<'a> {
 
     fn next(&mut self) -> Option<(usize,usize,usize,Option<f64>,usize)> {
 
-        let mut result = self.draw.next();
+        let result = self.draw.next();
 
         if result.is_none() {
             return None

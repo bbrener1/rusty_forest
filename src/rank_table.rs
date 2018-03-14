@@ -25,7 +25,7 @@ impl RankTable {
 
         let mut feature_dictionary: HashMap<String,usize> = HashMap::with_capacity(feature_names.len());
 
-        let mut sample_dictionary: HashMap<String,usize> = sample_names.iter().cloned().enumerate().map(|x| (x.1,x.0)).collect();
+        let sample_dictionary: HashMap<String,usize> = sample_names.iter().cloned().enumerate().map(|x| (x.1,x.0)).collect();
 
         for (i,(name,loc_counts)) in feature_names.iter().cloned().zip(counts.iter()).enumerate() {
             if i%200 == 0 {
@@ -190,8 +190,8 @@ impl RankTable {
 
         let mut new_meta_vector: Vec<RankVector> = Vec::with_capacity(features);
 
-        let mut new_sample_names: Vec<String> = self.sample_names.iter().enumerate().filter(|x| index_set.contains(&x.0)).map(|x| x.1).cloned().collect();
-        let mut new_sample_dictionary : HashMap<String,usize> = new_sample_names.iter().enumerate().map(|(count,sample)| (sample.clone(),count)).collect();
+        let new_sample_names: Vec<String> = self.sample_names.iter().enumerate().filter(|x| index_set.contains(&x.0)).map(|x| x.1).cloned().collect();
+        let new_sample_dictionary : HashMap<String,usize> = new_sample_names.iter().enumerate().map(|(count,sample)| (sample.clone(),count)).collect();
 
         let mut new_feature_dictionary = HashMap::with_capacity(features);
         let mut new_feature_names = Vec::with_capacity(features);
@@ -309,7 +309,7 @@ impl RankTableSplitter {
     }
 
     pub fn split(rank_table: & RankTable, feature:&str) -> (RankTableSplitter,RankTableSplitter,Vec<usize>) {
-        let mut forward_splitter = RankTableSplitter::new(rank_table,feature);
+        let forward_splitter = RankTableSplitter::new(rank_table,feature);
         let draw_order = forward_splitter.draw_order.clone();
         let mut reverse_splitter = forward_splitter.clone();
         reverse_splitter.draw_order.reverse();

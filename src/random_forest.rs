@@ -53,7 +53,7 @@ impl Forest {
 
     pub fn reconstitute(tree_locations: TreeBackups, feature_option: Option<Vec<String>>,sample_option:Option<Vec<String>>,processor_option: Option<usize>,report_address:&str) -> Forest {
 
-        let mut trees: Vec<Tree> = Vec::with_capacity(0);
+        let mut trees: Vec<Tree>;
 
         let feature_pool = FeatureThreadPool::new(processor_option.unwrap_or(1));
 

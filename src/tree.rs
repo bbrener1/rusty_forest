@@ -30,7 +30,7 @@ impl<'a> Tree {
         // let pool = ThreadPool::new(processor_limit);
         let feature_pool = FeatureThreadPool::new(processor_limit);
         // let mut root = Node::root(counts,feature_names,sample_names,input_features,output_features,pool.clone());
-        let mut root = Node::feature_root(counts,feature_names,sample_names,input_features,output_features,feature_pool.clone());
+        let root = Node::feature_root(counts,feature_names,sample_names,input_features,output_features,feature_pool.clone());
         let dropout = true;
         let weights = None;
 
@@ -246,8 +246,8 @@ pub fn grow_branches(target:&mut Node, size_limit:usize,report_address:&str,leve
 
 pub fn crawl_absolute_gains<'a>(target:&'a mut Node,in_dispersions:Option<&'a Vec<f64>>,in_medians:Option<&'a Vec<f64>>) {
 
-    let mut root_dispersions = in_dispersions;
-    let mut root_medians = in_medians;
+    let root_dispersions = in_dispersions;
+    let root_medians = in_medians;
 
     if root_dispersions.is_none() {
         let root_dispersions = Some(&target.dispersions);

@@ -1,4 +1,3 @@
-#![recursion_limit="128"]
 
 use std;
 use std::cell::Cell;
