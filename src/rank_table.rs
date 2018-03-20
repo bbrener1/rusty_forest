@@ -5,7 +5,6 @@ use std::sync::Arc;
 
 
 extern crate rand;
-use rand::Rng;
 
 use rank_vector::RankVector;
 use rank_vector::OrderedDraw;
@@ -260,7 +259,7 @@ impl<'a> Iterator for RankTableIter<'a> {
 
         let mut output = Vec::new();
 
-        for (i,draw) in self.table.iter_mut().enumerate() {
+        for draw in self.table.iter_mut() {
             let io = draw.next();
             // println!("{},{},{},{:?}",i,self.index,self.limit,io);
 

@@ -12,20 +12,30 @@ use tree::Tree;
 pub fn predict(trees: &Vec<Tree>, counts: &Vec<Vec<f64>>, features: &HashMap<String,usize>, prediction_mode: &PredictionMode) -> Vec<Vec<f64>> {
     let mut predictions: Vec<Vec<f64>> = Vec::with_capacity(counts.len());
     let feature_intervals: Vec<Vec<(f64,f64,f64)>> = Vec::with_capacity(features.len());
+    println!("Predicting");
+    println!("{}",counts.len());
+    println!("Individual observations");
     for sample in counts {
         let mut leaves = Vec::with_capacity(trees.len());
+        println!("Trees: {}",trees.len());
         for tree in trees {
             leaves.push(node_predict_leaves(&tree.root,sample,features,prediction_mode));
         }
+        println!("Leaves: {}", leaves.len());
         let sample_intervals = intervals(leaves);
+        println!("Intervals: {:?}", sample_intervals);
         let sample_prediction = aggregate_predictions(sample_intervals, features);
         predictions.push(sample_prediction);
+        println!("{}",predictions.len());
 
     }
     predictions
 }
 
 pub fn node_predict_leaves<'a>(node: &'a Node, vector: &Vec<f64>, header: &HashMap<String,usize>, prediction_mode: &PredictionMode) -> Vec<&'a Node> {
+
+    println!("Crawling node: {}", node.id);
+    println!("{:?},{:?}", node.feature,node.split);
 
     let mut leaves: Vec<&Node> = Vec::new();
 
@@ -102,10 +112,47 @@ pub fn interval_stack(intervals: Vec<(f64,f64,f64)>) -> Vec<(f64,f64,f64)> {
             // }
         }
     }
-    let scored = aggregate_intervals.iter().zip(aggregate_intervals.iter().skip(1)).zip(aggregate_scores.into_iter()).map(|((begin,end),score)| (*begin,*end,score)).collect();
-    scored
+    let scored: Vec<(f64,f64,f64)> = aggregate_intervals.iter().zip(aggregate_intervals.iter().skip(1)).zip(aggregate_scores.into_iter()).map(|((begin,end),score)| (*begin,*end,score)).collect();
+    let filtered: Vec<(f64,f64,f64)> = scored.into_iter().filter(|x| x.0 != x.1 && x.2 != 0.).collect();
+    filtered
 }
 
 pub fn max_interval(intervals: Vec<(f64,f64,f64)>) -> f64 {
-    intervals.into_iter().max_by(|a,b| a.2.partial_cmp(&b.2).unwrap_or(Ordering::Greater)).unwrap_or((0.,0.,0.)).2
+    let max = intervals.into_iter().max_by(|a,b| a.2.partial_cmp(&b.2).unwrap_or(Ordering::Greater)).unwrap_or((0.,0.,0.));
+    return (max.0 + max.1)/2.
+}
+
+#[cfg(test)]
+mod predictor_testing {
+    use super::*;
+
+    #[test]
+    fn interval_stack_test_bookend() {
+        let new_intervals = interval_stack(vec![(0.,20.,1.),(10.,20.,2.)]);
+        assert_eq!(new_intervals,vec![(0.,10.,1.),(10.,20.,3.)]);
+    }
+
+    #[test]
+    fn interval_stack_test_no_overlap() {
+        let new_intervals = interval_stack(vec![(0.,10.,1.),(20.,30.,1.)]);
+        assert_eq!(new_intervals,vec![(0.,10.,1.),(20.,30.,1.)])
+    }
+
+    #[test]
+    fn interval_stack_total_overlap() {
+        let new_intervals = interval_stack(vec![(0.,10.,1.),(0.,10.,1.)]);
+        assert_eq!(new_intervals,vec![(0.,10.,2.)]);
+    }
+
+    #[test]
+    fn interval_stack_internal() {
+        let new_intervals = interval_stack(vec![(0.,10.,1.),(4.,6.,1.),(5.,7.,1.)]);
+        assert_eq!(new_intervals,vec![(0.,4.,1.),(4.,5.,2.),(5.,6.,3.),(6.,7.,2.),(7.,10.,1.)]);
+    }
+
+    fn interval_stack_max() {
+        let new_intervals = interval_stack(vec![(0.,10.,1.),(4.,6.,1.),(5.,7.,1.)]);
+        assert_eq!(max_interval(new_intervals),5.5);
+    }
+
 }

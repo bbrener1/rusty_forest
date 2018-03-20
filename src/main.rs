@@ -40,7 +40,7 @@ fn main() {
 
     let mut arg_iter = env::args();
 
-    let call_signature = arg_iter.next();
+    let _call_signature = arg_iter.next();
 
     match Command::parse(&mut arg_iter) {
         Command::Construct(args) => construct(args),
@@ -297,7 +297,9 @@ pub fn predict(args:PredictionArguments) {
 
     let forest = Forest::reconstitute(tree_backups, Some(features), None ,None, "./");
 
-    let predictions = predictor::predict(forest.trees(), &counts, &feature_map , &prediction_mode);
+    let predictions = forest.predict(&feature_map,&prediction_mode, &args.report_address);
+
+
 }
 
 pub enum PredictionMode {
@@ -450,22 +452,23 @@ pub fn combined(args:CombinedArguments) {
 
 
     let mut rnd_forest = random_forest::Forest::initialize(&count_array, args.tree_limit, args.leaf_size_cutoff,args.processor_limit, feature_names, sample_names, report_address);
-    rnd_forest.generate(args.feature_subsample,args.sample_subsample,args.input_features,args.output_features,false);
+
+    rnd_forest.generate(args.feature_subsample,args.sample_subsample,args.input_features,args.output_features,true);
 
     let dimensions = rnd_forest.dimensions();
 
 
     let prediction_mode = {
         match &args.mode[..] {
-            "branch" => PredictionMode::Branch,
-            "truncate" => PredictionMode::Truncate,
-            "abort" => PredictionMode::Abort,
-            "auto" => PredictionMode::Auto,
+            "branch" | "branching" | "b" => PredictionMode::Branch,
+            "truncate" | "trunc" | "t" => PredictionMode::Truncate,
+            "abort" | "ab" => PredictionMode::Abort,
+            "auto" | "a" => PredictionMode::Auto,
             _ => panic!()
         }
     };
 
-    let predictions = predictor::predict(rnd_forest.trees(), &count_array, &rnd_forest.feature_map() , &prediction_mode);
+    let predictions = rnd_forest.predict(&rnd_forest.feature_map(), &prediction_mode, &report_address);
 
 }
 

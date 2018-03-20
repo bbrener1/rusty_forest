@@ -1,18 +1,20 @@
 use std::fs::File;
+use std::fs::OpenOptions;
+use std::io::Write;
 use std::io;
 use std::io::BufRead;
 use std::collections::HashMap;
 
 use tree::Tree;
-use node::Node;
 
 extern crate rand;
-use rand::Rng;
 use rand::seq;
 
 use PredictionMode;
 use TreeBackups;
 use feature_thread_pool::FeatureThreadPool;
+use predictor::predict;
+use matrix_flip;
 
 impl Forest {
     pub fn initialize(counts:&Vec<Vec<f64>>,trees:usize,leaf_size:usize,processor_limit:usize, feature_option: Option<Vec<String>>, sample_option: Option<Vec<String>>, report_address:&str) -> Forest {
@@ -32,7 +34,7 @@ impl Forest {
             sample_names: sample_names,
             trees: Vec::new(),
             size: trees,
-            counts: Vec::new(),
+            counts: counts.clone(),
             prototype_tree: prototype_tree,
             dropout: true
         }
@@ -79,7 +81,7 @@ impl Forest {
 
         let prototype_tree = trees.remove(0);
 
-        let dimensions = (prototype_tree.dimensions());
+        let dimensions = prototype_tree.dimensions();
 
         let feature_names = feature_option.unwrap_or((0..dimensions.0).map(|x| x.to_string()).collect());
 
@@ -97,6 +99,25 @@ impl Forest {
             counts: Vec::new(),
             dropout: true
         }
+    }
+
+    pub fn predict(&self,feature_map: &HashMap<String,usize>,prediction_mode:&PredictionMode,report_address: &str) -> Vec<Vec<f64>> {
+
+        let predictions = predict(&self.trees,&matrix_flip(&self.counts),feature_map,&prediction_mode);
+
+        let mut prediction_dump = OpenOptions::new().create(true).append(true).open([report_address,".prediction"].join("")).unwrap();
+        prediction_dump.write(&format!("{:?}",predictions).as_bytes());
+        prediction_dump.write(b"\n");
+
+        let mut truth_dump = OpenOptions::new().create(true).append(true).open([report_address,".prediction_truth"].join("")).unwrap();
+        truth_dump.write(&format!("{:?}",&matrix_flip(&self.counts)).as_bytes());
+        truth_dump.write(b"\n");
+
+        let mut prediction_header = OpenOptions::new().create(true).append(true).open([report_address,".prediction_header"].join("")).unwrap();
+        prediction_header.write(&format!("{:?}",feature_map).as_bytes());
+        prediction_header.write(b"\n");
+
+        predictions
     }
 
     pub fn trees(&self) -> &Vec<Tree> {

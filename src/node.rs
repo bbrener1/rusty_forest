@@ -1,26 +1,13 @@
 
 use std;
-use std::cell::Cell;
 use std::sync::Arc;
-use std::sync::Weak;
-use std::marker::PhantomData;
 use std::cmp::PartialOrd;
 use std::cmp::Ordering;
-use std::cmp::max;
-use std::collections::HashSet;
-use std::collections::HashMap;
-use std::fmt::Debug;
-use std::thread;
 use std::sync::mpsc;
 use serde_json;
 
 extern crate rand;
-use rand::Rng;
-
-use thread_pool::ThreadPool;
-use feature_thread_pool::FeatureThreadPool;
 use rank_table::RankTable;
-use rank_table::RankTableSplitter;
 use rank_vector::RankVector;
 
 impl Node {
@@ -122,7 +109,7 @@ impl Node {
             let mut forward_receivers = Vec::with_capacity(self.rank_table.dimensions.0);
             let mut reverse_receivers = Vec::with_capacity(self.rank_table.dimensions.0);
 
-            for (feature_index,feature) in self.rank_table.cloned_features().into_iter().enumerate() {
+            for feature in self.rank_table.cloned_features().into_iter() {
 
                 let (tx,rx) = mpsc::channel();
                 self.feature_pool.send(((feature.clone(),forward_draw.clone()),tx));
@@ -160,8 +147,6 @@ impl Node {
 
         // println!("{:?}",best_feature);
         // println!("{:?}", (split_index,split_dispersion));
-
-        let feature_index = self.rank_table.feature_index(best_feature);
 
         let split_order = self.rank_table.sort_by_feature(best_feature);
 
@@ -684,7 +669,7 @@ pub struct NodeWrapper {
 }
 
 
-pub fn mad_minimum(forward:Vec<Vec<f64>>,reverse: Vec<Vec<f64>>,feature_weights: &mut Vec<f64>, exclusion: usize) -> (usize,f64) {
+pub fn mad_minimum(forward:Vec<Vec<f64>>,reverse: Vec<Vec<f64>>,feature_weights: &mut Vec<f64>, _exclusion: usize) -> (usize,f64) {
 
     let x = forward.len();
     let y = forward.get(0).unwrap_or(&vec![]).len();
@@ -731,7 +716,24 @@ pub fn mad_minimum(forward:Vec<Vec<f64>>,reverse: Vec<Vec<f64>>,feature_weights:
 mod node_testing {
 
     use super::*;
+    use feature_thread_pool::FeatureThreadPool;
 
+
+    #[test]
+    fn node_test_trivial_trivial() {
+        let mut root = Node::feature_root(&vec![], &vec![], &vec![], vec![], vec![], FeatureThreadPool::new(1));
+        root.mads();
+        root.medians();
+    }
+
+    #[test]
+    fn node_test_trivial() {
+        let mut root = Node::feature_root(&vec![vec![]], &vec!["one".to_string()], &vec![], vec!["one".to_string()], vec!["one".to_string()], FeatureThreadPool::new(1));
+        root.mads();
+        root.medians();
+    }
+
+    #[test]
     fn node_test_simple() {
         let mut root = Node::feature_root(&vec![vec![10.,-3.,0.,5.,-2.,-1.,15.,20.]], &vec!["one".to_string()], &(0..8).map(|x| x.to_string()).collect::<Vec<String>>()[..], vec!["one".to_string()], vec!["one".to_string()], FeatureThreadPool::new(1));
 

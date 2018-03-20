@@ -247,6 +247,7 @@ pub fn crawl_absolute_gains<'a>(target:&'a mut Node,in_dispersions:Option<&'a Ve
         let root_medians = Some(&target.medians);
     }
     else {
+
         let mut absolute_gains = Vec::with_capacity(root_dispersions.unwrap().len());
 
         for ((nd,nm),(od,om)) in target.dispersions.iter().zip(target.medians.iter()).zip(root_dispersions.unwrap().iter().zip(root_medians.unwrap().iter())) {
