@@ -239,19 +239,28 @@ pub fn grow_branches(target:&mut Node, size_limit:usize,report_address:&str,leve
 
 pub fn crawl_absolute_gains<'a>(target:&'a mut Node,in_dispersions:Option<&'a Vec<f64>>,in_medians:Option<&'a Vec<f64>>) {
 
-    let root_dispersions = in_dispersions;
-    let root_medians = in_medians;
+    let mut root_dispersions = in_dispersions;
+    let mut root_medians = in_medians;
 
     if root_dispersions.is_none() {
-        let root_dispersions = Some(&target.dispersions);
-        let root_medians = Some(&target.medians);
+        root_dispersions = Some(&target.dispersions);
+        root_medians = Some(&target.medians);
     }
     else {
 
         let mut absolute_gains = Vec::with_capacity(root_dispersions.unwrap().len());
 
         for ((nd,nm),(od,om)) in target.dispersions.iter().zip(target.medians.iter()).zip(root_dispersions.unwrap().iter().zip(root_medians.unwrap().iter())) {
-            absolute_gains.push((od/om)/(nd/nm));
+            let mut old_cov = od/om;
+            if !old_cov.is_normal() {
+                old_cov = 0.;
+            }
+            let mut new_cov = nd/nm;
+            if !new_cov.is_normal() {
+                new_cov = 0.;
+            }
+            absolute_gains.push(old_cov-new_cov)
+
         }
 
         target.absolute_gains = Some(absolute_gains);

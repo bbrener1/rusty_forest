@@ -35,11 +35,11 @@ pub fn predict(trees: &Vec<Tree>, counts: &Vec<Vec<f64>>, features: &HashMap<Str
 pub fn node_predict_leaves<'a>(node: &'a Node, vector: &Vec<f64>, header: &HashMap<String,usize>, prediction_mode: &PredictionMode) -> Vec<&'a Node> {
 
     println!("Crawling node: {}", node.id);
-    println!("{:?},{:?}", node.feature,node.split);
+    println!("{:?},{:?}", node.feature(),node.split());
 
     let mut leaves: Vec<&Node> = Vec::new();
 
-    if let (&Some(ref feature),&Some(ref split)) = (&node.feature,&node.split) {
+    if let (&Some(ref feature),&Some(ref split)) = (node.feature(),node.split()) {
         if *vector.get(*header.get(feature).unwrap_or(&(vector.len()+1))).unwrap_or(&0.) != 0.  {
             if vector[header[feature]] > split.clone() {
                 leaves.append(&mut node_predict_leaves(&node.children[1], vector, header, prediction_mode));

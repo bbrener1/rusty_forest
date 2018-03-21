@@ -109,8 +109,52 @@ pub fn construct(args: ConstructionArguments) {
     println!("##############################################################################################################");
 
 
+    let mut input_features: usize;
+
+    if args.input_features.is_none() {
+        input_features = count_array.len();
+        if input_features < 3 {
+        }
+        else if input_features < 6 {
+            input_features = input_features-1
+        }
+        else if input_features > 20 {
+            input_features /= 3
+        }
+        else if input_features > 100 {
+            input_features /= 5
+        }
+        else if input_features > 1000 {
+            input_features /= 10
+        }
+
+    }
+    else {
+        input_features = args.input_features.unwrap();
+    }
+
+    let output_features = args.input_features.unwrap_or(count_array.len());
+
+    let feature_subsample = args.feature_subsample.unwrap_or(count_array.len());
+
+    let mut sample_subsample: usize;
+
+    if args.sample_subsample.is_none() {
+        sample_subsample = count_array.get(0).unwrap_or(&vec![]).len();
+        if sample_subsample < 3 {
+        }
+        else {
+            sample_subsample /= 2
+        }
+    }
+    else {
+        sample_subsample = args.sample_subsample.unwrap();
+    }
+
+
     let mut rnd_forest = random_forest::Forest::initialize(&count_array, args.tree_limit, args.leaf_size_cutoff,args.processor_limit, feature_names, sample_names, report_address);
-    rnd_forest.generate(args.feature_subsample,args.sample_subsample,args.input_features,args.output_features,false);
+
+    rnd_forest.generate(feature_subsample,sample_subsample,input_features,output_features,false);
 
 }
 
@@ -127,10 +171,10 @@ pub struct ConstructionArguments {
     leaf_size_cutoff: usize,
     drop: bool,
 
-    feature_subsample: usize,
-    sample_subsample: usize,
-    input_features: usize,
-    output_features: usize,
+    feature_subsample: Option<usize>,
+    sample_subsample: Option<usize>,
+    input_features: Option<usize>,
+    output_features: Option<usize>,
 
 }
 
@@ -148,10 +192,10 @@ impl ConstructionArguments {
                     leaf_size_cutoff: 10000,
                     drop: true,
 
-                    feature_subsample: 1,
-                    sample_subsample: 1,
-                    input_features: 1,
-                    output_features:1,
+                    feature_subsample: None,
+                    sample_subsample: None,
+                    input_features: None,
+                    output_features:None,
 
         };
 
@@ -202,16 +246,16 @@ impl ConstructionArguments {
                     arg_struct.sample_header_file = Some(args.next().expect("Error processing sample file"));
                 }
                 "-if" | "-in_features" => {
-                    arg_struct.input_features = args.next().expect("Error processing in feature arg").parse::<usize>().expect("Error in feature  arg");
+                    arg_struct.input_features = Some(args.next().expect("Error processing in feature arg").parse::<usize>().expect("Error in feature  arg"));
                 },
                 "-of" | "-out_features" => {
-                    arg_struct.output_features = args.next().expect("Error processing out feature arg").parse::<usize>().expect("Error out feature arg");
+                    arg_struct.output_features = Some(args.next().expect("Error processing out feature arg").parse::<usize>().expect("Error out feature arg"));
                 },
                 "-fs" | "-feature_sub" => {
-                    arg_struct.feature_subsample = args.next().expect("Error processing feature subsample arg").parse::<usize>().expect("Error feature subsample arg");
+                    arg_struct.feature_subsample = Some(args.next().expect("Error processing feature subsample arg").parse::<usize>().expect("Error feature subsample arg"));
                 },
                 "-ss" | "-sample_sub" => {
-                    arg_struct.sample_subsample = args.next().expect("Error processing sample subsample arg").parse::<usize>().expect("Error sample subsample arg");
+                    arg_struct.sample_subsample = Some(args.next().expect("Error processing sample subsample arg").parse::<usize>().expect("Error sample subsample arg"));
                 },
                 &_ => {
                     if !supress_warnings {
@@ -239,10 +283,10 @@ impl ConstructionArguments {
             leaf_size_cutoff: 100,
             drop: true,
 
-            feature_subsample: 4773,
-            sample_subsample: 800,
-            input_features: 400,
-            output_features:4773,
+            feature_subsample: Some(4773),
+            sample_subsample: Some(800),
+            input_features: Some(400),
+            output_features:Some(4773),
         }
 
     }
@@ -453,7 +497,49 @@ pub fn combined(args:CombinedArguments) {
 
     let mut rnd_forest = random_forest::Forest::initialize(&count_array, args.tree_limit, args.leaf_size_cutoff,args.processor_limit, feature_names, sample_names, report_address);
 
-    rnd_forest.generate(args.feature_subsample,args.sample_subsample,args.input_features,args.output_features,true);
+    let mut input_features: usize;
+
+    if args.input_features.is_none() {
+        input_features = count_array.len();
+        if input_features < 3 {
+        }
+        else if input_features < 6 {
+            input_features = input_features-1
+        }
+        else if input_features > 20 {
+            input_features /= 3
+        }
+        else if input_features > 100 {
+            input_features /= 5
+        }
+        else if input_features > 1000 {
+            input_features /= 10
+        }
+
+    }
+    else {
+        input_features = args.input_features.unwrap();
+    }
+
+    let output_features = args.input_features.unwrap_or(count_array.len());
+
+    let feature_subsample = args.feature_subsample.unwrap_or(count_array.len());
+
+    let mut sample_subsample: usize;
+
+    if args.sample_subsample.is_none() {
+        sample_subsample = count_array.get(0).unwrap_or(&vec![]).len();
+        if sample_subsample < 3 {
+        }
+        else {
+            sample_subsample /= 2
+        }
+    }
+    else {
+        sample_subsample = args.sample_subsample.unwrap();
+    }
+
+    rnd_forest.generate(feature_subsample,sample_subsample,input_features,output_features,true);
 
     let dimensions = rnd_forest.dimensions();
 
@@ -486,10 +572,10 @@ impl CombinedArguments {
                     leaf_size_cutoff: 10000,
                     drop: true,
 
-                    feature_subsample: 1,
-                    sample_subsample: 1,
-                    input_features: 1,
-                    output_features:1,
+                    feature_subsample: None,
+                    sample_subsample: None,
+                    input_features: None,
+                    output_features:None,
                     mode: "branch".to_string()
 
         };
@@ -541,16 +627,16 @@ impl CombinedArguments {
                     arg_struct.sample_header_file = Some(args.next().expect("Error processing feature file"));
                 }
                 "-if" | "-in_features" => {
-                    arg_struct.input_features = args.next().expect("Error processing in feature arg").parse::<usize>().expect("Error in feature  arg");
+                    arg_struct.input_features = Some(args.next().expect("Error processing in feature arg").parse::<usize>().expect("Error in feature  arg"));
                 },
                 "-of" | "-out_features" => {
-                    arg_struct.output_features = args.next().expect("Error processing out feature arg").parse::<usize>().expect("Error out feature arg");
+                    arg_struct.output_features = Some(args.next().expect("Error processing out feature arg").parse::<usize>().expect("Error out feature arg"));
                 },
                 "-fs" | "-feature_sub" => {
-                    arg_struct.feature_subsample = args.next().expect("Error processing feature subsample arg").parse::<usize>().expect("Error feature subsample arg");
+                    arg_struct.feature_subsample = Some(args.next().expect("Error processing feature subsample arg").parse::<usize>().expect("Error feature subsample arg"));
                 },
                 "-ss" | "-sample_sub" => {
-                    arg_struct.sample_subsample = args.next().expect("Error processing sample subsample arg").parse::<usize>().expect("Error sample subsample arg");
+                    arg_struct.sample_subsample = Some(args.next().expect("Error processing sample subsample arg").parse::<usize>().expect("Error sample subsample arg"));
                 },
                 "-m" | "-mode" | "-pm" | "-prediction_mode" | "-prediction" => {
                     arg_struct.mode = args.next().expect("Error reading prediction mode");
@@ -581,10 +667,10 @@ impl CombinedArguments {
             leaf_size_cutoff: 100,
             drop: true,
 
-            feature_subsample: 4773,
-            sample_subsample: 800,
-            input_features: 400,
-            output_features:4773,
+            feature_subsample: Some(4773),
+            sample_subsample: Some(800),
+            input_features: Some(400),
+            output_features:Some(4773),
             mode: "branched".to_string()
         }
 
@@ -604,10 +690,10 @@ pub struct CombinedArguments {
     leaf_size_cutoff: usize,
     drop: bool,
 
-    feature_subsample: usize,
-    sample_subsample: usize,
-    input_features: usize,
-    output_features: usize,
+    feature_subsample: Option<usize>,
+    sample_subsample: Option<usize>,
+    input_features: Option<usize>,
+    output_features: Option<usize>,
 
     mode: String,
 

@@ -12,41 +12,6 @@ use rank_vector::RankVector;
 
 impl Node {
 
-    // pub fn root<'a>(counts:&Vec<Vec<f64>>,feature_names:&'a[String],sample_names:&'a[String],input_features: Vec<String>,output_features:Vec<String>,pool:mpsc::Sender<((usize, (RankTableSplitter,RankTableSplitter,Vec<usize>),Vec<f64>), mpsc::Sender<(usize,usize,f64,Vec<usize>)>)>) -> Node
-    // {
-    //
-    //     let rank_table = RankTable::new(counts,&feature_names,&sample_names);
-    //
-    //     let feature_weights = vec![1.;feature_names.len()];
-    //
-    //     let medians = rank_table.medians();
-    //
-    //     let dispersions = rank_table.dispersions();
-    //
-    //     let new_node = Node {
-    //         pool: pool,
-    //
-    //         rank_table: rank_table,
-    //         dropout: true,
-    //
-    //         id: "RT".to_string(),
-    //         parent_id: "RT".to_string(),
-    //         children: Vec::new(),
-    //
-    //         feature: None,
-    //         split: None,
-    //
-    //         output_features: output_features,
-    //         input_features: input_features,
-    //
-    //         medians: medians,
-    //         feature_weights: feature_weights,
-    //         dispersions: dispersions,
-    //     };
-    //
-    //     new_node
-    //
-    // }
 
     pub fn feature_root<'a>(counts:&Vec<Vec<f64>>,feature_names:&'a[String],sample_names:&'a[String],input_features: Vec<String>,output_features:Vec<String>,feature_pool: mpsc::Sender<(((RankVector,Arc<Vec<usize>>),mpsc::Sender<Vec<(f64,f64)>>))>) -> Node {
 
@@ -190,136 +155,6 @@ impl Node {
 
     }
 
-    pub fn split(&self, feature: &str) -> (String,usize,String,usize,f64,f64,Vec<usize>) {
-
-        println!("Splitting a node");
-
-        let feature_index = self.rank_table.feature_index(feature);
-
-        let (forward,reverse,draw_order) = self.rank_table.split(feature);
-
-        let mut fw_dsp = vec![0.;forward.length as usize];
-
-        for (i,sample) in forward.enumerate() {
-
-            println!("{:?}",sample);
-            fw_dsp[i] = sample
-                .iter()
-                .enumerate()
-                .fold(0.,|acc,x| {
-                    let mut div = (x.1).1/(x.1).0;
-                    if div.is_nan() {
-                        div = 0.;
-                    };
-                    div.powi(2) * self.feature_weights[x.0] * ((x.0 != feature_index) as i32 as f64) + acc
-                })
-                .sqrt();
-
-        }
-
-        let mut rv_dsp = vec![0.;reverse.length as usize];
-
-        // println!("Done with forward, printing reverse");
-
-        for (i,sample) in reverse.enumerate() {
-
-            // println!("{:?}",sample);
-            rv_dsp[i] = sample
-                .iter()
-                .enumerate()
-                .fold(0.,|acc,x| {
-                    let mut div = (x.1).1/(x.1).0;
-                    if div.is_nan() {
-                        div = 0.;
-                    };
-                    div.powi(2) * self.feature_weights[x.0] * ((x.0 != feature_index) as i32 as f64) + acc
-                })
-                .sqrt();
-
-
-        }
-
-        rv_dsp.reverse();
-
-        // for combo in fw_dsp.iter().zip(rv_dsp.iter()) {
-        //     println!("{:?},{}", combo, combo.0 + combo.1);
-        // }
-
-        let (mut split_index, mut split_dispersion) = (0,std::f64::INFINITY);
-
-        for (i,(fw,rv)) in fw_dsp.iter().zip(rv_dsp).enumerate() {
-            if fw_dsp.len() > 6 && i > 2 && i < fw_dsp.len() - 3 {
-                if fw+rv < split_dispersion {
-                    split_index = i;
-                    split_dispersion = fw+rv;
-                }
-            }
-            else if fw_dsp.len() > 3 && fw_dsp.len() < 6 && i > 1 && i < fw_dsp.len() -1 {
-                if fw+rv < split_dispersion {
-                    split_index = i;
-                    split_dispersion = fw+rv;
-                }
-            }
-            else if fw_dsp.len() < 3 {
-                if fw+rv < split_dispersion {
-                    split_index = i;
-                    split_dispersion = fw+rv;
-                }
-            }
-        }
-
-        let split_sample_value = self.rank_table.feature_fetch(feature, draw_order[split_index]);
-
-        let split_sample_index = draw_order[split_index];
-
-        let split_sample_name = self.rank_table.sample_name(split_sample_index);
-
-        let output = (String::from(feature),split_index,split_sample_name,split_sample_index,split_sample_value,split_dispersion,draw_order);
-
-        println!("Split output: {:?}",output.clone());
-
-        output
-
-    }
-
-
-
-
-
-
-    // pub fn best_split(&mut self) -> (U,usize,T,usize,f64,f64,Vec<usize>) {
-    pub fn best_split(&mut self) -> (String,f64,f64,Vec<usize>,Vec<usize>) {
-
-        if self.input_features.len() < 1 {
-            panic!("Tried to split with no input features");
-        };
-
-        let first_feature = self.input_features.first().unwrap().clone();
-
-        let mut minimum_dispersion = self.split(&first_feature);
-
-        for feature in self.input_features.clone().iter().enumerate() {
-            if feature.0 == 0 {
-                continue
-            }
-            else {
-                let current_dispersion = self.split(&feature.1);
-                if current_dispersion.5 < minimum_dispersion.5 {
-                    minimum_dispersion = current_dispersion;
-                }
-            }
-
-        }
-
-        self.feature = Some(minimum_dispersion.0.clone());
-        self.split = Some(minimum_dispersion.4);
-
-        println!("Best split: {:?}", minimum_dispersion.clone());
-
-        (minimum_dispersion.0,minimum_dispersion.5,minimum_dispersion.4,minimum_dispersion.6[..minimum_dispersion.1].iter().cloned().collect(),minimum_dispersion.6[minimum_dispersion.1..].iter().cloned().collect())
-
-    }
-
     pub fn derive(&self, indecies: &[usize],new_id:&str) -> Node {
 
             let new_rank_table = self.rank_table.derive(indecies);
@@ -413,28 +248,6 @@ impl Node {
         child
     }
 
-
-    pub fn derive_children(&mut self) {
-
-            let (feature,_dispersion,split_value, left_indecies,right_indecies) = self.best_split();
-
-            let mut left_child_id = self.id.clone();
-            let mut right_child_id = self.id.clone();
-            left_child_id.push_str(&format!(":F{}S{}L",feature,split_value));
-            right_child_id.push_str(&format!(":F{}S{}R",feature,split_value));
-
-            let left_child = self.derive(&left_indecies, &left_child_id);
-            let right_child = self.derive(&right_indecies, &right_child_id);
-            println!("{:?}",left_child.samples());
-            println!("{:?}", right_child.samples());
-
-            self.report(true);
-            left_child.report(true);
-            right_child.report(true);
-
-            self.children.push(left_child);
-            self.children.push(right_child);
-    }
 
     pub fn report(&self,verbose:bool) {
         println!("Node reporting:");
@@ -551,8 +364,20 @@ impl Node {
         self.rank_table.features()
     }
 
+    pub fn feature(&self) -> &Option<String> {
+        &self.feature
+    }
+
+    pub fn split(&self) -> &Option<f64> {
+        &self.split
+    }
+
     pub fn medians(&self) -> &Vec<f64> {
         &self.medians
+    }
+
+    pub fn dispersions(&self) -> &Vec<f64> {
+        &self.dispersions
     }
 
     pub fn mads(&self) -> &Vec<f64> {
@@ -561,6 +386,14 @@ impl Node {
 
     pub fn dimensions(&self) -> (usize,usize) {
         self.rank_table.dimensions
+    }
+
+    pub fn absolute_gains(&self) -> &Option<Vec<f64>> {
+        &self.absolute_gains
+    }
+
+    pub fn local_gains(&self) -> &Option<Vec<f64>> {
+        &self.local_gains
     }
 
     pub fn wrap_clone(&self) -> NodeWrapper {
@@ -575,18 +408,18 @@ pub struct Node {
     // pool: mpsc::Sender<((usize,(RankTableSplitter,RankTableSplitter,Vec<usize>),Vec<f64>),mpsc::Sender<(usize,usize,f64,Vec<usize>)>)>,
     feature_pool: mpsc::Sender<(((RankVector,Arc<Vec<usize>>),mpsc::Sender<Vec<(f64,f64)>>))>,
 
-    pub rank_table: RankTable,
-    pub dropout: bool,
+    rank_table: RankTable,
+    dropout: bool,
 
     pub parent_id: String,
     pub id: String,
     pub children: Vec<Node>,
 
-    pub feature: Option<String>,
-    pub split: Option<f64>,
+    feature: Option<String>,
+    split: Option<f64>,
 
-    pub output_features: Vec<String>,
-    pub input_features: Vec<String>,
+    output_features: Vec<String>,
+    input_features: Vec<String>,
 
     pub medians: Vec<f64>,
     pub feature_weights: Vec<f64>,
@@ -744,6 +577,292 @@ mod node_testing {
     }
 
 }
+
+
+//// MONOTHREADED METHODS:
+
+// pub fn root<'a>(counts:&Vec<Vec<f64>>,feature_names:&'a[String],sample_names:&'a[String],input_features: Vec<String>,output_features:Vec<String>,pool:mpsc::Sender<((usize, (RankTableSplitter,RankTableSplitter,Vec<usize>),Vec<f64>), mpsc::Sender<(usize,usize,f64,Vec<usize>)>)>) -> Node
+// {
+//
+//     let rank_table = RankTable::new(counts,&feature_names,&sample_names);
+//
+//     let feature_weights = vec![1.;feature_names.len()];
+//
+//     let medians = rank_table.medians();
+//
+//     let dispersions = rank_table.dispersions();
+//
+//     let new_node = Node {
+//         pool: pool,
+//
+//         rank_table: rank_table,
+//         dropout: true,
+//
+//         id: "RT".to_string(),
+//         parent_id: "RT".to_string(),
+//         children: Vec::new(),
+//
+//         feature: None,
+//         split: None,
+//
+//         output_features: output_features,
+//         input_features: input_features,
+//
+//         medians: medians,
+//         feature_weights: feature_weights,
+//         dispersions: dispersions,
+//     };
+//
+//     new_node
+//
+// }
+
+
+// pub fn split(&self, feature: &str) -> (String,usize,String,usize,f64,f64,Vec<usize>) {
+//
+//     println!("Splitting a node");
+//
+//     let feature_index = self.rank_table.feature_index(feature);
+//
+//     let (forward,reverse,draw_order) = self.rank_table.split(feature);
+//
+//     let mut fw_dsp = vec![0.;forward.length as usize];
+//
+//     for (i,sample) in forward.enumerate() {
+//
+//         println!("{:?}",sample);
+//         fw_dsp[i] = sample
+//             .iter()
+//             .enumerate()
+//             .fold(0.,|acc,x| {
+//                 let mut div = (x.1).1/(x.1).0;
+//                 if div.is_nan() {
+//                     div = 0.;
+//                 };
+//                 div.powi(2) * self.feature_weights[x.0] * ((x.0 != feature_index) as i32 as f64) + acc
+//             })
+//             .sqrt();
+//
+//     }
+//
+//     let mut rv_dsp = vec![0.;reverse.length as usize];
+//
+//     // println!("Done with forward, printing reverse");
+//
+//     for (i,sample) in reverse.enumerate() {
+//
+//         // println!("{:?}",sample);
+//         rv_dsp[i] = sample
+//             .iter()
+//             .enumerate()
+//             .fold(0.,|acc,x| {
+//                 let mut div = (x.1).1/(x.1).0;
+//                 if div.is_nan() {
+//                     div = 0.;
+//                 };
+//                 div.powi(2) * self.feature_weights[x.0] * ((x.0 != feature_index) as i32 as f64) + acc
+//             })
+//             .sqrt();
+//
+//
+//     }
+//
+//     rv_dsp.reverse();
+//
+//     // for combo in fw_dsp.iter().zip(rv_dsp.iter()) {
+//     //     println!("{:?},{}", combo, combo.0 + combo.1);
+//     // }
+//
+//     let (mut split_index, mut split_dispersion) = (0,std::f64::INFINITY);
+//
+//     for (i,(fw,rv)) in fw_dsp.iter().zip(rv_dsp).enumerate() {
+//         if fw_dsp.len() > 6 && i > 2 && i < fw_dsp.len() - 3 {
+//             if fw+rv < split_dispersion {
+//                 split_index = i;
+//                 split_dispersion = fw+rv;
+//             }
+//         }
+//         else if fw_dsp.len() > 3 && fw_dsp.len() < 6 && i > 1 && i < fw_dsp.len() -1 {
+//             if fw+rv < split_dispersion {
+//                 split_index = i;
+//                 split_dispersion = fw+rv;
+//             }
+//         }
+//         else if fw_dsp.len() < 3 {
+//             if fw+rv < split_dispersion {
+//                 split_index = i;
+//                 split_dispersion = fw+rv;
+//             }
+//         }
+//     }
+//
+//     let split_sample_value = self.rank_table.feature_fetch(feature, draw_order[split_index]);
+//
+//     let split_sample_index = draw_order[split_index];
+//
+//     let split_sample_name = self.rank_table.sample_name(split_sample_index);
+//
+//     let output = (String::from(feature),split_index,split_sample_name,split_sample_index,split_sample_value,split_dispersion,draw_order);
+//
+//     println!("Split output: {:?}",output.clone());
+//
+//     output
+//
+// }
+
+
+
+
+
+
+// // pub fn best_split(&mut self) -> (U,usize,T,usize,f64,f64,Vec<usize>) {
+// pub fn best_split(&mut self) -> (String,f64,f64,Vec<usize>,Vec<usize>) {
+//
+//     if self.input_features.len() < 1 {
+//         panic!("Tried to split with no input features");
+//     };
+//
+//     let first_feature = self.input_features.first().unwrap().clone();
+//
+//     let mut minimum_dispersion = self.split(&first_feature);
+//
+//     for feature in self.input_features.clone().iter().enumerate() {
+//         if feature.0 == 0 {
+//             continue
+//         }
+//         else {
+//             let current_dispersion = self.split(&feature.1);
+//             if current_dispersion.5 < minimum_dispersion.5 {
+//                 minimum_dispersion = current_dispersion;
+//             }
+//         }
+//
+//     }
+//
+//     self.feature = Some(minimum_dispersion.0.clone());
+//     self.split = Some(minimum_dispersion.4);
+//
+//     println!("Best split: {:?}", minimum_dispersion.clone());
+//
+//     (minimum_dispersion.0,minimum_dispersion.5,minimum_dispersion.4,minimum_dispersion.6[..minimum_dispersion.1].iter().cloned().collect(),minimum_dispersion.6[minimum_dispersion.1..].iter().cloned().collect())
+//
+// }
+//
+// pub fn derive(&self, indecies: &[usize],new_id:&str) -> Node {
+//
+//         let new_rank_table = self.rank_table.derive(indecies);
+//
+//         let medians = new_rank_table.medians();
+//         let dispersions = new_rank_table.dispersions();
+//         let feature_weights = vec![1.;new_rank_table.dimensions.0];
+//
+//         let mut local_gains = Vec::with_capacity(dispersions.len());
+//
+//         for ((nd,nm),(od,om)) in dispersions.iter().zip(medians.iter()).zip(self.dispersions.iter().zip(self.medians.iter())) {
+//             let mut old_cov = od/om;
+//             if !old_cov.is_normal() {
+//                 old_cov = 0.;
+//             }
+//             let mut new_cov = nd/nm;
+//             if !new_cov.is_normal() {
+//                 new_cov = 0.;
+//             }
+//             local_gains.push(old_cov-new_cov)
+//             // local_gains.push((od/om)/(nd/nm));
+//         }
+//
+//         let child = Node {
+//             // pool: self.pool.clone(),
+//             feature_pool: self.feature_pool.clone(),
+//
+//             rank_table: new_rank_table,
+//             dropout: self.dropout,
+//
+//             parent_id: self.id.clone(),
+//             id: new_id.to_string(),
+//             children: Vec::new(),
+//
+//             feature: None,
+//             split: None,
+//
+//             output_features: self.output_features.clone(),
+//             input_features: self.input_features.clone(),
+//
+//             medians: medians,
+//             feature_weights: feature_weights,
+//             dispersions: dispersions,
+//             local_gains: Some(local_gains),
+//             absolute_gains: None
+//         };
+//
+//
+//         child
+//     }
+//
+//
+// pub fn derive_from_prototype(&self,features:usize, samples: usize, input_features: usize, output_features: usize, new_id:&str, ) -> Node {
+//
+//     let mut rng = rand::thread_rng();
+//
+//     let new_rank_table = self.rank_table.derive_from_prototype(features, samples);
+//
+//     let new_input_features = rand::seq::sample_iter(&mut rng, new_rank_table.feature_names.iter().cloned(), input_features).expect("Couldn't generate input features");
+//     let new_output_features = rand::seq::sample_iter(&mut rng, new_rank_table.feature_names.iter().cloned(), output_features).expect("Couldn't generate output features");
+//
+//     let medians = new_rank_table.medians();
+//     let dispersions = new_rank_table.dispersions();
+//     let feature_weights = vec![1.;new_rank_table.dimensions.0];
+//
+//     let child = Node {
+//         // pool: self.pool.clone(),
+//         feature_pool: self.feature_pool.clone(),
+//
+//         rank_table: new_rank_table,
+//         dropout: self.dropout,
+//
+//         parent_id: self.id.clone(),
+//         id: new_id.to_string(),
+//         children: Vec::new(),
+//
+//         feature: None,
+//         split: None,
+//
+//         output_features: new_output_features,
+//         input_features: new_input_features,
+//
+//         medians: medians,
+//         feature_weights: feature_weights,
+//         dispersions: dispersions,
+//         local_gains: None,
+//         absolute_gains: None
+//     };
+//
+//
+//     child
+// }
+//
+//
+// pub fn derive_children(&mut self) {
+//
+//         let (feature,_dispersion,split_value, left_indecies,right_indecies) = self.best_split();
+//
+//         let mut left_child_id = self.id.clone();
+//         let mut right_child_id = self.id.clone();
+//         left_child_id.push_str(&format!(":F{}S{}L",feature,split_value));
+//         right_child_id.push_str(&format!(":F{}S{}R",feature,split_value));
+//
+//         let left_child = self.derive(&left_indecies, &left_child_id);
+//         let right_child = self.derive(&right_indecies, &right_child_id);
+//         println!("{:?}",left_child.samples());
+//         println!("{:?}", right_child.samples());
+//
+//         self.report(true);
+//         left_child.report(true);
+//         right_child.report(true);
+//
+//         self.children.push(left_child);
+//         self.children.push(right_child);
+// }
 
 // pub fn generate_weak<T>(target:T) -> (T,Weak<T>) {
 //     let arc_t = Arc::new(target);
