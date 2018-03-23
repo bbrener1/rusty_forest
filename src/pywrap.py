@@ -10,6 +10,8 @@ def main():
 
     print "And now with feeling"
 
+    for i in range(10):
+        fit_predict_file("./testing/held_out_counts.txt","zeros","branching","100","10","400","1000","1000","800","50",output_location="./impute_test/run" + str(i) ,features="./testing/header.txt")
 
 def fit_predict(counts):
     pass
