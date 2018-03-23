@@ -2,6 +2,7 @@ use std::sync::Arc;
 use std::fs::File;
 use std::io::Write;
 use std::io::Read;
+use std::io::Error;
 
 use std::sync::mpsc;
 use std::fs::OpenOptions;
@@ -16,15 +17,15 @@ use node::Node;
 use node::NodeWrapper;
 use feature_thread_pool::FeatureThreadPool;
 use rank_vector::RankVector;
+use DropMode;
 
 impl<'a> Tree {
 
-    pub fn plant_tree(counts:&Vec<Vec<f64>>,feature_names:&[String],sample_names:&[String],input_features: Vec<String>,output_features:Vec<String>,size_limit:usize,processor_limit:usize,report_address: String) -> Tree {
+    pub fn plant_tree(counts:&Vec<Vec<f64>>,feature_names:&[String],sample_names:&[String],input_features: Vec<String>,output_features:Vec<String>,size_limit:usize, dropout: DropMode ,processor_limit:usize,report_address: String) -> Tree {
         // let pool = ThreadPool::new(processor_limit);
         let feature_pool = FeatureThreadPool::new(processor_limit);
         // let mut root = Node::root(counts,feature_names,sample_names,input_features,output_features,pool.clone());
-        let root = Node::feature_root(counts,feature_names,sample_names,input_features,output_features,feature_pool.clone());
-        let dropout = true;
+        let root = Node::feature_root(counts,feature_names,sample_names,input_features,output_features,dropout,feature_pool.clone());
         let weights = None;
 
         Tree{
@@ -38,7 +39,7 @@ impl<'a> Tree {
         }
     }
 
-    pub fn serialize(self) {
+    pub fn serialize(self) -> Result<(),Error> {
 
         self.report_summary();
         self.dump_data();
@@ -46,18 +47,20 @@ impl<'a> Tree {
         println!("Serializing to:");
         println!("{}",self.report_address);
 
-        let mut tree_dump = OpenOptions::new().create(true).append(true).open(self.report_address).unwrap();
-        tree_dump.write(self.root.wrap_consume().to_string().as_bytes());
-        tree_dump.write(b"\n");
+        let mut tree_dump = OpenOptions::new().create(true).append(true).open(self.report_address)?;
+        tree_dump.write(self.root.wrap_consume().to_string().as_bytes())?;
+        tree_dump.write(b"\n")?;
+
+        Ok(())
     }
 
-    pub fn reload(location: &str,feature_pool: mpsc::Sender<(((RankVector,Arc<Vec<usize>>),mpsc::Sender<Vec<(f64,f64)>>))>, size_limit: usize , report_address: String) -> Tree {
+    pub fn reload(location: &str,feature_pool: mpsc::Sender<(((RankVector,Arc<Vec<usize>>),mpsc::Sender<(Vec<(f64,f64)>,RankVector)>))>, size_limit: usize , report_address: String) -> Result<Tree,Error> {
 
         println!("Reloading!");
 
-        let mut json_file = File::open(location).expect("Deserialization error!");
+        let mut json_file = File::open(location)?;
         let mut json_string = String::new();
-        json_file.read_to_string(&mut json_string);
+        json_file.read_to_string(&mut json_string)?;
 
         println!("{}",json_string);
 
@@ -69,21 +72,21 @@ impl<'a> Tree {
 
         println!("Finished recursive unwrapping and obtained a Node tree");
 
-        Tree {
+        Ok(Tree {
             feature_pool: feature_pool,
+            dropout: root.dropout(),
             root: root,
-            dropout: true,
             weights: None,
             size_limit: size_limit,
             report_address: report_address
-        }
+        })
 
     }
 
 
     pub fn grow_branches(&mut self) {
         grow_branches(&mut self.root, self.size_limit,&self.report_address,0);
-        crawl_absolute_gains(&mut self.root,None,None);
+        self.root.root_absolute_gains();
     }
 
     pub fn derive_from_prototype(&mut self, features:usize,samples:usize,input_features:usize,output_features:usize,iteration: usize) -> Tree {
@@ -108,30 +111,17 @@ impl<'a> Tree {
         }
     }
 
-    pub fn nodes(&self) -> Vec<&Node> {
-        let mut nodes = vec![&self.root];
-        let mut finished = false;
 
-        while !finished {
-            finished = true;
-            let mut new_nodes = Vec::new();
-            for node in nodes {
-                if node.children.len() > 0 {
-                    new_nodes.append(&mut node.children.iter().collect());
-                    finished = false;
-                }
-                else {
-                    new_nodes.push(node);
-                }
-            }
-            nodes = new_nodes;
-        }
-        println!("Finished crawling nodes!");
-        nodes
+    pub fn nodes(&self) -> Vec<&Node> {
+        self.root.crawl_children()
     }
 
     pub fn root(&self) -> &Node {
         &self.root
+    }
+
+    pub fn dropout(&self) -> DropMode {
+        self.dropout
     }
 
     pub fn dimensions(&self) -> (usize,usize) {
@@ -158,11 +148,11 @@ impl<'a> Tree {
     }
 
     pub fn crawl_to_leaves(&self) -> Vec<& Node> {
-        crawl_to_leaves(&self.root)
+        self.root.crawl_leaves()
     }
 
     pub fn crawl_nodes(&self) -> Vec<& Node> {
-        crawl_nodes(&self.root)
+        self.root.crawl_children()
     }
 
     pub fn report_summary(&self) {
@@ -173,7 +163,10 @@ impl<'a> Tree {
     }
 
     pub fn dump_data(&self) {
-        report_node_structure(&self.root, &[&self.report_address,".dump"].join(""))
+        let mut tree_dump = OpenOptions::new().create(true).append(true).open([&self.report_address,".dump"].join("")).unwrap();
+        for node in self.root.crawl_children() {
+            tree_dump.write(node.data_dump().as_bytes());
+        }
     }
 
 }
@@ -181,48 +174,14 @@ impl<'a> Tree {
 #[derive(Clone)]
 pub struct Tree {
     // pool: mpsc::Sender<((usize, (RankTableSplitter,RankTableSplitter,Vec<usize>),Vec<f64>), mpsc::Sender<(usize,usize,f64,Vec<usize>)>)>,
-    feature_pool: mpsc::Sender<(((RankVector,Arc<Vec<usize>>),mpsc::Sender<Vec<(f64,f64)>>))>,
+    feature_pool: mpsc::Sender<(((RankVector,Arc<Vec<usize>>),mpsc::Sender<(Vec<(f64,f64)>,RankVector)>))>,
     pub root: Node,
-    dropout: bool,
+    dropout: DropMode,
     weights: Option<Vec<f64>>,
     size_limit: usize,
     pub report_address: String,
 }
 
-pub fn report_node_structure(target:&Node,name:&str) {
-    let mut tree_dump = OpenOptions::new().create(true).append(true).open(&name).unwrap();
-    for node in crawl_nodes(target) {
-        tree_dump.write(node.data_dump().as_bytes());
-    }
-}
-
-
-pub fn crawl_to_leaves<'a>(target: &'a Node) -> Vec<&'a Node> {
-    let mut output = Vec::new();
-    if target.children.len() < 1 {
-        return vec![target]
-    }
-    else {
-        for child in &target.children {
-            output.extend(crawl_to_leaves(child));
-        }
-    };
-    output
-}
-
-pub fn crawl_nodes<'a>(target: &'a Node) -> Vec<&'a Node> {
-    let mut output = Vec::new();
-    if target.children.len() < 1 {
-        return vec![target]
-    }
-    else {
-        for child in &target.children {
-            output.extend(crawl_nodes(child));
-        }
-    };
-    output.push(target);
-    output
-}
 
 
 pub fn grow_branches(target:&mut Node, size_limit:usize,report_address:&str,level:usize) {
@@ -237,42 +196,7 @@ pub fn grow_branches(target:&mut Node, size_limit:usize,report_address:&str,leve
 
 
 
-pub fn crawl_absolute_gains<'a>(target:&'a mut Node,in_dispersions:Option<&'a Vec<f64>>,in_medians:Option<&'a Vec<f64>>) {
 
-    let mut root_dispersions = in_dispersions;
-    let mut root_medians = in_medians;
-
-    if root_dispersions.is_none() {
-        root_dispersions = Some(&target.dispersions);
-        root_medians = Some(&target.medians);
-    }
-    else {
-
-        let mut absolute_gains = Vec::with_capacity(root_dispersions.unwrap().len());
-
-        for ((nd,nm),(od,om)) in target.dispersions.iter().zip(target.medians.iter()).zip(root_dispersions.unwrap().iter().zip(root_medians.unwrap().iter())) {
-            let mut old_cov = od/om;
-            if !old_cov.is_normal() {
-                old_cov = 0.;
-            }
-            let mut new_cov = nd/nm;
-            if !new_cov.is_normal() {
-                new_cov = 0.;
-            }
-            absolute_gains.push(old_cov-new_cov)
-
-        }
-
-        target.absolute_gains = Some(absolute_gains);
-
-    }
-
-
-    for child in target.children.iter_mut() {
-        crawl_absolute_gains(child, root_dispersions,root_medians);
-    }
-
-}
 
 // #[cfg(test)]
 // mod tree_tests {

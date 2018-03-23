@@ -1,7 +1,9 @@
 use std::cmp::PartialOrd;
 use std::cmp::Ordering;
 use PredictionMode;
+use DropMode;
 use std::collections::HashMap;
+use shuffler::fragment_nodes;
 
 extern crate rand;
 
@@ -9,7 +11,7 @@ extern crate rand;
 use node::Node;
 use tree::Tree;
 
-pub fn predict(trees: &Vec<Tree>, counts: &Vec<Vec<f64>>, features: &HashMap<String,usize>, prediction_mode: &PredictionMode) -> Vec<Vec<f64>> {
+pub fn predict(trees: &Vec<Tree>, counts: &Vec<Vec<f64>>, features: &HashMap<String,usize>, prediction_mode: &PredictionMode,drop_mode: &DropMode) -> Vec<Vec<f64>> {
     let mut predictions: Vec<Vec<f64>> = Vec::with_capacity(counts.len());
     let feature_intervals: Vec<Vec<(f64,f64,f64)>> = Vec::with_capacity(features.len());
     println!("Predicting");
@@ -19,7 +21,7 @@ pub fn predict(trees: &Vec<Tree>, counts: &Vec<Vec<f64>>, features: &HashMap<Str
         let mut leaves = Vec::with_capacity(trees.len());
         println!("Trees: {}",trees.len());
         for tree in trees {
-            leaves.push(node_predict_leaves(&tree.root,sample,features,prediction_mode));
+            leaves.push(node_predict_leaves(&tree.root,sample,features,prediction_mode,drop_mode));
         }
         println!("Leaves: {}", leaves.len());
         let sample_intervals = intervals(leaves);
@@ -32,7 +34,7 @@ pub fn predict(trees: &Vec<Tree>, counts: &Vec<Vec<f64>>, features: &HashMap<Str
     predictions
 }
 
-pub fn node_predict_leaves<'a>(node: &'a Node, vector: &Vec<f64>, header: &HashMap<String,usize>, prediction_mode: &PredictionMode) -> Vec<&'a Node> {
+pub fn node_predict_leaves<'a>(node: &'a Node, vector: &Vec<f64>, header: &HashMap<String,usize>, prediction_mode: &PredictionMode, drop_mode: &DropMode) -> Vec<&'a Node> {
 
     println!("Crawling node: {}", node.id);
     println!("{:?},{:?}", node.feature(),node.split());
@@ -40,26 +42,26 @@ pub fn node_predict_leaves<'a>(node: &'a Node, vector: &Vec<f64>, header: &HashM
     let mut leaves: Vec<&Node> = Vec::new();
 
     if let (&Some(ref feature),&Some(ref split)) = (node.feature(),node.split()) {
-        if *vector.get(*header.get(feature).unwrap_or(&(vector.len()+1))).unwrap_or(&0.) != 0.  {
+        if *vector.get(*header.get(feature).unwrap_or(&(vector.len()+1))).unwrap_or(&0.) != drop_mode.cmp() {
             if vector[header[feature]] > split.clone() {
-                leaves.append(&mut node_predict_leaves(&node.children[1], vector, header, prediction_mode));
+                leaves.append(&mut node_predict_leaves(&node.children[1], vector, header, prediction_mode, drop_mode));
             }
             else {
-                leaves.append(&mut node_predict_leaves(&node.children[0], vector, header, prediction_mode));
+                leaves.append(&mut node_predict_leaves(&node.children[0], vector, header, prediction_mode, drop_mode));
             }
         }
         else {
             match prediction_mode {
                 &PredictionMode::Branch => {
-                    leaves.append(&mut node_predict_leaves(&node.children[0], vector, header, prediction_mode));
-                    leaves.append(&mut node_predict_leaves(&node.children[1], vector, header, prediction_mode));
+                    leaves.append(&mut node_predict_leaves(&node.children[0], vector, header, prediction_mode, drop_mode));
+                    leaves.append(&mut node_predict_leaves(&node.children[1], vector, header, prediction_mode, drop_mode));
                 },
                 &PredictionMode::Truncate => {
                     leaves.push(&node)
                 },
                 &PredictionMode::Abort => {},
                 &PredictionMode::Auto => {
-                    leaves.append(&mut node_predict_leaves(&node, vector, header, &PredictionMode::Branch));
+                    leaves.append(&mut node_predict_leaves(&node, vector, header, &PredictionMode::Branch, drop_mode));
                 }
             }
         }

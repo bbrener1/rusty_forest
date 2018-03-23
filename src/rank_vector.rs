@@ -8,10 +8,11 @@ extern crate rand;
 use raw_vector::RawVector;
 use raw_vector::LeftVectCrawler;
 use raw_vector::RightVectCrawler;
+use DropMode;
 
 impl RankVector {
 
-    pub fn new(in_vec:&Vec<f64>, feature_name: String) -> RankVector {
+    pub fn new(in_vec:&Vec<f64>, feature_name: String,drop: DropMode) -> RankVector {
 
         let vector = RawVector::raw_vector(in_vec);
 
@@ -42,7 +43,7 @@ impl RankVector {
 
             draw_order: (0..length).collect(),
 
-            drop: false,
+            drop: drop,
             num_dropped: 0,
 
             left_zone:zones.0,
@@ -54,32 +55,6 @@ impl RankVector {
         }
 
     }
-
-    // pub fn desrciption(&mut self) {
-    //
-    // }
-
-    // pub fn describe(input:&RawVector) -> (usize,usize,f64) {
-    //
-    //     let non_zero_length = input.vector.len() - input.drop_set.len();
-    //
-    //     let median_target = ((non_zero_length as f64 / 2.).trunc() + 1.) as i32;
-    //
-    //
-    //
-    //     let mut median: (usize,usize,f64);
-    //
-    //     match non_zero_length%2 {
-    //         0 => median = ((non_zero_length/2)-1,non_zero_length/2,0.),
-    //         1 => median = (non_zero_length/2,non_zero_length/2,0.),
-    //         _ => median = (0,0,0.)
-    //     }
-    //
-    //     median = (input.left_to_right().nth(median.0).unwrap().1,input.drop_skip().nth(median.0).unwrap().1,0.);
-    //     median = (median.0,median.1,(input.vector[median.0].3 + input.vector[median.0].3)/2.);
-    //
-    //     (0,0,0.)
-    // }
 
     fn empty_zones() -> (LeftZone,MedianZone,RightZone) {
 
@@ -172,25 +147,30 @@ impl RankVector {
 
     }
 
-    pub fn drop(&mut self, target: usize) {
-        self.vector.drop(target);
+    pub fn drop_target(&mut self, target: usize) {
 
-        if self.backup {
-            self.backup_vector.drop(target);
+        if self.vector.drop(target) {
+
+            if self.backup {
+                self.backup_vector.drop(target);
+            }
+
+            if self.median_zone.index_set.contains(&target) {
+                self.median_zone.size -= 1;
+                self.median_zone.index_set.remove(&target);
+            }
+            if self.left_zone.index_set.contains(&target) {
+                self.left_zone.size -= 1;
+                self.left_zone.index_set.remove(&target);
+            }
+            if self.right_zone.index_set.contains(&target) {
+                self.right_zone.size -= 1;
+                self.right_zone.index_set.remove(&target);
+            }
+
+            self.num_dropped += 1;
         }
 
-        if self.median_zone.index_set.contains(&target) {
-            self.median_zone.size -= 1;
-            self.median_zone.index_set.remove(&target);
-        }
-        if self.left_zone.index_set.contains(&target) {
-            self.left_zone.size -= 1;
-            self.left_zone.index_set.remove(&target);
-        }
-        if self.right_zone.index_set.contains(&target) {
-            self.right_zone.size -= 1;
-            self.right_zone.index_set.remove(&target);
-        }
     }
 
     pub fn drop_zeroes(&mut self) {
@@ -198,19 +178,48 @@ impl RankVector {
         let samples_to_drop: Vec<usize> = self.vector.iter_full().filter(|x| x.3 == 0.).map(|x| x.1).collect();
 
         for sample in samples_to_drop {
-            self.drop(sample);
+            self.drop_target(sample);
         }
 
-        self.drop = true;
+    }
+
+    pub fn drop_nan(&mut self) {
+
+        let samples_to_drop: HashSet<usize> = self.vector.dirty_set.clone();
+
+        for sample in samples_to_drop {
+            self.drop_target(sample);
+        }
+
+    }
+
+    pub fn drop(&mut self) {
+
+        match self.drop {
+            DropMode::Zeros => self.drop_zeroes(),
+            DropMode::NaNs => self.drop_nan(),
+            DropMode::No => {},
+        }
 
     }
 
     pub fn reset(&mut self) {
 
         self.vector = self.backup_vector.clone();
+
         self.left_zone = self.backup_left.clone();
         self.median_zone = self.backup_median.clone();
         self.right_zone = self.backup_right.clone();
+        self.length = self.vector.len();
+
+    }
+
+    pub fn manual_reset(&mut self) {
+
+        self.vector.reset_by_reference(&self.backup_vector);
+        self.left_zone.reset_by_reference(&self.backup_left);
+        self.right_zone.reset_by_reference(&self.backup_right);
+        self.median_zone.reset_by_reference(&self.backup_median);
         self.length = self.vector.len();
 
     }
@@ -524,20 +533,13 @@ impl RankVector {
         OrderedDraw::new(self)
     }
 
-    pub fn ordered_mad(mut self,draw_order: &Vec<usize>) -> Vec<(f64,f64)> {
-
-        // let start_time = time::PreciseTime::now();
+    pub fn ordered_mad(&mut self,draw_order: &Vec<usize>) -> Vec<(f64,f64)> {
 
         let mut meds_mads = Vec::with_capacity(draw_order.len());
         for draw in draw_order {
             self.pop(*draw);
             meds_mads.push((self.median(),self.mad()))
         }
-
-        // let end_time = time::PreciseTime::now();
-
-        // println!("Time for a single feature mad: {}ns", start_time.to(end_time).num_nanoseconds().unwrap_or(-1));
-
 
         meds_mads
     }
@@ -552,7 +554,7 @@ impl RankVector {
 
     pub fn between_original(&self, begin:usize,end:usize) -> usize {
         let mut number = 0;
-        if self.drop && (self.vector.drop_set.contains(&begin) || self.vector.drop_set.contains(&end) || (self.vector[begin].3 <= 0. && self.vector[end].3 >= 0.)) {
+        if self.drop.bool() && (self.vector.drop_set.contains(&begin) || self.vector.drop_set.contains(&end) || (self.vector[begin].3 <= 0. && self.vector[end].3 >= 0.)) {
             if self.vector[end].3 > 0. {
                 number = self.vector.crawl_left(end).enumerate().find(|x| (x.1).1 < 0).unwrap_or((1,&(0,0,0,0.,0))).0 + 1;
             }
@@ -588,7 +590,12 @@ impl RankVector {
         self.vector.iter_ordered()
     }
 
-    // pub fn derive(&self, indecies:Vec<usize>,) -> RankVector<U,T> {
+    pub fn split_indecies(&self, split: &f64) -> (Vec<usize>,Vec<usize>) {
+        let index = self.vector.iter_ordered().iter().enumerate().find(|x| x.1 > split).unwrap_or((0,&0.)).0;
+        let draw_order = self.vector.dropped_draw_order();
+        (draw_order[..index].to_vec(),draw_order[index..].to_vec())
+    }
+
     pub fn derive(&self, indecies:&[usize],) -> RankVector {
 
         let vector = self.vector.derive(indecies);
@@ -614,7 +621,7 @@ impl RankVector {
 
             draw_order: (0..length).collect(),
 
-            drop: false,
+            drop: self.drop,
             num_dropped: 0,
 
             left_zone:zones.0,
@@ -626,17 +633,22 @@ impl RankVector {
             // sample_names: new_sample_names
         };
 
-        if self.drop {
-            derived.drop_zeroes();
-        }
+        derived.drop();
 
         derived.initialize();
         derived.set_boundaries();
+
+        if self.backup {
+            derived.backup();
+        }
 
         derived
 
     }
 
+    pub fn len(&self) -> usize {
+        self.vector.len()
+    }
 
     pub fn index() {
 
@@ -662,7 +674,7 @@ pub struct RankVector {
     pub right_zone: RightZone,
 
     length: usize,
-    drop: bool,
+    drop: DropMode,
     num_dropped: usize,
 
     feature_name: String,
@@ -751,6 +763,16 @@ impl MedianZone {
         }
     }
 
+    fn reset_by_reference(&mut self, backup: &MedianZone) {
+
+        self.size = backup.size;
+        self.dead_center.reset_by_reference(&backup.dead_center);
+        self.left = backup.left;
+        self.right = backup.right;
+
+        self.index_set.clear();
+        self.index_set.extend(backup.index_set.iter());
+    }
 
 
 }
@@ -869,6 +891,11 @@ impl DeadCenter {
         (self.left.unwrap_or((0,0,0,0.,0)).3 + self.right.unwrap_or((0,0,0,0.,0)).3)/2.
     }
 
+    pub fn reset_by_reference(&mut self,backup:&DeadCenter) {
+        self.left = backup.left;
+        self.right = backup.right;
+    }
+
 }
 
 #[derive(Serialize,Deserialize,Debug,Clone)]
@@ -915,6 +942,15 @@ impl LeftZone {
         }
         None
     }
+
+    fn reset_by_reference(&mut self, backup: &LeftZone) {
+        self.index_set.clear();
+        self.index_set.extend(backup.index_set.iter());
+
+        self.size = backup.size;
+        self.right = backup.right;
+    }
+
 }
 
 #[derive(Serialize,Deserialize,Debug,Clone)]
@@ -960,6 +996,15 @@ impl RightZone {
             return self.left
         }
         None
+    }
+
+    fn reset_by_reference(&mut self, backup: &RightZone) {
+
+        self.index_set.clear();
+        self.index_set.extend(backup.index_set.iter());
+
+        self.size = backup.size;
+        self.left = backup.left;
     }
 }
 

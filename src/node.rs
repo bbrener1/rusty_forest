@@ -1,5 +1,4 @@
 
-use std;
 use std::sync::Arc;
 use std::cmp::PartialOrd;
 use std::cmp::Ordering;
@@ -9,13 +8,14 @@ use serde_json;
 extern crate rand;
 use rank_table::RankTable;
 use rank_vector::RankVector;
+use DropMode;
 
 impl Node {
 
 
-    pub fn feature_root<'a>(counts:&Vec<Vec<f64>>,feature_names:&'a[String],sample_names:&'a[String],input_features: Vec<String>,output_features:Vec<String>,feature_pool: mpsc::Sender<(((RankVector,Arc<Vec<usize>>),mpsc::Sender<Vec<(f64,f64)>>))>) -> Node {
+    pub fn feature_root<'a>(counts:&Vec<Vec<f64>>,feature_names:&'a[String],sample_names:&'a[String],input_features: Vec<String>,output_features:Vec<String>,dropout:DropMode,feature_pool: mpsc::Sender<(((RankVector,Arc<Vec<usize>>),mpsc::Sender<(Vec<(f64,f64)>,RankVector)>))>) -> Node {
 
-        let rank_table = RankTable::new(counts,&feature_names,&sample_names);
+        let rank_table = RankTable::new(counts,&feature_names,&sample_names,dropout);
 
         let feature_weights = vec![1.;feature_names.len()];
 
@@ -29,7 +29,7 @@ impl Node {
             feature_pool: feature_pool,
 
             rank_table: rank_table,
-            dropout: true,
+            dropout: dropout,
 
             id: "RT".to_string(),
             parent_id: "RT".to_string(),
@@ -74,33 +74,54 @@ impl Node {
             let mut forward_receivers = Vec::with_capacity(self.rank_table.dimensions.0);
             let mut reverse_receivers = Vec::with_capacity(self.rank_table.dimensions.0);
 
-            for feature in self.rank_table.cloned_features().into_iter() {
+            let mut features = self.rank_table.drain_features();
 
+            for feature in features.drain(..) {
                 let (tx,rx) = mpsc::channel();
-                self.feature_pool.send(((feature.clone(),forward_draw.clone()),tx));
+                self.feature_pool.send(((feature,forward_draw.clone()),tx));
                 forward_receivers.push(rx);
+            }
 
+            for (i,fr) in forward_receivers.iter().enumerate() {
+                if let Ok((disp,feature)) = fr.recv() {
+                    for (j,(m,d)) in disp.into_iter().enumerate() {
+                        forward_covs[j][i] = (d/m).abs();
+                        if forward_covs[j][i].is_nan(){
+                            forward_covs[j][i] = 0.;
+                        }
+                    }
+                    features.push(feature);
+                }
+                else {
+                    panic!("Parellelization error!")
+                }
+
+            }
+
+            for feature in features.drain(..) {
                 let (tx,rx) = mpsc::channel();
                 self.feature_pool.send(((feature,reverse_draw.clone()),tx));
                 reverse_receivers.push(rx);
+            }
+
+
+            for (i,rr) in reverse_receivers.iter().enumerate() {
+                if let Ok((disp,feature)) = rr.recv() {
+                    for (j,(m,d)) in disp.into_iter().enumerate() {
+                        reverse_covs[reverse_draw.len() - j - 1][i] = (d/m).abs();
+                        if reverse_covs[reverse_draw.len() - j - 1][i].is_nan(){
+                            reverse_covs[reverse_draw.len() - j - 1][i] = 0.;
+                        }
+                    }
+                    features.push(feature);
+                }
+                else {
+                    panic!("Parellelization error!")
+                }
 
             }
 
-            for (i,(fr,rr)) in forward_receivers.iter().zip(reverse_receivers.iter()).enumerate() {
-                for (j,(m,d)) in fr.recv().unwrap().into_iter().enumerate() {
-                    forward_covs[j][i] = (d/m).abs();
-                    if forward_covs[j][i].is_nan(){
-                        forward_covs[j][i] = 0.;
-                    }
-                }
-                for (j,(m,d)) in rr.recv().unwrap().into_iter().enumerate() {
-                    reverse_covs[reverse_draw.len() - j - 1][i] = (d/m).abs();
-                    if reverse_covs[reverse_draw.len() - j - 1][i].is_nan(){
-                        reverse_covs[reverse_draw.len() - j - 1][i] = 0.;
-                    }
-                }
-
-            }
+            self.rank_table.return_features(features);
 
             minima.push((input_feature,mad_minimum(forward_covs, reverse_covs, &mut self.feature_weights.clone(),self.rank_table.feature_index(input_feature))));
 
@@ -248,6 +269,24 @@ impl Node {
         child
     }
 
+    pub fn derive_known_split(&self,feature:&str,split:&f64) -> (Node,Node){
+        let (left_indecies,right_indecies) = self.rank_table.split_indecies_by_feature(feature,split);
+
+        let mut left_child_id = self.id.clone();
+        let mut right_child_id = self.id.clone();
+        left_child_id.push_str(&format!("!F{}:S{}L",feature,split));
+        right_child_id.push_str(&format!("!F{}:S{}R",feature,split));
+
+        let left_child = self.derive(&left_indecies, &left_child_id);
+        let right_child = self.derive(&right_indecies, &right_child_id);
+
+        (left_child,right_child)
+
+    }
+
+    pub fn alter_node(&self) {
+
+    }
 
     pub fn report(&self,verbose:bool) {
         println!("Node reporting:");
@@ -269,9 +308,6 @@ impl Node {
 
     }
 
-    pub fn id(&self) -> &str {
-        &self.id
-    }
 
     pub fn summary(&self) -> String {
         let mut report_string = "".to_string();
@@ -352,8 +388,16 @@ impl Node {
 
     }
 
+    pub fn rank_table(&self) -> &RankTable {
+        &self.rank_table
+    }
+
     pub fn between(&self, feature:&str, begin:&str, end:&str) -> usize {
         self.rank_table.between(feature,begin,end)
+    }
+
+    pub fn id(&self) -> &str {
+        &self.id
     }
 
     pub fn samples(&self) -> Vec<String> {
@@ -388,6 +432,10 @@ impl Node {
         self.rank_table.dimensions
     }
 
+    pub fn dropout(&self) -> DropMode {
+        self.dropout
+    }
+
     pub fn absolute_gains(&self) -> &Option<Vec<f64>> {
         &self.absolute_gains
     }
@@ -400,16 +448,91 @@ impl Node {
         self.clone().wrap_consume()
     }
 
+    pub fn crawl_children(&self) -> Vec<&Node> {
+        let mut output = Vec::new();
+        for child in &self.children {
+            output.extend(child.crawl_children());
+        }
+        output.push(&self);
+        output
+    }
+
+    pub fn compute_absolute_gains(&mut self, root_medians: &Vec<f64>,root_dispersions: &Vec<f64>) {
+
+        let mut absolute_gains = Vec::with_capacity(root_dispersions.len());
+
+        for ((nd,nm),(od,om)) in self.dispersions.iter().zip(self.medians.iter()).zip(root_dispersions.iter().zip(root_medians.iter())) {
+            let mut old_cov = od/om;
+            if !old_cov.is_normal() {
+                old_cov = 0.;
+            }
+            let mut new_cov = nd/nm;
+            if !new_cov.is_normal() {
+                new_cov = 0.;
+            }
+            absolute_gains.push(old_cov-new_cov)
+
+        }
+
+        self.absolute_gains = Some(absolute_gains);
+
+        for child in self.children.iter_mut() {
+            child.compute_absolute_gains(root_medians,root_dispersions);
+        }
+    }
+    //
+    // pub fn cascading_interaction<'a>(&'a self,mut parents:Vec<&'a Node>) -> Vec<(&'a str,Vec<(&'a str,Vec<(&'a str,f64)>)>)> {
+    //
+    //     let mut interactions = Vec::new();
+    //
+    //     if let (&Some(feature),&Some(split)) = (&self.feature,&self.split) {
+    //
+    //         parents.push(&self);
+    //
+    //         for child in self.children.iter_mut() {
+    //             interactions.extend(child.cascading_interaction(parents));
+    //         }
+    //
+    //         for parent in parents{
+    //             let (left,right) = parent.derive_known_split(&feature,&split);
+    //             self.children[0].local_gains().unwrap().iter().zip(left.local_gains().unwrap().iter()).map(|x| x.0);
+    //         }
+    //
+    //     }
+    //
+    //     interactions
+    //
+    // }
+
+    pub fn root_absolute_gains(&mut self) {
+        for child in self.children.iter_mut() {
+            child.compute_absolute_gains(&self.medians,&self.dispersions);
+        }
+    }
+
+    pub fn crawl_leaves(&self) -> Vec<&Node> {
+        let mut output = Vec::new();
+        if self.children.len() < 1 {
+            return vec![&self]
+        }
+        else {
+            for child in &self.children {
+                output.extend(child.crawl_leaves());
+            }
+        };
+        output
+    }
+
 }
 
 #[derive(Clone)]
 pub struct Node {
 
     // pool: mpsc::Sender<((usize,(RankTableSplitter,RankTableSplitter,Vec<usize>),Vec<f64>),mpsc::Sender<(usize,usize,f64,Vec<usize>)>)>,
-    feature_pool: mpsc::Sender<(((RankVector,Arc<Vec<usize>>),mpsc::Sender<Vec<(f64,f64)>>))>,
+    feature_pool: mpsc::Sender<(((RankVector,Arc<Vec<usize>>),mpsc::Sender<(Vec<(f64,f64)>,RankVector)>))>,
 
     rank_table: RankTable,
-    dropout: bool,
+    dropout: DropMode,
 
     pub parent_id: String,
     pub id: String,
@@ -433,7 +556,7 @@ impl NodeWrapper {
         serde_json::to_string(&self).unwrap()
     }
 
-    pub fn unwrap(self,feature_pool: mpsc::Sender<(((RankVector,Arc<Vec<usize>>),mpsc::Sender<Vec<(f64,f64)>>))>) -> Node {
+    pub fn unwrap(self,feature_pool: mpsc::Sender<(((RankVector,Arc<Vec<usize>>),mpsc::Sender<(Vec<(f64,f64)>,RankVector)>))>) -> Node {
         let mut children: Vec<Node> = Vec::with_capacity(self.children.len());
         for child in self.children {
             // println!("#######################################\n");
@@ -480,7 +603,7 @@ impl NodeWrapper {
 pub struct NodeWrapper {
 
     pub rank_table: RankTable,
-    pub dropout: bool,
+    pub dropout: DropMode,
 
     pub parent_id: String,
     pub id: String,
@@ -545,6 +668,24 @@ pub fn mad_minimum(forward:Vec<Vec<f64>>,reverse: Vec<Vec<f64>>,feature_weights:
 
 }
 
+pub struct StrippedNode {
+
+    pub rank_table: RankTable,
+    dropout: bool,
+
+    pub original_id: String,
+    pub children: Vec<StrippedNode>,
+
+    feature: Option<String>,
+    split: Option<f64>,
+
+    output_features: Vec<String>,
+    input_features: Vec<String>,
+
+    pub local_gains: Option<Vec<f64>>,
+    pub absolute_gains: Option<Vec<f64>>
+}
+
 #[cfg(test)]
 mod node_testing {
 
@@ -570,7 +711,7 @@ mod node_testing {
     fn node_test_simple() {
         let mut root = Node::feature_root(&vec![vec![10.,-3.,0.,5.,-2.,-1.,15.,20.]], &vec!["one".to_string()], &(0..8).map(|x| x.to_string()).collect::<Vec<String>>()[..], vec!["one".to_string()], vec!["one".to_string()], FeatureThreadPool::new(1));
 
-        root.derive_children();
+        root.feature_parallel_derive();
 
         assert_eq!(root.children[0].samples(),vec!["1".to_string(),"4".to_string(),"5".to_string()]);
         assert_eq!(root.children[1].samples(),vec!["0".to_string(),"3".to_string(),"6".to_string(),"7".to_string()]);

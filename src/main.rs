@@ -20,7 +20,6 @@ extern crate time;
 
 
 
-mod online_madm;
 mod raw_vector;
 mod rank_vector;
 mod rank_table;
@@ -30,9 +29,65 @@ mod thread_pool;
 mod feature_thread_pool;
 mod random_forest;
 mod predictor;
+mod shuffler;
 
 use tree::Tree;
 use random_forest::Forest;
+
+/// Author: Boris Brenerman
+/// Created: 2017 Academic Year, Johns Hopkins University, Department of Biology, Taylor Lab
+
+/// This is a forest-based regression/classification software package designed with single-cell RNAseq data in mind.
+///
+/// Currently implemented features are to generate Decision Trees that segment large 2-dimensional matrices, and prediction of samples based on these decision trees
+///
+/// Features to be implemented include interaction analysis, python-based node clustering and trajectory analysis using minimum spanning trees of clusters, feature correlation analysis, and finally subsampling-based gradient boosting for sequential tree generation.
+
+/// The general structure of the program is as follows:
+///
+/// The outer-most class is the Random Forest
+///
+
+
+/// Random Forests:
+///
+/// Random Forest contains:
+///     - The matrix to be analyzed
+///     - Decision Trees
+///
+///     - Important methods:
+///         - Method that generates decision trees and calls on them to grow branches
+///         - Method that generates predicted values for a matrix of samples
+///
+///
+
+
+
+/// Trees:
+///
+/// Trees contain:
+///     - Root Node
+///     - Feature Thread Pool Sender Channel
+///     - Drop Mode
+///
+/// Each tree contains a subsampling of both rows and columns of the original matrix. The subsampled rows and columns are contained in a root node, which is the only node the tree has direct access to.
+///
+
+/// Feature Thread Pool:
+///
+/// Feature Thread Pool contains:
+///     - Worker Threads
+///     - Reciever Channel for jobs
+///
+///     - Important methods:
+///         - A wrapper method to compute a set of medians and MADs for each job passed to the pool. Core method logic is in Rank Vector
+///
+/// Feature Thread Pools are containers of Worker threads. Each pool contains a multiple in, single out channel locked with a Mutex. Each Worker contained in the pool continuously requests jobs from the channel. If the Mutex is unlocked and has a job, a Worker thread receives it.
+///
+///     Jobs:
+///         Jobs in the pool channel consist of a channel to pass back the solution to the underlying problem and a freshly spawned Rank Vector (see below). The job consists of calling a method on the RV that consumes it and produces the medians and Median Absolute Deviations (MAD) from the Median of the vector if a set of samples is removed from it in a given order. This allows us to determine what the Median Absolute Deviation from the Median would be given the split of that feature by some draw order. The draw orders given to each job are usually denoting that the underlying matrix was sorted by another feature.
+///
+/// Worker threads are simple anonymous threads kept in a vector in the pool, requesting jobs on loop from the channel.
 
 fn main() {
 
@@ -152,7 +207,7 @@ pub fn construct(args: ConstructionArguments) {
     }
 
 
-    let mut rnd_forest = random_forest::Forest::initialize(&count_array, args.tree_limit, args.leaf_size_cutoff,args.processor_limit, feature_names, sample_names, report_address);
+    let mut rnd_forest = random_forest::Forest::initialize(&count_array, args.tree_limit, args.leaf_size_cutoff,args.processor_limit, feature_names, sample_names, args.drop, report_address);
 
     rnd_forest.generate(feature_subsample,sample_subsample,input_features,output_features,false);
 
@@ -169,7 +224,7 @@ pub struct ConstructionArguments {
     processor_limit: usize,
     tree_limit: usize,
     leaf_size_cutoff: usize,
-    drop: bool,
+    drop: DropMode,
 
     feature_subsample: Option<usize>,
     sample_subsample: Option<usize>,
@@ -190,7 +245,7 @@ impl ConstructionArguments {
                     processor_limit: 1,
                     tree_limit: 1,
                     leaf_size_cutoff: 10000,
-                    drop: true,
+                    drop: DropMode::Zeros,
 
                     feature_subsample: None,
                     sample_subsample: None,
@@ -236,8 +291,8 @@ impl ConstructionArguments {
                 "-l" | "-leaves" => {
                     arg_struct.leaf_size_cutoff = args.next().expect("Error processing leaf limit").parse::<usize>().expect("Error parsing leaf limit");
                 },
-                "-nd" | "-no_drop" => {
-                    arg_struct.drop = false;
+                "-d" | "-drop_mode" => {
+                    arg_struct.drop = DropMode::read(&args.next().expect("Error processing drop mode"));
                 },
                 "-f" | "-h" | "-features" | "-header" => {
                     arg_struct.feature_header_file = Some(args.next().expect("Error processing feature file"));
@@ -281,7 +336,7 @@ impl ConstructionArguments {
             processor_limit: 20,
             tree_limit: 100,
             leaf_size_cutoff: 100,
-            drop: true,
+            drop: DropMode::Zeros,
 
             feature_subsample: Some(4773),
             sample_subsample: Some(800),
@@ -321,15 +376,6 @@ pub fn predict(args:PredictionArguments) {
 
     let samples: Vec<String>;
 
-    let prediction_mode = {
-        match &args.mode[..] {
-            "branch" => PredictionMode::Branch,
-            "truncate" => PredictionMode::Truncate,
-            "abort" => PredictionMode::Abort,
-            "auto" => PredictionMode::Auto,
-            _ => panic!()
-        }
-    };
 
     // if let Some(sample_header_file)  = args.sample_header_file {
     //     samples = read_header(sample_header_file);
@@ -339,13 +385,26 @@ pub fn predict(args:PredictionArguments) {
     // }
 
 
-    let forest = Forest::reconstitute(tree_backups, Some(features), None ,None, "./");
+    let forest = Forest::reconstitute(tree_backups, Some(features), None ,None, "./").expect("Forest reconstitution failed");
 
-    let predictions = forest.predict(&feature_map,&prediction_mode, &args.report_address);
+    let predictions = forest.predict(&feature_map,&args.prediction_mode,&args.dropout_mode, &args.report_address);
 
 
 }
 
+impl PredictionMode {
+    pub fn read(input:&str) -> PredictionMode {
+        match input {
+            "branch" | "branching" | "b" => PredictionMode::Branch,
+            "truncate" | "truncating" | "t" => PredictionMode::Truncate,
+            "abort" | "ab" => PredictionMode::Abort,
+            "auto" | "a" => PredictionMode::Auto,
+            _ => panic!("Not a valid prediction mode, choose branch, truncate, or abort.")
+        }
+    }
+}
+
+#[derive(Debug)]
 pub enum PredictionMode {
     Branch,
     Truncate,
@@ -353,6 +412,38 @@ pub enum PredictionMode {
     Auto
 }
 
+impl DropMode {
+    pub fn read(input: &str) -> DropMode {
+        match input {
+            "zeros" | "zero" | "z" => DropMode::Zeros,
+            "nans" | "nan" | "NaN" => DropMode::NaNs,
+            "none" | "no" => DropMode::No,
+            _ => panic!("Not a valid drop mode, choose zero, nan, or none")
+        }
+    }
+    pub fn cmp(&self) -> f64 {
+        match self {
+            &DropMode::Zeros => 0.,
+            &DropMode::NaNs => f64::NAN,
+            &DropMode::No => f64::INFINITY,
+        }
+    }
+
+    pub fn bool(&self) -> bool {
+        match self {
+            &DropMode::Zeros => true,
+            &DropMode::NaNs => true,
+            &DropMode::No => false,
+        }
+    }
+}
+
+#[derive(Debug,Clone,Copy,Serialize,Deserialize)]
+pub enum DropMode {
+    Zeros,
+    NaNs,
+    No,
+}
 
 pub enum TreeBackups {
     File(String),
@@ -363,7 +454,8 @@ pub enum TreeBackups {
 #[derive(Debug)]
 pub struct PredictionArguments {
 
-    mode: String,
+    prediction_mode: PredictionMode,
+    dropout_mode: DropMode,
     backups: String,
     backup_vec: Vec<String>,
 
@@ -381,7 +473,8 @@ impl PredictionArguments {
 
         let mut arg_struct = PredictionArguments {
 
-                    mode : "branching".to_string(),
+                    prediction_mode : PredictionMode::Branch,
+                    dropout_mode: DropMode::Zeros,
                     backup_vec : Vec::new(),
                     backups : "".to_string(),
 
@@ -419,7 +512,10 @@ impl PredictionArguments {
                 //     }
                 // },
                 "-m" | "-mode" | "-pm" | "-prediction_mode" | "-prediction" => {
-                    arg_struct.mode = args.next().expect("Error reading prediction mode");
+                    arg_struct.prediction_mode = PredictionMode::read(&args.next().expect("Error reading prediction mode"));
+                },
+                "-d" | "-drop" | "-dropout_mode" => {
+                    arg_struct.dropout_mode = DropMode::read(&args.next().expect("Error reading dropout mode"));
                 },
                 "-backups" | "-trees" | "-b" | "-t" => {
                     arg_struct.backups = args.next().expect("Error parsing tree locations");
@@ -495,7 +591,7 @@ pub fn combined(args:CombinedArguments) {
     println!("##############################################################################################################");
 
 
-    let mut rnd_forest = random_forest::Forest::initialize(&count_array, args.tree_limit, args.leaf_size_cutoff,args.processor_limit, feature_names, sample_names, report_address);
+    let mut rnd_forest = random_forest::Forest::initialize(&count_array, args.tree_limit, args.leaf_size_cutoff,args.processor_limit, feature_names, sample_names, args.drop, report_address);
 
     let mut input_features: usize;
 
@@ -543,18 +639,7 @@ pub fn combined(args:CombinedArguments) {
 
     let dimensions = rnd_forest.dimensions();
 
-
-    let prediction_mode = {
-        match &args.mode[..] {
-            "branch" | "branching" | "b" => PredictionMode::Branch,
-            "truncate" | "trunc" | "t" => PredictionMode::Truncate,
-            "abort" | "ab" => PredictionMode::Abort,
-            "auto" | "a" => PredictionMode::Auto,
-            _ => panic!()
-        }
-    };
-
-    let predictions = rnd_forest.predict(&rnd_forest.feature_map(), &prediction_mode, &report_address);
+    let predictions = rnd_forest.predict(&rnd_forest.feature_map(), &args.mode,&args.drop, &report_address);
 
 }
 
@@ -570,13 +655,13 @@ impl CombinedArguments {
                     processor_limit: 1,
                     tree_limit: 1,
                     leaf_size_cutoff: 10000,
-                    drop: true,
+                    drop: DropMode::Zeros,
 
                     feature_subsample: None,
                     sample_subsample: None,
                     input_features: None,
                     output_features:None,
-                    mode: "branch".to_string()
+                    mode: PredictionMode::Branch
 
         };
 
@@ -617,8 +702,8 @@ impl CombinedArguments {
                 "-l" | "-leaves" => {
                     arg_struct.leaf_size_cutoff = args.next().expect("Error processing leaf limit").parse::<usize>().expect("Error parsing leaf limit");
                 },
-                "-nd" | "-no_drop" => {
-                    arg_struct.drop = false;
+                "-d" | "-drop_mode" => {
+                    arg_struct.drop = DropMode::read(&args.next().expect("Error processing drop mode"));
                 },
                 "-f" | "-h" | "-features" | "-header" => {
                     arg_struct.feature_header_file = Some(args.next().expect("Error processing feature file"));
@@ -639,7 +724,7 @@ impl CombinedArguments {
                     arg_struct.sample_subsample = Some(args.next().expect("Error processing sample subsample arg").parse::<usize>().expect("Error sample subsample arg"));
                 },
                 "-m" | "-mode" | "-pm" | "-prediction_mode" | "-prediction" => {
-                    arg_struct.mode = args.next().expect("Error reading prediction mode");
+                    arg_struct.mode = PredictionMode::read(&args.next().expect("Error reading prediction mode"));
                 },
                 &_ => {
                     if !supress_warnings {
@@ -665,13 +750,13 @@ impl CombinedArguments {
             processor_limit: 20,
             tree_limit: 100,
             leaf_size_cutoff: 100,
-            drop: true,
+            drop: DropMode::Zeros,
 
             feature_subsample: Some(4773),
             sample_subsample: Some(800),
             input_features: Some(400),
             output_features:Some(4773),
-            mode: "branched".to_string()
+            mode: PredictionMode::Branch,
         }
 
     }
@@ -688,14 +773,14 @@ pub struct CombinedArguments {
     processor_limit: usize,
     tree_limit: usize,
     leaf_size_cutoff: usize,
-    drop: bool,
+    drop: DropMode,
 
     feature_subsample: Option<usize>,
     sample_subsample: Option<usize>,
     input_features: Option<usize>,
     output_features: Option<usize>,
 
-    mode: String,
+    mode: PredictionMode,
 
 }
 
@@ -922,7 +1007,11 @@ pub mod primary_testing {
         if let Command::Predict(args) = command {
 
 
-            assert_eq!(args.mode,"branching".to_string());
+            match args.mode {
+                PredictionMode::Branch => {},
+                _ => panic!("Branch mode not read correctly")
+            }
+
             assert_eq!(args.backup_vec, vec!["tree.0".to_string(),"tree.1".to_string(),"tree.2".to_string()]);
             assert_eq!(args.backups, "tree.txt".to_string());
 
@@ -948,11 +1037,11 @@ pub mod primary_testing {
         if let Command::Construct(args) = command {
 
 
-            assert_eq!(args.output_features,5);
-            assert_eq!(args.input_features,10);
+            assert_eq!(args.output_features.unwrap(),5);
+            assert_eq!(args.input_features.unwrap(),10);
             assert_eq!(args.count_array_file, "counts.txt".to_string());
             assert_eq!(args.feature_header_file, Some("header_backup.txt".to_string()));
-            assert_eq!(args.sample_subsample, 100);
+            assert_eq!(args.sample_subsample.unwrap(), 100);
             assert_eq!(args.report_address, "./elsewhere/".to_string());
             assert_eq!(args.processor_limit, 3);
 

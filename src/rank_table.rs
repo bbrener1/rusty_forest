@@ -2,17 +2,18 @@
 use std::collections::HashSet;
 use std::collections::HashMap;
 use std::sync::Arc;
-
+use std::mem::swap;
 
 extern crate rand;
 
 use rank_vector::RankVector;
 use rank_vector::OrderedDraw;
 use rank_vector::ProceduralDraw;
+use DropMode;
 
 impl RankTable {
 
-    pub fn new<'a> (counts: &Vec<Vec<f64>>,feature_names:&'a [String],sample_names:&'a [String]) -> RankTable {
+    pub fn new<'a> (counts: &Vec<Vec<f64>>,feature_names:&'a [String],sample_names:&'a [String],dropout:DropMode) -> RankTable {
 
         let mut meta_vector = Vec::new();
 
@@ -27,17 +28,18 @@ impl RankTable {
             // println!("Starting to iterate");
             feature_dictionary.insert(name.clone(),i);
             // println!("Updated feature dict");
-            let mut construct = RankVector::new(loc_counts,name);
+            let mut construct = RankVector::new(loc_counts,name,dropout);
             // println!("Made a rank vector");
-            construct.drop_zeroes();
+            construct.drop();
             construct.initialize();
             construct.set_boundaries();
+            construct.backup();
             meta_vector.push(construct);
         }
 
         let draw_order = (0..counts.get(0).unwrap_or(&vec![]).len()).collect::<Vec<usize>>();
 
-        let dim = (meta_vector.len(),meta_vector.get(0).unwrap_or(&RankVector::new(&vec![],"".to_string())).vector.vector.len());
+        let dim = (meta_vector.len(),meta_vector.get(0).unwrap_or(&RankVector::new(&vec![],"".to_string(),DropMode::No)).vector.vector.len());
 
         println!("Made rank table with {} features, {} samples:", dim.0,dim.1);
 
@@ -49,7 +51,8 @@ impl RankTable {
             index:0,
             dimensions:dim,
             feature_dictionary: feature_dictionary,
-            sample_dictionary: sample_dictionary
+            sample_dictionary: sample_dictionary,
+            dropout:dropout,
         }
 
     }
@@ -69,6 +72,10 @@ impl RankTable {
 
     pub fn sort_by_feature(& self, feature: &str) -> Vec<usize> {
         self.meta_vector[self.feature_dictionary[feature]].give_dropped_order()
+    }
+
+    pub fn split_indecies_by_feature(&self, feature: &str, split: &f64) -> (Vec<usize>,Vec<usize>){
+        self.meta_vector[self.feature_dictionary[feature]].split_indecies(split)
     }
 
     pub fn feature_name(&self, feature_index: usize) -> String {
@@ -155,6 +162,7 @@ impl RankTable {
             draw_order: new_draw_order,
             index: 0,
             dimensions: dimensions,
+            dropout: self.dropout,
         }
     }
 
@@ -169,6 +177,17 @@ impl RankTable {
 
     pub fn cloned_features(&self) -> Vec<RankVector> {
         self.meta_vector.clone()
+    }
+
+    pub fn drain_features(&mut self) -> Vec<RankVector> {
+
+        let mut out = Vec::new();
+        swap(&mut self.meta_vector,&mut out);
+        out
+    }
+
+    pub fn return_features(&mut self, returned: Vec<RankVector>) {
+        self.meta_vector = returned;
     }
 
     pub fn derive_from_prototype(&self, features:usize,samples:usize) -> RankTable {
@@ -212,6 +231,7 @@ impl RankTable {
             draw_order: new_draw_order,
             index: 0,
             dimensions: dimensions,
+            dropout: self.dropout,
         }
     }
 
@@ -228,6 +248,7 @@ pub struct RankTable {
     draw_order: Vec<usize>,
     index: usize,
     pub dimensions: (usize,usize),
+    dropout: DropMode,
 }
 
 impl<'a> RankTableIter<'a> {

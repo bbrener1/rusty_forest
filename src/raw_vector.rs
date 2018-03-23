@@ -3,15 +3,31 @@ use std::cmp::Ordering;
 use std::collections::HashSet;
 use std::collections::HashMap;
 use std::ops::Index;
+use std::iter::Map;
 
 
 impl RawVector {
+
+    pub fn sanitize_vector(in_vec:&Vec<f64>) -> (Vec<f64>,HashSet<usize>) {
+
+        (
+            in_vec.iter().map(|x| if !x.is_normal() {0.} else {*x}).collect(),
+
+            in_vec.iter().enumerate().filter(|x| !x.1.is_normal()).map(|x| x.0).collect()
+        )
+
+    }
+
     pub fn raw_vector(in_vec:&Vec<f64>) -> RawVector {
+
+
 
         let mut vector = Vec::with_capacity(in_vec.len());
         let mut draw_order = Vec::with_capacity(in_vec.len());
 
-        let mut sorted_invec = in_vec.iter().enumerate().collect::<Vec<(usize,&f64)>>();
+        let (clean_vector,dirty_set) = RawVector::sanitize_vector(in_vec);
+
+        let mut sorted_invec = clean_vector.iter().enumerate().collect::<Vec<(usize,&f64)>>();
         sorted_invec.sort_unstable_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Greater));
 
         for (i,sample) in sorted_invec.iter().enumerate() {
@@ -61,6 +77,7 @@ impl RawVector {
             vector: vector,
             draw_order: draw_order,
             drop_set: drop_set,
+            dirty_set: dirty_set,
             drop: false
         }
 
@@ -158,14 +175,15 @@ impl RawVector {
         }
     }
 
-    pub fn drop(&mut self, target: usize) {
-        self.drop_set.insert(target);
+    pub fn drop(&mut self, target: usize) -> bool {
         self.pop(target);
         self.drop = true;
+        self.drop_set.insert(target)
     }
 
     pub fn drop_zeroes(&mut self) {
-        self.drop_set = self.iter_full().filter(|x| x.3 == 0.).map(|x| x.1).collect();
+        let new_drops: HashSet<usize> = self.iter_full().filter(|x| x.3 == 0.).map(|x| x.1).collect();
+        self.drop_set.extend(new_drops);
         for i in self.drop_set.clone() {
             self.pop(i);
         }
@@ -173,6 +191,10 @@ impl RawVector {
         // eprintln!("Drop set");
         // eprintln!("{:?}", self.drop_set);
         // eprintln!("{:?}", self.vector)
+    }
+
+    pub fn drop_nan(&mut self) {
+        self.drop_set.extend(&self.dirty_set);
     }
 
     pub fn iter(&self) -> RawVectDropNone {
@@ -250,6 +272,25 @@ impl RawVector {
         }
     }
 
+    pub fn reset_by_reference(&mut self, backup: &RawVector) {
+
+        for (i,sample) in backup.vector.iter().enumerate() {
+            self.vector[i] = *sample;
+        }
+
+        self.drop_set.clear();
+        self.drop_set.extend(backup.drop_set.iter());
+
+        self.dirty_set.clear();
+        self.dirty_set.extend(backup.dirty_set.iter());
+
+        self.first = backup.first;
+        self.last = backup.last;
+        self.len = backup.len;
+        self.drop = backup.drop
+
+    }
+
     // pub fn derive(&self, indecies:Vec<usize>) -> RawVector {
     pub fn derive(&self, indecies:&[usize]) -> RawVector {
 
@@ -295,9 +336,7 @@ impl RawVector {
 
         let new_drop_set = HashSet::new();
 
-        // if self.drop {
-        //     new_drop_set = derived_set.intersection(&self.drop_set).cloned().collect();
-        // }
+        let new_dirty_set = self.dirty_set.intersection(&derived_set).cloned().collect();
 
         let new_raw = RawVector {
             first: Some(first),
@@ -306,6 +345,7 @@ impl RawVector {
             vector: intermediate,
             draw_order: new_draw_order,
             drop_set: new_drop_set,
+            dirty_set: new_dirty_set,
             drop: false
         };
 
@@ -341,6 +381,7 @@ pub struct RawVector {
     pub last: Option<usize>,
     pub len: usize,
     pub drop_set : HashSet<usize>,
+    pub dirty_set : HashSet<usize>,
     pub draw_order : Vec<usize>,
     pub drop: bool
 }

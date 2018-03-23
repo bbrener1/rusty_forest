@@ -1,8 +1,9 @@
 use std::fs::File;
 use std::fs::OpenOptions;
 use std::io::Write;
-use std::io;
+use std::io::Error;
 use std::io::BufRead;
+use std::io;
 use std::collections::HashMap;
 
 use tree::Tree;
@@ -11,13 +12,14 @@ extern crate rand;
 use rand::seq;
 
 use PredictionMode;
+use DropMode;
 use TreeBackups;
 use feature_thread_pool::FeatureThreadPool;
 use predictor::predict;
 use matrix_flip;
 
 impl Forest {
-    pub fn initialize(counts:&Vec<Vec<f64>>,trees:usize,leaf_size:usize,processor_limit:usize, feature_option: Option<Vec<String>>, sample_option: Option<Vec<String>>, report_address:&str) -> Forest {
+    pub fn initialize(counts:&Vec<Vec<f64>>,trees:usize,leaf_size:usize,processor_limit:usize, feature_option: Option<Vec<String>>, sample_option: Option<Vec<String>>, dropout: DropMode, report_address:&str) -> Forest {
 
         let dimensions = (counts.len(),counts.first().unwrap_or(&Vec::with_capacity(0)).len());
 
@@ -27,7 +29,7 @@ impl Forest {
 
         let report_string = format!("{}.0",report_address).to_string();
 
-        let prototype_tree = Tree::plant_tree(&counts,&feature_names,&sample_names,feature_names.clone(),sample_names.clone(),leaf_size,processor_limit,report_string);
+        let prototype_tree = Tree::plant_tree(&counts,&feature_names,&sample_names,feature_names.clone(),sample_names.clone(),leaf_size, dropout ,processor_limit,report_string);
 
         Forest {
             feature_names: feature_names,
@@ -36,7 +38,7 @@ impl Forest {
             size: trees,
             counts: counts.clone(),
             prototype_tree: prototype_tree,
-            dropout: true
+            dropout:dropout
         }
     }
 
@@ -53,7 +55,7 @@ impl Forest {
         }
     }
 
-    pub fn reconstitute(tree_locations: TreeBackups, feature_option: Option<Vec<String>>,sample_option:Option<Vec<String>>,processor_option: Option<usize>,report_address:&str) -> Forest {
+    pub fn reconstitute(tree_locations: TreeBackups, feature_option: Option<Vec<String>>,sample_option:Option<Vec<String>>,processor_option: Option<usize>, report_address:&str) -> Result<Forest,Error> {
 
         let mut trees: Vec<Tree>;
 
@@ -61,17 +63,17 @@ impl Forest {
 
         match tree_locations {
             TreeBackups::File(location) => {
-                let tree_file = File::open(location).expect("Count file error!");
+                let tree_file = File::open(location)?;
                 let mut tree_locations: Vec<String> = io::BufReader::new(&tree_file).lines().map(|x| x.expect("Tree location error!")).collect();
                 trees = Vec::with_capacity(tree_locations.len());
                 for loc in tree_locations {
-                    trees.push(Tree::reload(&loc,feature_pool.clone(),1,"".to_string()));
+                    trees.push(Tree::reload(&loc,feature_pool.clone(),1,"".to_string())?);
                 }
             }
             TreeBackups::Vector(tree_locations) => {
                 trees = Vec::with_capacity(tree_locations.len());
                 for loc in tree_locations {
-                    trees.push(Tree::reload(&loc,feature_pool.clone(),1,"".to_string()));
+                    trees.push(Tree::reload(&loc,feature_pool.clone(),1,"".to_string())?);
                 }
             }
             TreeBackups::Trees(backup_trees) => {
@@ -90,34 +92,34 @@ impl Forest {
         let report_string = format!("{}.reconstituted.0",report_address).to_string();
 
 
-        Forest {
+        Ok (Forest {
             feature_names: feature_names,
             sample_names: sample_names,
             size: trees.len(),
+            dropout: prototype_tree.dropout(),
             prototype_tree: prototype_tree,
             trees: trees,
             counts: Vec::new(),
-            dropout: true
-        }
+        })
     }
 
-    pub fn predict(&self,feature_map: &HashMap<String,usize>,prediction_mode:&PredictionMode,report_address: &str) -> Vec<Vec<f64>> {
+    pub fn predict(&self,feature_map: &HashMap<String,usize>,prediction_mode:&PredictionMode, drop_mode: &DropMode,report_address: &str) -> Result<Vec<Vec<f64>>,Error> {
 
-        let predictions = predict(&self.trees,&matrix_flip(&self.counts),feature_map,&prediction_mode);
+        let predictions = predict(&self.trees,&matrix_flip(&self.counts),feature_map,prediction_mode,drop_mode);
 
         let mut prediction_dump = OpenOptions::new().create(true).append(true).open([report_address,".prediction"].join("")).unwrap();
-        prediction_dump.write(&format!("{:?}",predictions).as_bytes());
-        prediction_dump.write(b"\n");
+        prediction_dump.write(&format!("{:?}",predictions).as_bytes())?;
+        prediction_dump.write(b"\n")?;
 
         let mut truth_dump = OpenOptions::new().create(true).append(true).open([report_address,".prediction_truth"].join("")).unwrap();
-        truth_dump.write(&format!("{:?}",&matrix_flip(&self.counts)).as_bytes());
-        truth_dump.write(b"\n");
+        truth_dump.write(&format!("{:?}",&matrix_flip(&self.counts)).as_bytes())?;
+        truth_dump.write(b"\n")?;
 
         let mut prediction_header = OpenOptions::new().create(true).append(true).open([report_address,".prediction_header"].join("")).unwrap();
-        prediction_header.write(&format!("{:?}",feature_map).as_bytes());
-        prediction_header.write(b"\n");
+        prediction_header.write(&format!("{:?}",feature_map).as_bytes())?;
+        prediction_header.write(b"\n")?;
 
-        predictions
+        Ok(predictions)
     }
 
     pub fn trees(&self) -> &Vec<Tree> {
@@ -146,7 +148,7 @@ pub struct Forest {
     size: usize,
     counts: Vec<Vec<f64>>,
     prototype_tree: Tree,
-    dropout: bool
+    dropout: DropMode
 }
 
 fn split_shuffle<T>(source_vector: Vec<T>, pieces: usize) -> Vec<Vec<T>> {
@@ -204,13 +206,13 @@ mod random_forest_tests {
         let new_forest = Forest::reconstitute(TreeBackups::Vector(vec!["./testing/precomputed_trees/simple.0".to_string(),"./testing/precomputed_trees/simple.1".to_string()]), None, None, Some(1), "./testing/");
 
 
-        let reconstituted_features: Vec<String> = new_forest.trees()[0].crawl_nodes().iter().map(|x| x.feature.clone()).filter(|x| x.is_some()).map(|x| x.unwrap()).collect();
+        let reconstituted_features: Vec<String> = new_forest.trees()[0].crawl_nodes().iter().map(|x| x.feature().clone()).filter(|x| x.is_some()).map(|x| x.unwrap()).collect();
         let correct_features: Vec<String> = vec!["0","0","0","0","0","0"].iter().map(|x| x.to_string()).collect();
         assert_eq!(reconstituted_features,correct_features);
 
 
         let correct_splits: Vec<f64> = vec![-1.,-2.,20.,10.,10.,5.];
-        let reconstituted_splits: Vec<f64> = new_forest.trees()[0].crawl_nodes().iter().map(|x| x.split.clone()).filter(|x| x.is_some()).map(|x| x.unwrap()).collect();
+        let reconstituted_splits: Vec<f64> = new_forest.trees()[0].crawl_nodes().iter().map(|x| x.split().clone()).filter(|x| x.is_some()).map(|x| x.unwrap()).collect();
         assert_eq!(reconstituted_splits,correct_splits);
     }
 
@@ -220,13 +222,13 @@ mod random_forest_tests {
         let new_forest = Forest::reconstitute(TreeBackups::Vector(vec!["./testing/precomputed_trees/iris.0".to_string(),"./testing/precomputed_trees/iris.1".to_string()]), None, None, Some(1), "./testing/");
 
 
-        let reconstituted_features: Vec<String> = new_forest.trees()[0].crawl_nodes().iter().map(|x| x.feature.clone()).filter(|x| x.is_some()).map(|x| x.unwrap()).collect();
+        let reconstituted_features: Vec<String> = new_forest.trees()[0].crawl_nodes().iter().map(|x| x.feature().clone()).filter(|x| x.is_some()).map(|x| x.unwrap()).collect();
         let correct_features: Vec<String> = vec!["sepal_length","petal_length","sepal_width","sepal_width","sepal_length","sepal_width","sepal_width","sepal_width","sepal_width","sepal_width"].iter().map(|x| x.to_string()).collect();
         assert_eq!(reconstituted_features,correct_features);
 
 
         let correct_splits: Vec<f64> = vec![1.5,5.7,1.2,1.1,4.9,1.8,1.4,2.2,1.8,1.];
-        let reconstituted_splits: Vec<f64> = new_forest.trees()[0].crawl_nodes().iter().map(|x| x.split.clone()).filter(|x| x.is_some()).map(|x| x.unwrap()).collect();
+        let reconstituted_splits: Vec<f64> = new_forest.trees()[0].crawl_nodes().iter().map(|x| x.split().clone()).filter(|x| x.is_some()).map(|x| x.unwrap()).collect();
     }
 
     #[test]
@@ -238,12 +240,12 @@ mod random_forest_tests {
         new_forest.generate(4, 150, 4, 4, true);
 
 
-        let computed_features: Vec<String> = new_forest.trees[0].crawl_nodes().iter().map(|x| x.feature.clone()).filter(|x| x.is_some()).map(|x| x.unwrap()).collect();
+        let computed_features: Vec<String> = new_forest.trees[0].crawl_nodes().iter().map(|x| x.feature().clone()).filter(|x| x.is_some()).map(|x| x.unwrap()).collect();
         let correct_features: Vec<String> = vec!["sepal_length","petal_length","sepal_width","sepal_width","sepal_length","sepal_width","sepal_width","sepal_width","sepal_width","sepal_width"].iter().map(|x| x.to_string()).collect();
         assert_eq!(computed_features,correct_features);
 
 
-        let computed_splits: Vec<f64> = new_forest.trees()[0].crawl_nodes().iter().map(|x| x.split.clone()).filter(|x| x.is_some()).map(|x| x.unwrap()).collect();
+        let computed_splits: Vec<f64> = new_forest.trees()[0].crawl_nodes().iter().map(|x| x.split().clone()).filter(|x| x.is_some()).map(|x| x.unwrap()).collect();
         let correct_splits: Vec<f64> = vec![1.5,5.7,1.2,1.1,4.9,1.8,1.4,2.2,1.8,1.];
         assert_eq!(computed_splits,correct_splits);
 

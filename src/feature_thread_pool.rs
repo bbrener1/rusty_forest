@@ -15,7 +15,7 @@ use rank_vector::RankVector;
 
 
 impl FeatureThreadPool{
-    pub fn new(size: usize) -> Sender<((RankVector,Arc<Vec<usize>>), mpsc::Sender<Vec<(f64,f64)>>)> {
+    pub fn new(size: usize) -> Sender<((RankVector,Arc<Vec<usize>>), mpsc::Sender<(Vec<(f64,f64)>,RankVector)>)> {
 
         let (tx,rx) = mpsc::channel();
 
@@ -36,13 +36,13 @@ impl FeatureThreadPool{
 
 pub struct FeatureThreadPool {
     workers: Vec<Worker>,
-    worker_receiver_channel: Arc<Mutex<Receiver<((RankVector,Arc<Vec<usize>>), mpsc::Sender<Vec<(f64,f64)>>)>>>
+    worker_receiver_channel: Arc<Mutex<Receiver<((RankVector,Arc<Vec<usize>>), mpsc::Sender<(Vec<(f64,f64)>,RankVector)>)>>>
 }
 
 
-impl Worker {
+impl Worker{
 
-    pub fn new(id:usize,channel:Arc<Mutex<Receiver<((RankVector,Arc<Vec<usize>>), mpsc::Sender<Vec<(f64,f64)>>)>>>) -> Worker {
+    pub fn new(id:usize,channel:Arc<Mutex<Receiver<((RankVector,Arc<Vec<usize>>), mpsc::Sender<(Vec<(f64,f64)>,RankVector)>)>>>) -> Worker {
         Worker{
             id: id,
             thread: std::thread::spawn(move || {
@@ -57,10 +57,6 @@ impl Worker {
     }
 }
 
-    // pub fn compute(feature: & str, rank_table: & RankTable, feature_weights: &[f64], return_channel: mpsc::Sender<(String,usize,String,usize,f64,f64,Vec<usize>)>) {
-    //     return_channel.send(split(feature,rank_table,feature_weights));
-    // }
-
 
 struct Worker {
     id: usize,
@@ -70,15 +66,10 @@ struct Worker {
 
 
 
-fn compute (vector: RankVector , draw_order: Arc<Vec<usize>>) -> Vec<(f64,f64)> {
+fn compute (mut vector: RankVector , draw_order: Arc<Vec<usize>>) -> (Vec<(f64,f64)>,RankVector) {
 
-    vector.ordered_mad(&*draw_order)
-
-    // let end_time = time::PreciseTime::now();
-
-    // println!("Single split time: {}", start_time.to(end_time).num_microseconds().unwrap_or(-1));
-    //
-    // println!("Split output: {}",&output.0);
-
+    let result = vector.ordered_mad(&*draw_order);
+    vector.manual_reset();
+    (result,vector)
 
 }
