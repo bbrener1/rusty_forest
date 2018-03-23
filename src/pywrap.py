@@ -1,0 +1,101 @@
+import os
+import sys
+import subprocess as sp
+import numpy as np
+
+def main():
+    print "Testing"
+    fit_predict_file("./testing/iris.drop","zeros","branching","1","10","4","4","4","150","1",output_location="./testing/precomputed_trees/iris",features="./testing/iris.features")
+    fit_predict_file("./testing/simple.txt","zeros","branching","1","1","1","1","1","8","1",output_location="./testing/precomputed_trees/simple")
+
+    print "And now with feeling"
+
+
+def fit_predict(counts):
+    pass
+
+def fit_predict_file(counts,drop_mode,prediction_mode,trees,leaves,in_features,out_features,feature_subsample,sample_subsample,processors,output_location=None,features=None,samples=None,reporting=None):
+
+    prefix = "./target/debug/"
+    command = [prefix+"forest_prot",]
+
+    command.append("construct_predict")
+    command.extend(["-c",counts])
+    command.extend(["-d",drop_mode])
+    command.extend(["-m",prediction_mode])
+    command.extend(["-t",trees])
+    command.extend(["-l",leaves])
+    command.extend(["-p",processors])
+    command.extend(["-if",in_features])
+    command.extend(["-of",out_features])
+    command.extend(["-fs",feature_subsample])
+    command.extend(["-ss",sample_subsample])
+    command.extend(["-o", output_location])
+
+    if features != None:
+        command.extend(["-f",features])
+
+    if samples != None:
+        command.extend(["-s",samples])
+
+    print str(" ".join(command))
+
+    sp.call(command,stdout=reporting)
+
+
+def transform_file(counts,prediction_mode,drop_mode,trees,processors,output_location=None,features=None,samples=None,reporting=None):
+
+    prefix = "./target/debug/"
+    command = [prefix+"forest_prot",]
+
+    command.append("predict")
+    command.extend(["-c",counts])
+    command.extend(["-m",prediction_mode])
+    command.extend(["-d",drop_mode])
+    command.extend(["-tg",trees])
+    command.extend(["-p",processors])
+    command.extend(["-if",in_features])
+    command.extend(["-of",out_features])
+    command.extend(["-fs",feature_subsample])
+    command.extend(["-ss",sample_subsample])
+    command.extend(["-o", output_location])
+
+    if features != None:
+        command.extend(["-f",features])
+
+    if samples != None:
+        command.extend(["-s",samples])
+
+    print str(" ".join(command))
+
+    sp.call(command,stdout=reporting)
+
+def fit_file(counts,drop_mode,trees,leaves,in_features,out_features,feature_subsample,sample_subsample,processors,output_location=None,features=None,samples=None,reporting=None):
+
+    prefix = "./target/debug/"
+    command = [prefix+"forest_prot",]
+
+    command.append("construct_predict")
+    command.extend(["-c",counts])
+    command.extend(["-d",drop_mode])
+    command.extend(["-t",trees])
+    command.extend(["-l",leaves])
+    command.extend(["-p",processors])
+    command.extend(["-if",in_features])
+    command.extend(["-of",out_features])
+    command.extend(["-fs",feature_subsample])
+    command.extend(["-ss",sample_subsample])
+    command.extend(["-o", output_location])
+
+    if features != None:
+        command.extend(["-f",features])
+
+    if samples != None:
+        command.extend(["-s",samples])
+
+    print str(" ".join(command))
+
+    sp.call(command,stdout=reporting)
+
+if __name__ == "__main__":
+    main()
