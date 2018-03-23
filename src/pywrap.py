@@ -12,7 +12,7 @@ def main():
     print "And now with feeling"
 
     for i in range(10):
-        fit_predict_file(prefix+"/testing/held_out_counts.txt","zeros","branching","100","10","400","1000","1000","800","50",output_location=prefix+"/impute_test/run" + str(i) ,features=prefix+"/testing/header.txt")
+        fit_predict_file(prefix+"/testing/held_out_counts.txt","zeros","branching","10","50","400","1000","1000","800","10",output_location=prefix+"/impute_test/run" + str(i) ,features=prefix+"/testing/header.txt")
 
 def fit_predict(counts):
     pass
@@ -20,7 +20,7 @@ def fit_predict(counts):
 def fit_predict_file(counts,drop_mode,prediction_mode,trees,leaves,in_features,out_features,feature_subsample,sample_subsample,processors,output_location=None,features=None,samples=None,reporting=None):
 
     prefix = "./target/release/"
-    command = [prefix+"forest_prot",]
+    command = ["nohup",prefix+"forest_prot",]
 
     command.append("construct_predict")
     command.extend(["-c",counts])
@@ -40,6 +40,8 @@ def fit_predict_file(counts,drop_mode,prediction_mode,trees,leaves,in_features,o
 
     if samples != None:
         command.extend(["-s",samples])
+
+    command.extend([">",output_location+".log","&"])
 
     print str(" ".join(command))
 
