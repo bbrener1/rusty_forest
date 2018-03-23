@@ -105,6 +105,8 @@ impl Forest {
 
     pub fn predict(&self,feature_map: &HashMap<String,usize>,prediction_mode:&PredictionMode, drop_mode: &DropMode,report_address: &str) -> Result<Vec<Vec<f64>>,Error> {
 
+        println!("Predicting:");
+
         let predictions = predict(&self.trees,&matrix_flip(&self.counts),feature_map,prediction_mode,drop_mode);
 
         let mut prediction_dump = OpenOptions::new().create(true).append(true).open([report_address,".prediction"].join("")).unwrap();
