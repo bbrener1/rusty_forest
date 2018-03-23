@@ -13,7 +13,7 @@ def main():
 
     for i in range(10):
         report_file = open(prefix+"/impute_test/run" + str(i) + ".log",mode='w')
-        fit_predict_file(prefix+"/testing/held_out_counts.txt","zeros","branching","1","100","10","100","100","100","10",output_location=prefix+"/impute_test/run." + str(i) ,features=prefix+"/testing/header.txt",reporting=report_file)
+        fit_predict_file(prefix+"/testing/held_out_counts.txt","zeros","branching","5","100","10","100","100","100","10",output_location=prefix+"/impute_test/run." + str(i) ,features=prefix+"/testing/header.txt",reporting=report_file)
 
 def fit_predict(counts):
     pass
