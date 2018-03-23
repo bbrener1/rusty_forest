@@ -5,13 +5,13 @@ import numpy as np
 
 def main():
     print "Testing"
-    fit_predict_file("../testing/iris.drop","zeros","branching","1","10","4","4","4","150","1",output_location="../testing/precomputed_trees/iris",features="./testing/iris.features")
-    fit_predict_file("../testing/simple.txt","zeros","branching","1","1","1","1","1","8","1",output_location="../testing/precomputed_trees/simple")
+    fit_predict_file("../../testing/iris.drop","zeros","branching","1","10","4","4","4","150","1",output_location="../../testing/precomputed_trees/iris",features="./testing/iris.features")
+    fit_predict_file("../../testing/simple.txt","zeros","branching","1","1","1","1","1","8","1",output_location="../../testing/precomputed_trees/simple")
 
     print "And now with feeling"
 
     for i in range(10):
-        fit_predict_file("../testing/held_out_counts.txt","zeros","branching","100","10","400","1000","1000","800","50",output_location="../impute_test/run" + str(i) ,features="../testing/header.txt")
+        fit_predict_file("../../testing/held_out_counts.txt","zeros","branching","100","10","400","1000","1000","800","50",output_location="./impute_test/run" + str(i) ,features="../../testing/header.txt")
 
 def fit_predict(counts):
     pass
