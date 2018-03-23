@@ -19,7 +19,7 @@ def fit_predict(counts):
 
 def fit_predict_file(counts,drop_mode,prediction_mode,trees,leaves,in_features,out_features,feature_subsample,sample_subsample,processors,output_location=None,features=None,samples=None,reporting=None):
 
-    prefix = "./target/debug/"
+    prefix = "./target/release/"
     command = [prefix+"forest_prot",]
 
     command.append("construct_predict")
