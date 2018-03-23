@@ -43,6 +43,7 @@ impl<'a> Tree {
 
         self.report_summary();
         self.dump_data();
+        self.report_interactions();
 
         println!("Serializing to:");
         println!("{}",self.report_address);
@@ -155,18 +156,27 @@ impl<'a> Tree {
         self.root.crawl_children()
     }
 
-    pub fn report_summary(&self) {
-        let mut tree_dump = OpenOptions::new().create(true).append(true).open([&self.report_address,".summary"].join("")).unwrap();
+    pub fn report_summary(&self) -> Result<(),Error> {
+        let mut tree_dump = OpenOptions::new().create(true).append(true).open([&self.report_address,".summary"].join(""))?;
         for node in self.crawl_nodes() {
-            tree_dump.write(node.summary().as_bytes());
+            tree_dump.write(node.summary().as_bytes())?;
         }
+        Ok(())
     }
 
-    pub fn dump_data(&self) {
-        let mut tree_dump = OpenOptions::new().create(true).append(true).open([&self.report_address,".dump"].join("")).unwrap();
+    pub fn report_interactions(&self) -> Result<(),Error> {
+        let mut tree_dump = OpenOptions::new().create(true).append(true).open([&self.report_address,".interactions"].join(""))?;
+        println!("{}",self.root.translate_interactions());
+        tree_dump.write(self.root.translate_interactions().as_bytes())?;
+        Ok(())
+    }
+
+    pub fn dump_data(&self) -> Result<(),Error>{
+        let mut tree_dump = OpenOptions::new().create(true).append(true).open([&self.report_address,".dump"].join(""))?;
         for node in self.root.crawl_children() {
-            tree_dump.write(node.data_dump().as_bytes());
+            tree_dump.write(node.data_dump().as_bytes())?;
         }
+        Ok(())
     }
 
 }

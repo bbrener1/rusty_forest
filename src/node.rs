@@ -481,29 +481,81 @@ impl Node {
             child.compute_absolute_gains(root_medians,root_dispersions);
         }
     }
-    //
-    // pub fn cascading_interaction<'a>(&'a self,mut parents:Vec<&'a Node>) -> Vec<(&'a str,Vec<(&'a str,Vec<(&'a str,f64)>)>)> {
-    //
-    //     let mut interactions = Vec::new();
-    //
-    //     if let (&Some(feature),&Some(split)) = (&self.feature,&self.split) {
-    //
-    //         parents.push(&self);
-    //
-    //         for child in self.children.iter_mut() {
-    //             interactions.extend(child.cascading_interaction(parents));
-    //         }
-    //
-    //         for parent in parents{
-    //             let (left,right) = parent.derive_known_split(&feature,&split);
-    //             self.children[0].local_gains().unwrap().iter().zip(left.local_gains().unwrap().iter()).map(|x| x.0);
-    //         }
-    //
-    //     }
-    //
-    //     interactions
-    //
-    // }
+
+    pub fn cascading_interaction<'a>(&'a self,mut parents:Vec<(&'a Node,&'a str)>) -> Vec<(&'a str, &'a str, f64, &'a str, &'a str,f64,&'a str, f64)> {
+
+        let mut interactions: Vec<(&'a str, &'a str, f64, &'a str, &'a str,f64,&'a str, f64)> = Vec::new();
+
+        if let (&Some(ref feature),&Some(ref split)) = (&self.feature,&self.split) {
+
+            for &(parent,inequality) in parents.iter(){
+                let (left,right) = parent.derive_known_split(&feature,&split);
+
+                let interaction_gain: Vec<f64> =
+                self.children[0]
+                    .local_gains()
+                        .as_ref()
+                            .unwrap()
+                                .iter()
+                    .zip(
+                        left
+                            .local_gains()
+                                .as_ref()
+                                    .unwrap()
+                                        .iter()
+                        )
+                    .map(|x| *x.0 - *x.1)
+                        .collect();
+
+                for (interaction,int_feature) in interaction_gain.iter().zip(self.features()) {
+                    interactions.push((feature,"<",*split,parent.feature().as_ref().unwrap(),inequality,parent.split().clone().unwrap(),int_feature,*interaction));
+                }
+
+                let interaction_gain: Vec<f64> =
+                self.children[1]
+                    .local_gains()
+                        .as_ref()
+                            .unwrap()
+                                .iter()
+                    .zip(
+                        right
+                            .local_gains()
+                                .as_ref()
+                                    .unwrap()
+                                        .iter()
+                        )
+                    .map(|x| *x.0 - *x.1)
+                        .collect();
+
+                for (interaction,int_feature) in interaction_gain.iter().zip(self.features()) {
+                    interactions.push((feature,">",*split,parent.feature().as_ref().unwrap(),inequality,parent.split().clone().unwrap(),int_feature,*interaction));
+                }
+
+
+            }
+
+            let mut next = parents.clone();
+            next.push((&self,"<"));
+            interactions.extend(self.children[0].cascading_interaction(next));
+
+            let mut next = parents.clone();
+            next.push((&self,">"));
+            interactions.extend(self.children[1].cascading_interaction(next));
+
+        }
+
+        interactions
+
+    }
+
+    pub fn translate_interactions(&self) -> String {
+        let interactions = self.cascading_interaction(vec![]);
+        let mut report = String::new();
+        for line in interactions {
+            report.push_str(&format!("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n", line.0,line.1,line.2,line.3,line.4,line.5,line.6,line.7));
+        }
+        report
+    }
 
     pub fn root_absolute_gains(&mut self) {
         for child in self.children.iter_mut() {
