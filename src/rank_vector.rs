@@ -591,7 +591,7 @@ impl RankVector {
     }
 
     pub fn split_indecies(&self, split: &f64) -> (Vec<usize>,Vec<usize>) {
-        let index = self.vector.iter_ordered().iter().enumerate().find(|x| x.1 > split).unwrap_or((0,&0.)).0;
+        let index = self.vector.drop_skip().enumerate().find(|x| (x.1).3 > *split).unwrap_or((0,&(0,0,0,0.,0))).0;
         let draw_order = self.vector.dropped_draw_order();
         (draw_order[..index].to_vec(),draw_order[index..].to_vec())
     }
