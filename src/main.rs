@@ -1007,7 +1007,7 @@ pub mod primary_testing {
         if let Command::Predict(args) = command {
 
 
-            match args.mode {
+            match args.prediction_mode {
                 PredictionMode::Branch => {},
                 _ => panic!("Branch mode not read correctly")
             }

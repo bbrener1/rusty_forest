@@ -384,7 +384,7 @@ mod rank_table_tests {
 
     #[test]
     fn rank_table_general_test() {
-        let table = RankTable::new(&vec![vec![1.,2.,3.],vec![4.,5.,6.],vec![7.,8.,9.]], &vec!["one".to_string(),"two".to_string(),"three".to_string()], &vec!["0".to_string(),"1".to_string(),"2".to_string()]);
+        let table = RankTable::new(&vec![vec![1.,2.,3.],vec![4.,5.,6.],vec![7.,8.,9.]], &vec!["one".to_string(),"two".to_string(),"three".to_string()], &vec!["0".to_string(),"1".to_string(),"2".to_string()],DropMode::Zeros);
         assert_eq!(table.medians(),vec![2.,5.,8.]);
         assert_eq!(table.dispersions(),vec![1.,1.,1.]);
         assert_eq!(table.feature_index("one"),0);
@@ -392,7 +392,7 @@ mod rank_table_tests {
 
     #[test]
     fn rank_table_trivial_test() {
-        let table = RankTable::new(&Vec::new(), &Vec::new(), &Vec::new());
+        let table = RankTable::new(&Vec::new(), &Vec::new(), &Vec::new(),DropMode::No);
         let empty: Vec<f64> = Vec::new();
         assert_eq!(table.medians(),empty);
         assert_eq!(table.dispersions(),empty);
@@ -400,7 +400,7 @@ mod rank_table_tests {
 
     #[test]
     pub fn rank_table_simple_test() {
-        let table = RankTable::new(&vec![vec![10.,-3.,0.,5.,-2.,-1.,15.,20.]], &vec!["one".to_string()], &(0..8).map(|x| x.to_string()).collect::<Vec<String>>()[..]);
+        let table = RankTable::new(&vec![vec![10.,-3.,0.,5.,-2.,-1.,15.,20.]], &vec!["one".to_string()], &(0..8).map(|x| x.to_string()).collect::<Vec<String>>()[..],DropMode::Zeros);
         let draw_order = table.sort_by_feature("one");
         let mad_order = table.meta_vector[table.feature_index("one")].clone().ordered_mad(&draw_order);
         assert_eq!(mad_order, vec![(7.5,8.),(10.,5.),(12.5,5.),(15.,5.),(17.5,2.5),(20.,0.),(0.,0.)]);

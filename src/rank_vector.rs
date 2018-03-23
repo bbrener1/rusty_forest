@@ -1105,6 +1105,7 @@ pub struct ProceduralDraw{
 mod rank_vector_tests {
 
     use super::*;
+    use std::f64::NAN;
 
     fn slow_median(input: &RawVector) -> f64 {
         let values: Vec<f64> = input.left_to_right().map(|x| x.3).collect();
@@ -1154,7 +1155,7 @@ mod rank_vector_tests {
 
     #[test]
     fn create_trivial() {
-        let mut vector = RankVector::new(&vec![],"".to_string());
+        let mut vector = RankVector::new(&vec![],"".to_string(),DropMode::No);
         vector.drop_zeroes();
         vector.initialize();
         vector.set_boundaries();
@@ -1162,13 +1163,21 @@ mod rank_vector_tests {
 
     #[test]
     fn create_very_simple_drop() {
-        let mut vector = RankVector::new(&vec![0.],"test".to_string());
+        let mut vector = RankVector::new(&vec![0.],"test".to_string(),DropMode::Zeros);
         vector.drop_zeroes();
     }
 
     #[test]
     fn create_very_simple_initialize() {
-        let mut vector = RankVector::new(&vec![0.],"test".to_string());
+        let mut vector = RankVector::new(&vec![0.],"test".to_string(),DropMode::Zeros);
+        vector.drop_zeroes();
+        vector.initialize();
+        vector.set_boundaries();
+    }
+
+    #[test]
+    fn create_very_simple_nan_drop() {
+        let mut vector = RankVector::new(&vec![NAN],"test".to_string(), DropMode::NaNs);
         vector.drop_zeroes();
         vector.initialize();
         vector.set_boundaries();
@@ -1176,7 +1185,7 @@ mod rank_vector_tests {
 
     #[test]
     fn create_simple() {
-        let mut vector = RankVector::new(&vec![10.,-3.,0.,5.,-2.,-1.,15.,20.],"test".to_string());
+        let mut vector = RankVector::new(&vec![10.,-3.,0.,5.,-2.,-1.,15.,20.],"test".to_string(),DropMode::Zeros);
         vector.drop_zeroes();
         vector.initialize();
         vector.set_boundaries();
@@ -1186,7 +1195,7 @@ mod rank_vector_tests {
 
     #[test]
     fn create_repetitive() {
-        let mut vector = RankVector::new(&vec![0.,0.,0.,-5.,-5.,-5.,10.,10.,10.,10.,10.],"test".to_string());
+        let mut vector = RankVector::new(&vec![0.,0.,0.,-5.,-5.,-5.,10.,10.,10.,10.,10.],"test".to_string(),DropMode::Zeros);
         vector.drop_zeroes();
         vector.initialize();
         vector.set_boundaries();
@@ -1196,7 +1205,31 @@ mod rank_vector_tests {
 
     #[test]
     fn sequential_mad_simple() {
-        let mut vector = RankVector::new(&vec![10.,-3.,0.,5.,-2.,-1.,15.,20.],"test".to_string());
+        let mut vector = RankVector::new(&vec![10.,-3.,0.,5.,-2.,-1.,15.,20.],"test".to_string(),DropMode::Zeros);
+        vector.drop_zeroes();
+        vector.initialize();
+        vector.set_boundaries();
+
+        let mut vm = vector.clone();
+
+
+        for draw in vector.draw_order {
+            println!("{:?}",vm.vector.left_to_right().cloned().collect::<Vec<(usize,usize,usize,f64,usize)>>());
+            println!("Median:{},{}",vm.median(),slow_median(&vm.vector));
+            println!("MAD:{},{}",vm.mad(),slow_mad(&vm.vector));
+            println!("{:?}",vm.pop(draw));
+            println!("{:?}",vm.vector.left_to_right().cloned().collect::<Vec<(usize,usize,usize,f64,usize)>>());
+            println!("Median:{},{}",vm.median(),slow_median(&vm.vector));
+            println!("MAD:{},{}",vm.mad(),slow_mad(&vm.vector));
+            assert_eq!(vm.median(),slow_median(&vm.vector));
+            assert_eq!(vm.mad(),slow_mad(&vm.vector));
+        }
+
+    }
+
+    #[test]
+    fn sequential_mad_simple_nan() {
+        let mut vector = RankVector::new(&vec![10.,-3.,NAN,5.,-2.,-1.,15.,20.],"test".to_string(),DropMode::NaNs);
         vector.drop_zeroes();
         vector.initialize();
         vector.set_boundaries();
