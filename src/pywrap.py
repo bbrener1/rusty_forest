@@ -5,7 +5,7 @@ import numpy as np
 
 def main():
     print "Testing"
-    prefix = os.cwd()
+    prefix = os.getcwd()
     fit_predict_file(prefix+"/testing/iris.drop","zeros","branching","1","10","4","4","4","150","1",output_location=prefix+"/testing/precomputed_trees/iris",features=prefix+"/testing/iris.features")
     fit_predict_file(prefix+"/testing/simple.txt","zeros","branching","1","1","1","1","1","8","1",output_location=prefix+"/testing/precomputed_trees/simple")
 
