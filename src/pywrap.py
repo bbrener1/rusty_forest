@@ -6,14 +6,17 @@ import numpy as np
 def main():
     print "Testing"
     prefix = os.getcwd()
-    fit_predict_file(prefix+"/testing/iris.drop","zeros","branching","1","10","4","4","4","150","1",output_location=prefix+"/testing/precomputed_trees/iris",features=prefix+"/testing/iris.features")
-    fit_predict_file(prefix+"/testing/simple.txt","zeros","branching","1","1","1","1","1","8","1",output_location=prefix+"/testing/precomputed_trees/simple")
+    # fit_predict_file(prefix+"/testing/iris.drop","zeros","branching","1","10","4","4","4","150","1",output_location=prefix+"/testing/precomputed_trees/iris",features=prefix+"/testing/iris.features")
+    # fit_predict_file(prefix+"/testing/simple.txt","zeros","branching","1","1","1","1","1","8","1",output_location=prefix+"/testing/precomputed_trees/simple")
 
     print "And now with feeling"
 
-    for i in range(10):
+    for i in range(1):
         report_file = open(prefix+"/impute_test/run" + str(i) + ".log",mode='w')
-        fit_predict_file(prefix+"/testing/held_out_counts.txt","zeros","branching","10","100","400","1000","1000","800","10",output_location=prefix+"/impute_test/run." + str(i) ,features=prefix+"/testing/header.txt",reporting=report_file)
+        fit_predict_file(prefix+"/testing/held_out_counts.txt","zeros","branching","3","100","400","1000","1000","800","10",output_location=prefix+"/impute_test/run." + str(i) ,reporting=report_file)
+#
+# features=prefix+"/testing/header.txt"
+
 
 def fit_predict(counts):
     pass
