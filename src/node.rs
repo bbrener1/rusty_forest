@@ -389,6 +389,62 @@ impl Node {
 
     }
 
+    pub fn strip_consume(self) -> StrippedNode {
+
+        let features = self.features().clone();
+
+        let mut stripped_children = Vec::new();
+
+        for child in self.children.into_iter() {
+            stripped_children.push(child.strip_consume())
+        }
+
+
+        StrippedNode {
+            dropout: self.dropout,
+
+            children: stripped_children,
+
+            feature: self.feature,
+            split: self.split,
+
+            features: features,
+
+            medians: self.medians,
+            dispersions: self.dispersions,
+
+            local_gains: self.local_gains,
+            absolute_gains: self.absolute_gains,
+        }
+    }
+
+    pub fn strip_clone(&self) -> StrippedNode {
+
+        let mut stripped_children = Vec::new();
+
+        for child in &self.children {
+            stripped_children.push(child.strip_clone())
+        }
+
+        StrippedNode {
+            dropout: self.dropout,
+
+            children: stripped_children,
+
+            feature: self.feature.clone(),
+            split: self.split.clone(),
+
+            features: self.features().clone(),
+
+            medians: self.medians.clone(),
+            dispersions: self.dispersions.clone(),
+
+            local_gains: self.local_gains.clone(),
+            absolute_gains: self.absolute_gains.clone(),
+        }
+
+    }
+
     pub fn rank_table(&self) -> &RankTable {
         &self.rank_table
     }
@@ -723,20 +779,20 @@ pub fn mad_minimum(forward:Vec<Vec<f64>>,reverse: Vec<Vec<f64>>,feature_weights:
 
 pub struct StrippedNode {
 
-    pub rank_table: RankTable,
-    dropout: bool,
+    dropout: DropMode,
 
-    pub original_id: String,
     pub children: Vec<StrippedNode>,
 
     feature: Option<String>,
     split: Option<f64>,
 
-    output_features: Vec<String>,
-    input_features: Vec<String>,
+    features: Vec<String>,
+
+    medians: Vec<f64>,
+    dispersions: Vec<f64>,
 
     pub local_gains: Option<Vec<f64>>,
-    pub absolute_gains: Option<Vec<f64>>
+    pub absolute_gains: Option<Vec<f64>>,
 }
 
 #[cfg(test)]

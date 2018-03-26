@@ -15,6 +15,7 @@ extern crate rand;
 
 use node::Node;
 use node::NodeWrapper;
+use node::StrippedNode;
 use feature_thread_pool::FeatureThreadPool;
 use rank_vector::RankVector;
 use DropMode;
@@ -204,7 +205,11 @@ pub fn grow_branches(target:&mut Node, size_limit:usize,report_address:&str,leve
     // report_node_structure(target,report_address);
 }
 
-
+pub struct PredictiveTree {
+    pub root: StrippedNode,
+    dropout: DropMode,
+    report_address: String
+}
 
 
 
