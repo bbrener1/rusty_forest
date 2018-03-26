@@ -11,9 +11,9 @@ def main():
 
     print "And now with feeling"
 
-    for i in range(10):
+    for i in range(3):
         report_file = open(prefix+"/impute_test/run." + str(i) + ".log",mode='w')
-        fit_predict_file(prefix+"/testing/held_out_counts.txt","zeros","branching","10","100","400","1000","1000","800","10",output_location=prefix+"/impute_test/run." + str(i) ,reporting=report_file)
+        fit_predict_file(prefix+"/testing/held_out_counts.txt","zeros","branching","100","100","400","1000","1000","800","10",output_location=prefix+"/impute_test/run." + str(i) ,reporting=report_file)
 #
 # features=prefix+"/testing/header.txt"
 
