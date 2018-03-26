@@ -17,6 +17,7 @@ use TreeBackups;
 use feature_thread_pool::FeatureThreadPool;
 use predictor::predict;
 use matrix_flip;
+use tsv_format;
 
 impl Forest {
     pub fn initialize(counts:&Vec<Vec<f64>>,trees:usize,leaf_size:usize,processor_limit:usize, feature_option: Option<Vec<String>>, sample_option: Option<Vec<String>>, dropout: DropMode, report_address:&str) -> Forest {
@@ -110,7 +111,7 @@ impl Forest {
         let predictions = predict(&self.trees,&matrix_flip(&self.counts),feature_map,prediction_mode,drop_mode);
 
         let mut prediction_dump = OpenOptions::new().create(true).append(true).open([report_address,".prediction"].join("")).unwrap();
-        prediction_dump.write(&format!("{:?}",predictions).as_bytes())?;
+        prediction_dump.write(&tsv_format(&predictions).as_bytes())?;
         prediction_dump.write(b"\n")?;
 
         let mut truth_dump = OpenOptions::new().create(true).append(true).open([report_address,".prediction_truth"].join("")).unwrap();

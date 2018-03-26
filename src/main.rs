@@ -7,12 +7,13 @@ use std::env;
 use std::io;
 use std::f64;
 use std::collections::HashMap;
-// use std::rc::Weak;
 use std::fs::File;
 use std::io::prelude::*;
 use std::io::stdin;
 use std::cmp::PartialOrd;
 use std::cmp::Ordering;
+use std::fmt::Debug;
+
 extern crate serde;
 extern crate serde_json;
 extern crate rand;
@@ -925,6 +926,12 @@ fn argsort(input: &Vec<f64>) -> Vec<(usize,f64)> {
 //     out.sort_unstable_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Greater));
 //     out
 // }
+
+fn tsv_format<T:Debug>(input:&Vec<Vec<T>>) -> String {
+
+    input.iter().map(|x| x.iter().map(|y| format!("{:?}",y)).collect::<Vec<String>>().join("\t")).collect::<Vec<String>>().join("\n")
+
+}
 
 fn median(input: &Vec<f64>) -> (usize,f64) {
     let mut index = 0;
