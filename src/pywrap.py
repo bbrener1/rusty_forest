@@ -20,7 +20,9 @@ def main():
 
     print fit_predict(iris,processors="20",in_features="4",out_features="4",feature_subsample="4",sample_subsample="150")
 
-    print "Done with multiprocessor testing"
+    indicator_file = open('./working/indicator.txt',mode='w')
+
+    indicator_file.write("Done with multiprocessor testing\n")
 
     # print "And now with feeling"
     #
