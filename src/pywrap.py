@@ -114,7 +114,7 @@ def predict_file(counts,trees,prediction_mode="branching",drop_mode="zeros",proc
 
     print str(" ".join(command))
 
-    sp.Popen(command,stdout=reporting)
+    sp.Popen(command,stdout=reporting).wait()
 
 def fit_file(counts,drop_mode="zeros",trees="1",leaves="1",in_features="1",out_features="1",feature_subsample="1",sample_subsample="1",processors="1",output_location="./working/temp",features=None,samples=None,reporting=None):
 
