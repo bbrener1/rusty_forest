@@ -54,7 +54,7 @@ def fit(counts,drop_mode="zeros",prediction_mode="branching",trees="1",leaves="1
 
     print tree_files
 
-    return tree_files,counts
+    return tree_files
 
 def predict(counts,trees,prediction_mode="branching",drop_mode="zeros",processors="1",output_location="./working/temp",features=None,samples=None,reporting=None):
     np.savetxt("./working/counts.txt",counts)
@@ -170,9 +170,7 @@ def fit_file(counts,drop_mode="zeros",trees="1",leaves="1",in_features="1",out_f
     for child in children:
         child.wait()
 
-    # tree_files = glob.glob(output_location+".[0-9]+.[0-9]+")
 
-    return tree_files
 
 
 if __name__ == "__main__":
