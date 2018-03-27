@@ -24,9 +24,10 @@ pub fn predict(trees: &Vec<Tree>, counts: &Vec<Vec<f64>>, features: &HashMap<Str
             leaves.push(node_predict_leaves(&tree.root,sample,features,prediction_mode,drop_mode));
         }
         println!("Leaves: {}", leaves.len());
-        let sample_intervals = intervals(leaves);
-        println!("Intervals: {:?}", sample_intervals);
-        let sample_prediction = aggregate_predictions(sample_intervals, features);
+        // let sample_intervals = intervals(leaves);
+        // println!("Intervals: {:?}", sample_intervals);
+        // let sample_prediction = aggregate_predictions(sample_intervals, features);
+        let sample_prediction = average_leaves(leaves, features);
         predictions.push(sample_prediction);
         println!("{}",predictions.len());
 
@@ -71,6 +72,30 @@ pub fn node_predict_leaves<'a>(node: &'a Node, vector: &Vec<f64>, header: &HashM
     }
 
     return leaves
+
+}
+
+pub fn average_leaves(nodes: Vec<Vec<&Node>>,features:&HashMap<String,usize>) -> Vec<f64> {
+
+    let flat_nodes: Vec<&Node> = nodes.into_iter().flat_map(|x| x).collect();
+
+    let mut predictions: HashMap<&String,Vec<(f64,f64)>> = HashMap::new();
+
+    for node in flat_nodes {
+        for (feature,(median,gain)) in node.features().iter().zip(node.medians().iter().zip(node.absolute_gains().as_ref().unwrap_or(&vec![]).iter())) {
+            predictions.entry(feature).or_insert(Vec::new()).push((*median,*gain));
+        }
+    }
+
+    let mut agg_predictions = vec![0.;features.len()];
+
+    for (feature,values) in predictions {
+        let sum = values.iter().fold((0.,0.),|acc,x| (acc.0 + (x.0 * x.1), x.1));
+        let mean = sum.0 / sum.1;
+        agg_predictions[features[feature]] = mean;
+    }
+
+    agg_predictions
 
 }
 
