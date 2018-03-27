@@ -640,7 +640,7 @@ pub fn combined(args:CombinedArguments) {
 
     let dimensions = rnd_forest.dimensions();
 
-    let predictions = rnd_forest.predict(&rnd_forest.feature_map(), &args.mode,&args.drop, &report_address);
+    let predictions = rnd_forest.predict(&count_array,&rnd_forest.feature_map(), &args.mode,&args.drop, &report_address);
 
 }
 
