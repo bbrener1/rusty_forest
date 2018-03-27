@@ -8,10 +8,10 @@ use shuffler::fragment_nodes;
 extern crate rand;
 
 
-use node::Node;
-use tree::Tree;
+use node::StrippedNode;
+use tree::PredictiveTree;
 
-pub fn predict(trees: &Vec<Tree>, counts: &Vec<Vec<f64>>, features: &HashMap<String,usize>, prediction_mode: &PredictionMode,drop_mode: &DropMode) -> Vec<Vec<f64>> {
+pub fn predict(trees: &Vec<PredictiveTree>, counts: &Vec<Vec<f64>>, features: &HashMap<String,usize>, prediction_mode: &PredictionMode,drop_mode: &DropMode) -> Vec<Vec<f64>> {
     let mut predictions: Vec<Vec<f64>> = Vec::with_capacity(counts.len());
     let feature_intervals: Vec<Vec<(f64,f64,f64)>> = Vec::with_capacity(features.len());
     println!("Predicting");
@@ -35,12 +35,12 @@ pub fn predict(trees: &Vec<Tree>, counts: &Vec<Vec<f64>>, features: &HashMap<Str
     predictions
 }
 
-pub fn node_predict_leaves<'a>(node: &'a Node, vector: &Vec<f64>, header: &HashMap<String,usize>, prediction_mode: &PredictionMode, drop_mode: &DropMode) -> Vec<&'a Node> {
+pub fn node_predict_leaves<'a>(node: &'a StrippedNode, vector: &Vec<f64>, header: &HashMap<String,usize>, prediction_mode: &PredictionMode, drop_mode: &DropMode) -> Vec<&'a StrippedNode> {
 
     // println!("Crawling node: {}", node.id);
     // println!("{:?},{:?}", node.feature(),node.split());
 
-    let mut leaves: Vec<&Node> = Vec::new();
+    let mut leaves: Vec<&StrippedNode> = Vec::new();
 
     if let (&Some(ref feature),&Some(ref split)) = (node.feature(),node.split()) {
         if *vector.get(*header.get(feature).unwrap_or(&(vector.len()+1))).unwrap_or(&0.) != drop_mode.cmp() {
@@ -75,9 +75,9 @@ pub fn node_predict_leaves<'a>(node: &'a Node, vector: &Vec<f64>, header: &HashM
 
 }
 
-pub fn average_leaves(nodes: Vec<Vec<&Node>>,features:&HashMap<String,usize>) -> Vec<f64> {
+pub fn average_leaves(nodes: Vec<Vec<&StrippedNode>>,features:&HashMap<String,usize>) -> Vec<f64> {
 
-    let flat_nodes: Vec<&Node> = nodes.into_iter().flat_map(|x| x).collect();
+    let flat_nodes: Vec<&StrippedNode> = nodes.into_iter().flat_map(|x| x).collect();
 
     let mut predictions: HashMap<&String,Vec<(f64,f64)>> = HashMap::new();
 
@@ -90,7 +90,7 @@ pub fn average_leaves(nodes: Vec<Vec<&Node>>,features:&HashMap<String,usize>) ->
     let mut agg_predictions = vec![0.;features.len()];
 
     for (feature,values) in predictions {
-        let sum = values.iter().fold((0.,0.),|acc,x| (acc.0 + (x.0 * x.1), acc.1 + x.1));
+        let sum = values.iter().fold((0.,0.),|acc,x| (acc.0 + (x.0 * x.1), x.1));
         let mean = sum.0 / sum.1;
         agg_predictions[features[feature]] = mean;
     }
@@ -99,9 +99,9 @@ pub fn average_leaves(nodes: Vec<Vec<&Node>>,features:&HashMap<String,usize>) ->
 
 }
 
-pub fn intervals<'a>(nodes: Vec<Vec<&'a Node>>) -> HashMap<&String,Vec<(f64,f64,f64)>> {
+pub fn intervals<'a>(nodes: Vec<Vec<&'a StrippedNode>>) -> HashMap<&String,Vec<(f64,f64,f64)>> {
 
-    let flat_nodes: Vec<&Node> = nodes.into_iter().flat_map(|x| x).collect();
+    let flat_nodes: Vec<&StrippedNode> = nodes.into_iter().flat_map(|x| x).collect();
 
     let mut intervals: HashMap<&String,Vec<(f64,f64,f64)>> = HashMap::new();
 

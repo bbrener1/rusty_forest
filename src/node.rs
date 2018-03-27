@@ -777,6 +777,7 @@ pub fn mad_minimum(forward:Vec<Vec<f64>>,reverse: Vec<Vec<f64>>,feature_weights:
 
 }
 
+#[derive(Serialize,Deserialize)]
 pub struct StrippedNode {
 
     dropout: DropMode,
@@ -793,6 +794,46 @@ pub struct StrippedNode {
 
     pub local_gains: Option<Vec<f64>>,
     pub absolute_gains: Option<Vec<f64>>,
+}
+
+impl StrippedNode {
+
+    pub fn to_string(self) -> String {
+        serde_json::to_string(&self).unwrap()
+    }
+
+    pub fn feature(&self) -> &Option<String> {
+        &self.feature
+    }
+
+    pub fn features(&self) -> &Vec<String> {
+        &self.features
+    }
+
+    pub fn split(&self) -> &Option<f64> {
+        &self.split
+    }
+
+    pub fn medians(&self) -> &Vec<f64> {
+        &self.medians
+    }
+
+    pub fn dispersions(&self) -> &Vec<f64> {
+        &self.dispersions
+    }
+
+    pub fn absolute_gains(&self) -> &Option<Vec<f64>> {
+        &self.absolute_gains
+    }
+
+    pub fn local_gains(&self) -> &Option<Vec<f64>> {
+        &self.local_gains
+    }
+
+    pub fn dropout(&self) -> DropMode {
+        self.dropout
+    }
+
 }
 
 #[cfg(test)]

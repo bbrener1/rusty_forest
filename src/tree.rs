@@ -211,6 +211,33 @@ pub struct PredictiveTree {
     report_address: String
 }
 
+impl PredictiveTree {
+
+    pub fn reload(location: &str,feature_pool: mpsc::Sender<(((RankVector,Arc<Vec<usize>>),mpsc::Sender<(Vec<(f64,f64)>,RankVector)>))>, size_limit: usize , report_address: String) -> Result<PredictiveTree,Error> {
+
+        println!("Reloading!");
+
+        let mut json_file = File::open(location)?;
+        let mut json_string = String::new();
+        json_file.read_to_string(&mut json_string)?;
+
+        println!("{}",json_string);
+
+        let root: StrippedNode = serde_json::from_str(&json_string).unwrap();
+
+        println!("Deserialized root wrapper");
+
+        println!("Finished recursive unwrapping and obtained a Node tree");
+
+        Ok(PredictiveTree {
+            dropout: root.dropout(),
+            root: root,
+            report_address: report_address
+        })
+
+    }
+
+}
 
 
 // #[cfg(test)]

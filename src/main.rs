@@ -31,6 +31,7 @@ mod feature_thread_pool;
 mod random_forest;
 mod predictor;
 mod shuffler;
+mod compact_predictor;
 
 use tree::Tree;
 use random_forest::Forest;
