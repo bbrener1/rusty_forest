@@ -43,7 +43,7 @@ def fit_predict(counts,drop_mode="zeros",prediction_mode="branching",trees="1",l
 def fit(counts,drop_mode="zeros",prediction_mode="branching",trees="1",leaves="1",in_features="1",out_features="1",feature_subsample="1",sample_subsample="1",processors="1",output_location="./working/temp",features=None,samples=None,reporting=None):
 
     if output_location == "./working/temp":
-        for file in (os.listdir("./working/")):
+        for file in (glob.glob("./working/")):
             os.remove(file)
 
     np.savetxt("./working/counts.txt", counts)
