@@ -17,6 +17,10 @@ use rank_vector::RankVector;
 impl FeatureThreadPool{
     pub fn new(size: usize) -> Sender<((RankVector,Arc<Vec<usize>>), mpsc::Sender<(Vec<(f64,f64)>,RankVector)>)> {
 
+        if size < 1 {
+            panic!("Warning, no processors were allocated to the pool, quitting!");
+        }
+
         let (tx,rx) = mpsc::channel();
 
         let worker_receiver_channel = Arc::new(Mutex::new(rx));

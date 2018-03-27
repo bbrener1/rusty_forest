@@ -167,7 +167,7 @@ impl<'a> Tree {
 
     pub fn report_interactions(&self) -> Result<(),Error> {
         let mut tree_dump = OpenOptions::new().create(true).append(true).open([&self.report_address,".interactions"].join(""))?;
-        println!("{}",self.root.translate_interactions());
+        // println!("{}",self.root.translate_interactions());
         tree_dump.write(self.root.translate_interactions().as_bytes())?;
         Ok(())
     }
