@@ -120,7 +120,7 @@ def fit_file(counts,drop_mode="zeros",trees="1",leaves="1",in_features="1",out_f
     prefix = "./target/release/"
     command = [prefix+"forest_prot",]
 
-    command.append("construct_predict")
+    command.append("construct")
     command.extend(["-c",counts])
     command.extend(["-d",drop_mode])
     command.extend(["-l",leaves])
@@ -164,6 +164,12 @@ def fit_file(counts,drop_mode="zeros",trees="1",leaves="1",in_features="1",out_f
 
     for child in children:
         child.wait()
+
+    tree_files = glob.glob(output_location+'.*[0-9].*[0-9]')
+
+    print tree_files
+
+    return tree_files
 
 
 
