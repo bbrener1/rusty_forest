@@ -48,7 +48,7 @@ def fit(counts,drop_mode="zeros",prediction_mode="branching",trees="1",leaves="1
 
     np.savetxt("./working/counts.txt", counts)
 
-    fit_file("./working/counts.txt",drop_mode=drop_mode,trees=trees,leaves=leaves,in_features=in_features,out_features=out_features,feature_subsample=feature_subsample,sample_subsample=sample_subsample,processors=processors,output_location=output_location+"."+str(i),features=features,samples=samples)
+    fit_file("./working/counts.txt",drop_mode=drop_mode,trees=trees,leaves=leaves,in_features=in_features,out_features=out_features,feature_subsample=feature_subsample,sample_subsample=sample_subsample,processors=processors,output_location=output_location,features=features,samples=samples)
 
     tree_files = glob.glob('./run\.[0-9]+\.[0-9]+')
 
