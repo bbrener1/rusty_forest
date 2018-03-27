@@ -155,7 +155,7 @@ def fit_file(counts,drop_mode="zeros",trees="1",leaves="1",in_features="1",out_f
 
         for i in range(int(processors)/10):
 
-            stock_copy = command.copy()
+            stock_copy = command[:]
             stock_copy.extend(["-p", "10"])
             stock_copy.extend(["-o", output_location + "." + str(i)])
 
