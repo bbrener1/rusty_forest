@@ -18,7 +18,7 @@ def main():
 
     print iris[:10]
 
-    print fit_predict(iris,processors="20",in_features="4",out_features="4",feature_subsample="4",sample_subsample="150")
+    print fit_predict(iris,processors="20",in_features="4",out_features="4",feature_subsample="4",sample_subsample="150",reporting=os.devnull)
 
     indicator_file = open('./working/indicator.txt',mode='w')
 
