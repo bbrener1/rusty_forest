@@ -101,7 +101,7 @@ def predict_file(counts,trees,prediction_mode="branching",drop_mode="zeros",proc
     command.extend(["-c",counts])
     command.extend(["-m",prediction_mode])
     command.extend(["-d",drop_mode])
-    command.extend(["-tg"].extend(trees))
+    command.extend(["-tg"] + trees )
     command.extend(["-p",processors])
     command.extend(["-if",in_features])
     command.extend(["-of",out_features])
