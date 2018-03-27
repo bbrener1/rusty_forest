@@ -17,8 +17,9 @@ def main():
     print "And now with feeling"
 
     for i in range(1):
-        report_file = open(prefix+"/impute_test/run." + str(i) + ".log",mode='w')
-        fit_predict_file(prefix+"/testing/held_out_counts.txt","zeros","branching","1000","100","400","1000","1000","800","50",output_location=prefix+"/impute_test/run." + str(i) ,reporting=report_file)
+        report_file = open(prefix+"/wrapper_test/run." + str(i) + ".log",mode='w')
+        trees = fit_file(prefix+"/testing/held_out_counts.txt","zeros","branching","1000","100","400","1000","1000","800","50",output_location=prefix+"/wrapper_test/run." + str(i) ,reporting=report_file)
+        transform_file(prefix+"/testing/held_out_counts.txt",trees)
 #
 # features=prefix+"/testing/header.txt"
 
@@ -90,7 +91,7 @@ def transform_file(counts,trees,prediction_mode="branching",drop_mode="zeros",pr
     command.extend(["-c",counts])
     command.extend(["-m",prediction_mode])
     command.extend(["-d",drop_mode])
-    command.extend(["-tg",trees])
+    command.extend(["-tg"].extend(trees))
     command.extend(["-p",processors])
     command.extend(["-if",in_features])
     command.extend(["-of",out_features])
@@ -103,6 +104,8 @@ def transform_file(counts,trees,prediction_mode="branching",drop_mode="zeros",pr
 
     if samples != None:
         command.extend(["-s",samples])
+
+    print "Transforming counts with some trees"
 
     print str(" ".join(command))
 
@@ -132,7 +135,7 @@ def fit_file(counts,drop_mode="zeros",trees="1",leaves="1",in_features="1",out_f
     if samples != None:
         command.extend(["-s",samples])
 
-    print str(" ".join(command))
+    print "Fitting to a file"
 
     print str(" ".join(command))
 
