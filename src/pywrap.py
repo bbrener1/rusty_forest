@@ -61,7 +61,7 @@ def predict(counts,trees,prediction_mode="branching",drop_mode="zeros",processor
 
     predict_file("./working/counts.txt",trees,prediction_mode=prediction_mode,drop_mode=drop_mode,processors=processors,output_location=output_location,features=features,reporting=reporting)
 
-    return np.loadtxt(output_location+".prediction")
+    return np.loadtxt(output_location+".0.prediction")
 
 
 def fit_predict_file(counts,drop_mode="zeros",prediction_mode="branching",trees="1",leaves="1",in_features="1",out_features="1",feature_subsample="1",sample_subsample="1",processors="1",output_location="./working/temp",features=None,samples=None,reporting=None):
