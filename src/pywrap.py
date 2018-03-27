@@ -26,8 +26,8 @@ def main():
 
 
     report_file = open(prefix+"/wrapped_run/run.log",mode='w')
-    trees = fit_file(prefix+"/testing/held_out_counts.txt",trees="1000",leaves="100",in_features="400",out_features="1000",feature_subsample="1000",sample_subsample="800",processors="50",output_location=prefix+"/wrapped_run/run" ,reporting=report_file)
-    predict_file(prefix+"/testing/held_out_counts.txt",trees)
+    trees = fit_file(prefix+"/testing/held_out_counts.txt",trees="100",leaves="100",in_features="400",out_features="1000",feature_subsample="1000",sample_subsample="800",processors="50",output_location=prefix+"/impute_test/run" ,reporting=report_file)
+    predict_file(prefix+"/testing/held_out_counts.txt",trees,output_location=prefix+"/impute_test/run")
 #
 # features=prefix+"/testing/header.txt"
 
@@ -123,7 +123,6 @@ def fit_file(counts,drop_mode="zeros",trees="1",leaves="1",in_features="1",out_f
     command.append("construct_predict")
     command.extend(["-c",counts])
     command.extend(["-d",drop_mode])
-    command.extend(["-t",trees])
     command.extend(["-l",leaves])
     command.extend(["-p",processors])
     command.extend(["-if",in_features])
@@ -150,6 +149,7 @@ def fit_file(counts,drop_mode="zeros",trees="1",leaves="1",in_features="1",out_f
 
             stock_copy = command[:]
             stock_copy.extend(["-p", "10"])
+            stock_copy.extend(["-t",str(int(float(trees)/(processors/10)))])
             stock_copy.extend(["-o", output_location + "." + str(i)])
 
             children.append(sp.Popen(stock_copy,stdout=reporting))
@@ -157,6 +157,7 @@ def fit_file(counts,drop_mode="zeros",trees="1",leaves="1",in_features="1",out_f
     else:
 
         command.extend(["-p",processors])
+        command.extend(["-t",trees])
         command.extend(["-o", output_location])
 
         children.append(sp.Popen(command,stdout=reporting))
