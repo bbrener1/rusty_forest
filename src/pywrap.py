@@ -12,9 +12,15 @@ def main():
 
     fit_predict_file(prefix+"/testing/simple.txt",sample_subsample="8",output_location=prefix+"/testing/precomputed_trees/simple")
 
+    print "Loading multiprocessor test:"
+
     iris = np.loadtxt(prefix+"/testing/iris.drop")
+
+    print iris[:10]
+
     print fit_predict(iris,processors="20",in_features="4",out_features="4",feature_subsample="4",sample_subsample="150")
 
+    print "Done with multiprocessor testing"
 
     # print "And now with feeling"
     #
@@ -50,7 +56,7 @@ def fit(counts,drop_mode="zeros",prediction_mode="branching",trees="1",leaves="1
     return tree_files,counts
 
 def predict(counts,trees,prediction_mode="branching",drop_mode="zeros",processors="1",output_location="./working/temp",features=None,samples=None,reporting=None):
-    np.savetxt("./working/counts.txt")
+    np.savetxt("./working/counts.txt",counts)
 
     predict_file("./working/counts.txt",trees,prediction_mode=prediction_mode,drop_mode=drop_mode,processors=processors,output_location=output_location,features=features,reporting=reporting)
 
