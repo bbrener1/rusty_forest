@@ -149,7 +149,7 @@ def fit_file(counts,drop_mode="zeros",trees="1",leaves="1",in_features="1",out_f
 
             stock_copy = command[:]
             stock_copy.extend(["-p", "10"])
-            stock_copy.extend(["-t",str(int(float(trees)/(processors/10)))])
+            stock_copy.extend(["-t",str(int(float(trees)/(int(processors)/10)))])
             stock_copy.extend(["-o", output_location + "." + str(i)])
 
             children.append(sp.Popen(stock_copy,stdout=reporting))
