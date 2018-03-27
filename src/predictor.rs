@@ -19,16 +19,16 @@ pub fn predict(trees: &Vec<Tree>, counts: &Vec<Vec<f64>>, features: &HashMap<Str
     println!("Individual observations");
     for sample in counts {
         let mut leaves = Vec::with_capacity(trees.len());
-        println!("Trees: {}",trees.len());
+        // println!("Trees: {}",trees.len());
         for tree in trees {
             leaves.push(node_predict_leaves(&tree.root,sample,features,prediction_mode,drop_mode));
         }
-        println!("Leaves: {}", leaves.len());
+        // println!("Leaves: {}", leaves.len());
         let sample_intervals = intervals(leaves);
-        println!("Intervals: {:?}", sample_intervals);
+        // println!("Intervals: {:?}", sample_intervals);
         let sample_prediction = aggregate_predictions(sample_intervals, features);
         predictions.push(sample_prediction);
-        println!("{}",predictions.len());
+        // println!("{}",predictions.len());
 
     }
     predictions
@@ -36,8 +36,8 @@ pub fn predict(trees: &Vec<Tree>, counts: &Vec<Vec<f64>>, features: &HashMap<Str
 
 pub fn node_predict_leaves<'a>(node: &'a Node, vector: &Vec<f64>, header: &HashMap<String,usize>, prediction_mode: &PredictionMode, drop_mode: &DropMode) -> Vec<&'a Node> {
 
-    println!("Crawling node: {}", node.id);
-    println!("{:?},{:?}", node.feature(),node.split());
+    // println!("Crawling node: {}", node.id);
+    // println!("{:?},{:?}", node.feature(),node.split());
 
     let mut leaves: Vec<&Node> = Vec::new();
 
