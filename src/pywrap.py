@@ -8,28 +8,26 @@ import re
 def main():
     print "Testing"
     prefix = os.getcwd()
-    fit_predict_file(counts=prefix+"/testing/iris.drop",drop_mode="zeros",prediction_mode="branching",trees="1",leaves="10",in_features="4",out_features="4",feature_subsample="4",sample_subsample="150",processors="1",output_location=prefix+"/testing/precomputed_trees/iris",features=prefix+"/testing/iris.features",reporting=open(os.devnull,mode='w'))
-
-    fit_predict_file(prefix+"/testing/simple.txt",sample_subsample="8",output_location=prefix+"/testing/precomputed_trees/simple",reporting=open(os.devnull,mode='w'))
-
-    print "Loading multiprocessor test:"
-
-    iris = np.loadtxt(prefix+"/testing/iris.drop")
-
-    print iris[:10]
-
-    print fit_predict(iris,processors="20",trees="5",leaves="10",in_features="4",out_features="4",feature_subsample="4",sample_subsample="150",reporting=open(os.devnull,mode='w'))
-
-    indicator_file = open('./working/indicator.txt',mode='w')
-
-    indicator_file.write("Done with multiprocessor testing\n")
-
-    # print "And now with feeling"
+    # fit_predict_file(counts=prefix+"/testing/iris.drop",drop_mode="zeros",prediction_mode="branching",trees="1",leaves="10",in_features="4",out_features="4",feature_subsample="4",sample_subsample="150",processors="1",output_location=prefix+"/testing/precomputed_trees/iris",features=prefix+"/testing/iris.features",reporting=open(os.devnull,mode='w'))
     #
-    # for i in range(1):
-    #     report_file = open(prefix+"/wrapper_test/run." + str(i) + ".log",mode='w')
-    #     trees = fit_file(prefix+"/testing/held_out_counts.txt","zeros","branching","1000","100","400","1000","1000","800","50",output_location=prefix+"/wrapper_test/run." + str(i) ,reporting=report_file)
-    #     predict_file(prefix+"/testing/held_out_counts.txt",trees)
+    # fit_predict_file(prefix+"/testing/simple.txt",sample_subsample="8",output_location=prefix+"/testing/precomputed_trees/simple",reporting=open(os.devnull,mode='w'))
+    #
+    # print "Loading multiprocessor test:"
+    #
+    # iris = np.loadtxt(prefix+"/testing/iris.drop")
+    #
+    # print iris[:10]
+    #
+    # print fit_predict(iris,processors="20",trees="5",leaves="10",in_features="4",out_features="4",feature_subsample="4",sample_subsample="150",reporting=open(os.devnull,mode='w'))
+    #
+    # indicator_file = open('./working/indicator.txt',mode='w')
+    #
+    # indicator_file.write("Done with multiprocessor testing\n")
+
+
+    report_file = open(prefix+"/wrapped_run/run.log",mode='w')
+    trees = fit_file(prefix+"/testing/held_out_counts.txt",trees="1000",leaves="100",in_features="400",out_features="1000",feature_subsample="1000",sample_subsample="800",processors="50",output_location=prefix+"/wrapped_run/run" ,reporting=report_file)
+    predict_file(prefix+"/testing/held_out_counts.txt",trees)
 #
 # features=prefix+"/testing/header.txt"
 
