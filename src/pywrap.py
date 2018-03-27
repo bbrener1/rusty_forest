@@ -38,7 +38,7 @@ def fit_predict(counts,drop_mode="zeros",prediction_mode="branching",trees="1",l
 
     tree_files = fit(counts,drop_mode=drop_mode,prediction_mode=prediction_mode,trees=trees,leaves=leaves,in_features=in_features,out_features=out_features,feature_subsample=feature_subsample,sample_subsample=sample_subsample,processors="10",output_location=output_location,features=features,samples=samples)
 
-    return predict(counts,)
+    return predict(counts,tree_files)
 
 def fit(counts,drop_mode="zeros",prediction_mode="branching",trees="1",leaves="1",in_features="1",out_features="1",feature_subsample="1",sample_subsample="1",processors="1",output_location="./working/temp",features=None,samples=None,reporting=None):
 
