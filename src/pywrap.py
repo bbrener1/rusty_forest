@@ -8,9 +8,9 @@ import re
 def main():
     print "Testing"
     prefix = os.getcwd()
-    fit_predict_file(counts=prefix+"/testing/iris.drop",drop_mode="zeros",prediction_mode="branching",trees="1",leaves="10",in_features="4",out_features="4",feature_subsample="4",sample_subsample="150",processors="1",output_location=prefix+"/testing/precomputed_trees/iris",features=prefix+"/testing/iris.features")
+    fit_predict_file(counts=prefix+"/testing/iris.drop",drop_mode="zeros",prediction_mode="branching",trees="1",leaves="10",in_features="4",out_features="4",feature_subsample="4",sample_subsample="150",processors="1",output_location=prefix+"/testing/precomputed_trees/iris",features=prefix+"/testing/iris.features",reporting=os.devnull)
 
-    fit_predict_file(prefix+"/testing/simple.txt",sample_subsample="8",output_location=prefix+"/testing/precomputed_trees/simple")
+    fit_predict_file(prefix+"/testing/simple.txt",sample_subsample="8",output_location=prefix+"/testing/precomputed_trees/simple",reporting=os.devnull)
 
     print "Loading multiprocessor test:"
 
