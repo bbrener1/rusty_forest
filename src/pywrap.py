@@ -93,7 +93,7 @@ def fit_predict_file(counts,drop_mode="zeros",prediction_mode="branching",trees=
 
 def predict_file(counts,trees,prediction_mode="branching",drop_mode="zeros",processors="1",output_location="./working/temp",features=None,samples=None,reporting=None):
 
-    prefix = "./target/debug/"
+    prefix = "./target/release/"
     command = [prefix+"forest_prot",]
 
     command.append("predict")
