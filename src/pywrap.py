@@ -164,6 +164,8 @@ def fit_file(counts,drop_mode="zeros",trees="1",leaves="1",in_features="1",out_f
     else:
 
         command.extend(["-p",processors])
+        command.extend(["-o", output_location])
+
         children.append(sp.Popen(command,stdout=reporting))
 
     for child in children:
