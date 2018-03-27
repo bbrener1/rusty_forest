@@ -818,7 +818,7 @@ impl StrippedNode {
         &self.medians
     }
 
-    pub fn dispersions(&self) -> &Vec<f64> {
+    pub fn mads(&self) -> &Vec<f64> {
         &self.dispersions
     }
 
