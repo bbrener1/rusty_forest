@@ -3,7 +3,6 @@ use std::cmp::Ordering;
 use PredictionMode;
 use DropMode;
 use std::collections::HashMap;
-use shuffler::fragment_nodes;
 
 extern crate rand;
 
@@ -90,7 +89,7 @@ pub fn average_leaves(nodes: Vec<Vec<&Node>>,features:&HashMap<String,usize>) ->
     let mut agg_predictions = vec![0.;features.len()];
 
     for (feature,values) in predictions {
-        let sum = values.iter().fold((0.,0.),|acc,x| (acc.0 + (x.0 * x.1), acc.1 + x.1));
+        let sum = values.iter().fold((0.,0.),|acc,x| (acc.0 + (x.0 * x.1.max(0.)), acc.1 + (x.1.max(0.))));
         let mean = sum.0 / sum.1;
         agg_predictions[features[feature]] = mean;
     }
