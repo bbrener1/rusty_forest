@@ -392,6 +392,7 @@ impl Node {
     pub fn strip_consume(self) -> StrippedNode {
 
         let features = self.features().clone();
+        let samples = self.samples().clone();
 
         let mut stripped_children = Vec::new();
 
@@ -409,6 +410,7 @@ impl Node {
             split: self.split,
 
             features: features,
+            samples: samples,
 
             medians: self.medians,
             dispersions: self.dispersions,
@@ -435,6 +437,7 @@ impl Node {
             split: self.split.clone(),
 
             features: self.features().clone(),
+            samples: self.samples().clone(),
 
             medians: self.medians.clone(),
             dispersions: self.dispersions.clone(),
@@ -457,8 +460,8 @@ impl Node {
         &self.id
     }
 
-    pub fn samples(&self) -> Vec<String> {
-        self.rank_table.sample_names.clone()
+    pub fn samples(&self) -> &Vec<String> {
+        &self.rank_table.sample_names
     }
 
     pub fn features(&self) -> &Vec<String> {
@@ -788,9 +791,10 @@ pub struct StrippedNode {
     split: Option<f64>,
 
     features: Vec<String>,
-
+    samples: Vec<String>,
     medians: Vec<f64>,
     dispersions: Vec<f64>,
+
 
     pub local_gains: Option<Vec<f64>>,
     pub absolute_gains: Option<Vec<f64>>,
@@ -808,6 +812,10 @@ impl StrippedNode {
 
     pub fn features(&self) -> &Vec<String> {
         &self.features
+    }
+
+    pub fn samples(&self) -> &Vec<String> {
+        &self.samples
     }
 
     pub fn split(&self) -> &Option<f64> {
@@ -862,8 +870,8 @@ mod node_testing {
 
         root.feature_parallel_derive();
 
-        assert_eq!(root.children[0].samples(),vec!["1".to_string(),"4".to_string(),"5".to_string()]);
-        assert_eq!(root.children[1].samples(),vec!["0".to_string(),"3".to_string(),"6".to_string(),"7".to_string()]);
+        assert_eq!(root.children[0].samples(),&vec!["1".to_string(),"4".to_string(),"5".to_string()]);
+        assert_eq!(root.children[1].samples(),&vec!["0".to_string(),"3".to_string(),"6".to_string(),"7".to_string()]);
     }
 
 }

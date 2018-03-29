@@ -26,7 +26,7 @@ def main():
 
 
     report_file = open(prefix+"/wrapped_run/run.log",mode='w')
-    trees = fit_file(prefix+"/testing/held_out_counts.txt",trees="200",leaves="100",in_features="400",out_features="1000",feature_subsample="1000",sample_subsample="800",processors="100",output_location=prefix+"/impute_test/run" ,reporting=report_file)
+    trees = fit_file(prefix+"/testing/held_out_counts.txt",trees="10000",leaves="100",in_features="10",out_features="1000",feature_subsample="1000",sample_subsample="800",processors="100",output_location=prefix+"/impute_test/run" ,reporting=report_file)
     predict_file(prefix+"/testing/held_out_counts.txt",trees,output_location=prefix+"/impute_test/run")
 #
 # features=prefix+"/testing/header.txt"

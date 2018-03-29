@@ -11,7 +11,7 @@ extern crate rand;
 use node::StrippedNode;
 use tree::PredictiveTree;
 
-pub fn predict(trees: &Vec<PredictiveTree>, counts: &Vec<Vec<f64>>, features: &HashMap<String,usize>, prediction_mode: &PredictionMode,drop_mode: &DropMode) -> Vec<Vec<f64>> {
+pub fn compact_predict(trees: &Vec<PredictiveTree>, counts: &Vec<Vec<f64>>, features: &HashMap<String,usize>, prediction_mode: &PredictionMode,drop_mode: &DropMode) -> Vec<Vec<f64>> {
     let mut predictions: Vec<Vec<f64>> = Vec::with_capacity(counts.len());
     let feature_intervals: Vec<Vec<(f64,f64,f64)>> = Vec::with_capacity(features.len());
     println!("Predicting");
@@ -90,7 +90,7 @@ pub fn average_leaves(nodes: Vec<Vec<&StrippedNode>>,features:&HashMap<String,us
     let mut agg_predictions = vec![0.;features.len()];
 
     for (feature,values) in predictions {
-        let sum = values.iter().fold((0.,0.),|acc,x| (acc.0 + (x.0 * x.1), x.1));
+        let sum = values.iter().fold((0.,0.),|acc,x| (acc.0 + (x.0 * x.1.max(0.)), acc.1 + x.1.max(0.)));
         let mean = sum.0 / sum.1;
         agg_predictions[features[feature]] = mean;
     }

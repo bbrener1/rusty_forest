@@ -56,6 +56,31 @@ impl<'a> Tree {
         Ok(())
     }
 
+    pub fn serialize_compact(&self) -> Result<(),Error> {
+        println!("Serializing to:");
+        println!("{}.compact",self.report_address);
+        let mut tree_dump = OpenOptions::new().create(true).append(true).open([&self.report_address,".compact"].join(""))?;
+        tree_dump.write(self.root.strip_clone().to_string().as_bytes())?;
+        tree_dump.write(b"\n")?;
+        Ok(())
+    }
+
+    pub fn strip(&self) -> PredictiveTree {
+        PredictiveTree {
+            root: self.root.strip_clone(),
+            dropout: self.dropout,
+            report_address: self.report_address.clone()
+        }
+    }
+
+    pub fn strip_consume(self) -> PredictiveTree {
+        PredictiveTree {
+            root: self.root.strip_consume(),
+            dropout: self.dropout,
+            report_address: self.report_address,
+        }
+    }
+
     pub fn reload(location: &str,feature_pool: mpsc::Sender<(((RankVector,Arc<Vec<usize>>),mpsc::Sender<(Vec<(f64,f64)>,RankVector)>))>, size_limit: usize , report_address: String) -> Result<Tree,Error> {
 
         println!("Reloading!");
@@ -91,7 +116,7 @@ impl<'a> Tree {
         self.root.root_absolute_gains();
     }
 
-    pub fn derive_from_prototype(&mut self, features:usize,samples:usize,input_features:usize,output_features:usize,iteration: usize) -> Tree {
+    pub fn derive_from_prototype(&self, features:usize,samples:usize,input_features:usize,output_features:usize,iteration: usize) -> Tree {
 
         let new_root = self.root.derive_from_prototype(features,samples,input_features,output_features,"RT");
 
@@ -204,6 +229,7 @@ pub fn grow_branches(target:&mut Node, size_limit:usize,report_address:&str,leve
     }
     // report_node_structure(target,report_address);
 }
+
 
 pub struct PredictiveTree {
     pub root: StrippedNode,

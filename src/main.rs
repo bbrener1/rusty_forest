@@ -389,7 +389,7 @@ pub fn predict(args:PredictionArguments) {
 
     let forest = Forest::reconstitute(tree_backups, Some(features), None ,None, "./").expect("Forest reconstitution failed");
 
-    let predictions = forest.predict(&counts,&feature_map,&args.prediction_mode,&args.dropout_mode, &args.report_address);
+    let predictions = forest.compact_predict(&counts,&feature_map,&args.prediction_mode,&args.dropout_mode, &args.report_address);
 
 
 }
