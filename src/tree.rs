@@ -89,7 +89,7 @@ impl<'a> Tree {
         let mut json_string = String::new();
         json_file.read_to_string(&mut json_string)?;
 
-        println!("{}",json_string);
+        // println!("{}",json_string);
 
         let root_wrapper: NodeWrapper = serde_json::from_str(&json_string).unwrap();
 
