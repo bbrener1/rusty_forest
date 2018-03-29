@@ -48,7 +48,7 @@ def fit(counts,drop_mode="zeros",prediction_mode="branching",trees="1",leaves="1
 
     fit_file("./working/counts.txt",drop_mode=drop_mode,trees=trees,leaves=leaves,in_features=in_features,out_features=out_features,feature_subsample=feature_subsample,sample_subsample=sample_subsample,processors=processors,output_location=output_location,features=features,samples=samples)
 
-    tree_files = glob.glob(output_location+'.*[0-9].*[0-9]')
+    tree_files = glob.glob(output_location+'*.compact')
 
     print tree_files
 
@@ -165,7 +165,7 @@ def fit_file(counts,drop_mode="zeros",trees="1",leaves="1",in_features="1",out_f
     for child in children:
         child.wait()
 
-    tree_files = glob.glob(output_location+'.*[0-9].*[0-9]')
+    tree_files = glob.glob(output_location+'*.compact')
 
     print tree_files
 
