@@ -14,22 +14,22 @@ use tree::PredictiveTree;
 pub fn compact_predict(trees: &Vec<PredictiveTree>, counts: &Vec<Vec<f64>>, features: &HashMap<String,usize>, prediction_mode: &PredictionMode,drop_mode: &DropMode) -> Vec<Vec<f64>> {
     let mut predictions: Vec<Vec<f64>> = Vec::with_capacity(counts.len());
     let feature_intervals: Vec<Vec<(f64,f64,f64)>> = Vec::with_capacity(features.len());
-    println!("Predicting");
-    println!("{}",counts.len());
-    println!("Individual observations");
+    // println!("Predicting");
+    // println!("{}",counts.len());
+    // println!("Individual observations");
     for sample in counts {
         let mut leaves = Vec::with_capacity(trees.len());
-        println!("Trees: {}",trees.len());
+        // println!("Trees: {}",trees.len());
         for tree in trees {
             leaves.push(node_predict_leaves(&tree.root,sample,features,prediction_mode,drop_mode));
         }
-        println!("Leaves: {}", leaves.len());
+        // println!("Leaves: {}", leaves.len());
         let sample_intervals = intervals(leaves);
-        println!("Intervals: {:?}", sample_intervals);
+        // println!("Intervals: {:?}", sample_intervals);
         let sample_prediction = aggregate_predictions(sample_intervals, features);
         // let sample_prediction = average_leaves(leaves, features);
         predictions.push(sample_prediction);
-        println!("{}",predictions.len());
+        // println!("{}",predictions.len());
 
     }
     predictions
