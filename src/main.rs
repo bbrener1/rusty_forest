@@ -984,17 +984,17 @@ impl AutoParameters {
             output_features = features;
 
         }
-        else if features > 100 {
+        else if features < 100 {
             input_features = features/3;
             output_features = features;
 
         }
-        else if features > 1000 {
+        else if features < 1000 {
             input_features = features/5;
             output_features = features/2;
 
         }
-        else if features > 10000 {
+        else if features < 10000 {
             input_features = features/10;
             output_features = features/4;
 
