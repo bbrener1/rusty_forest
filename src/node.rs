@@ -213,9 +213,9 @@ impl Node {
 
         let new_output_features = &shuffle[(shuffle.len() - output_features)..].iter().map(|x| &self.input_features()[*x]).collect();
 
-        println!("Deriving a node:");
-        println!("Input features: {:?}", new_input_features);
-        println!("Output features: {:?}", new_output_features);
+        // println!("Deriving a node:");
+        // println!("Input features: {:?}", new_input_features);
+        // println!("Output features: {:?}", new_output_features);
 
         let new_samples = rand::seq::sample_iter(&mut rng, self.samples().iter(), samples).expect("Couldn't generate sample subsample");
 

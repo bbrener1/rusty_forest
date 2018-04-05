@@ -133,6 +133,9 @@ impl Command {
             "construct_predict" | "conpred" | "combined" => {
                 Command::ConstructPredict(CombinedArguments::new(args))
             }
+            "gradient" => {
+                Command::Gradient(GradientArguments::new(args))
+            }
             _ =>{
                 println!("Not a valid top-level command, please choose from \"construct\",\"predict\", or \"construct_predict\". Exiting");
                 panic!()
@@ -757,6 +760,103 @@ pub struct GradientArguments {
 
 }
 
+impl GradientArguments {
+    fn new<T: Iterator<Item = String>>(args: &mut T) -> GradientArguments {
+
+        let mut arg_struct = GradientArguments {
+                    auto: false,
+                    count_array_file: "".to_string(),
+                    feature_header_file: None,
+                    sample_header_file: None,
+                    report_address: "./".to_string(),
+
+                    processor_limit: None,
+                    epoch_size: None,
+                    epochs:None,
+                    leaf_size_cutoff: None,
+                    dropout: None,
+
+                    feature_subsample: None,
+                    sample_subsample: None,
+                    input_features: None,
+                    output_features:None,
+                    mode: None,
+
+        };
+
+
+        // let mut current_arg = "";
+        // let mut current_arg_vec = Vec::new();
+        let mut supress_warnings = false;
+        while let Some((i,arg)) = args.enumerate().next() {
+            match &arg[..] {
+                "-sw" | "-suppress_warnings" => {
+                    if i!=1 {
+                        println!("If the supress warnings flag is not given first it may not function correctly!");
+                    }
+                    supress_warnings = true;
+                },
+                "-a" | "-auto" => {
+                    arg_struct.auto = true;
+                }
+                "-c" | "-counts" => {
+                    arg_struct.count_array_file = args.next().expect("Error parsing count location!");
+                },
+                "-p" | "-processors" | "-threads" => {
+                    arg_struct.processor_limit = Some(args.next().expect("Error processing processor limit").parse::<usize>().expect("Error parsing processor limit"));
+                },
+                "-o" | "-output" => {
+                    arg_struct.report_address = args.next().expect("Error processing output destination")
+                },
+                "-e" | "-epochs" => {
+                    arg_struct.epochs = Some(args.next().expect("Error reading number of epochs").parse::<usize>().expect("-e not a number"));
+                },
+                "-es" | "-ed" | "-epoch_duration"=> {
+                    arg_struct.epochs = Some(args.next().expect("Error reading epoch duration").parse::<usize>().expect("-ed not a number"));
+                },
+
+                "-l" | "-leaves" => {
+                    arg_struct.leaf_size_cutoff = Some(args.next().expect("Error processing leaf limit").parse::<usize>().expect("Error parsing leaf limit"));
+                },
+                "-d" | "-drop_mode" => {
+                    arg_struct.dropout = Some(DropMode::read(&args.next().expect("Error processing drop mode")));
+                },
+                "-f" | "-h" | "-features" | "-header" => {
+                    arg_struct.feature_header_file = Some(args.next().expect("Error processing feature file"));
+                },
+                "-s" | "-samples" => {
+                    arg_struct.sample_header_file = Some(args.next().expect("Error processing feature file"));
+                }
+                "-if" | "-in_features" => {
+                    arg_struct.input_features = Some(args.next().expect("Error processing in feature arg").parse::<usize>().expect("Error in feature  arg"));
+                },
+                "-of" | "-out_features" => {
+                    arg_struct.output_features = Some(args.next().expect("Error processing out feature arg").parse::<usize>().expect("Error out feature arg"));
+                },
+                "-fs" | "-feature_sub" => {
+                    arg_struct.feature_subsample = Some(args.next().expect("Error processing feature subsample arg").parse::<usize>().expect("Error feature subsample arg"));
+                },
+                "-ss" | "-sample_sub" => {
+                    arg_struct.sample_subsample = Some(args.next().expect("Error processing sample subsample arg").parse::<usize>().expect("Error sample subsample arg"));
+                },
+                "-m" | "-mode" | "-pm" | "-prediction_mode" | "-prediction" => {
+                    arg_struct.mode = Some(PredictionMode::read(&args.next().expect("Error reading prediction mode")));
+                },
+                &_ => {
+                    if !supress_warnings {
+                        eprintln!("Warning, detected unexpected argument:{}, press enter to continue",arg);
+                        stdin().read_line(&mut String::new());
+                    }
+                }
+
+            }
+        }
+
+        arg_struct
+
+    }
+}
+
 fn gradient(args: GradientArguments) {
 
     let counts = read_counts(&args.count_array_file);
@@ -776,8 +876,8 @@ fn gradient(args: GradientArguments) {
 
     let auto_params = AutoParameters::read(&counts);
 
-    let epoch_size = 100;
-    let epochs = 2;
+    let epoch_size = args.epoch_size.unwrap_or(100);
+    let epochs = args.epochs.unwrap_or(3);
     let leaf_size_cutoff = args.leaf_size_cutoff.unwrap_or(auto_params.leaf_size_cutoff);
     let processor_limit = args.processor_limit.unwrap_or(auto_params.processors);
     let dropout = args.dropout.unwrap_or(auto_params.dropout);
