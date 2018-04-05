@@ -16,25 +16,26 @@ use std::fmt::Debug;
 
 extern crate serde;
 extern crate serde_json;
+extern crate num_cpus;
 extern crate rand;
 extern crate time;
-
-
 
 mod raw_vector;
 mod rank_vector;
 mod rank_table;
 mod node;
 mod tree;
-mod thread_pool;
 mod feature_thread_pool;
+mod tree_thread_pool;
 mod random_forest;
 mod predictor;
 mod shuffler;
 mod compact_predictor;
+mod boosted_forest;
 
 use tree::Tree;
 use random_forest::Forest;
+use boosted_forest::BoostedForest;
 
 /// Author: Boris Brenerman
 /// Created: 2017 Academic Year, Johns Hopkins University, Department of Biology, Taylor Lab
@@ -102,7 +103,8 @@ fn main() {
     match Command::parse(&mut arg_iter) {
         Command::Construct(args) => construct(args),
         Command::Predict(args) => predict(args),
-        Command::ConstructPredict(args) => combined(args)
+        Command::ConstructPredict(args) => combined(args),
+        Command::Gradient(args) => gradient(args)
     }
 
 }
@@ -112,6 +114,7 @@ pub enum Command {
     Construct(ConstructionArguments),
     Predict(PredictionArguments),
     ConstructPredict(CombinedArguments),
+    Gradient(GradientArguments),
 }
 
 impl Command {
@@ -157,7 +160,7 @@ pub fn construct(args: ConstructionArguments) {
 
     println!("Reading data");
 
-    let count_array: Vec<Vec<f64>> = read_counts(&args.count_array_file);
+    let counts: Vec<Vec<f64>> = read_counts(&args.count_array_file);
 
     let report_address = &args.report_address;
 
@@ -165,51 +168,21 @@ pub fn construct(args: ConstructionArguments) {
     println!("##############################################################################################################");
     println!("##############################################################################################################");
 
+    let auto_params = AutoParameters::read(&counts);
 
-    let mut input_features: usize;
+    let tree_limit = args.tree_limit.unwrap_or(auto_params.trees);
+    let leaf_size_cutoff = args.leaf_size_cutoff.unwrap_or(auto_params.leaf_size_cutoff);
+    let processor_limit =  args.processor_limit.unwrap_or(auto_params.processors);
+    let dropout = args.dropout.unwrap_or(auto_params.dropout);
 
-    if args.input_features.is_none() {
-        input_features = count_array.len();
-        if input_features < 3 {
-        }
-        else if input_features < 6 {
-            input_features = input_features-1
-        }
-        else if input_features > 20 {
-            input_features /= 3
-        }
-        else if input_features > 100 {
-            input_features /= 5
-        }
-        else if input_features > 1000 {
-            input_features /= 10
-        }
+    let mut rnd_forest = random_forest::Forest::initialize(&counts, tree_limit, leaf_size_cutoff,processor_limit, feature_names.clone(), sample_names.clone(), dropout, report_address);
 
-    }
-    else {
-        input_features = args.input_features.unwrap();
-    }
+    let feature_subsample = args.feature_subsample.unwrap_or(auto_params.feature_subsample);
+    let sample_subsample = args.sample_subsample.unwrap_or(auto_params.sample_subsample);
+    let input_features = args.input_features.unwrap_or(auto_params.input_features);
+    let output_features = args.output_features.unwrap_or(auto_params.output_features);
 
-    let output_features = args.input_features.unwrap_or(count_array.len());
-
-    let feature_subsample = args.feature_subsample.unwrap_or(count_array.len());
-
-    let mut sample_subsample: usize;
-
-    if args.sample_subsample.is_none() {
-        sample_subsample = count_array.get(0).unwrap_or(&vec![]).len();
-        if sample_subsample < 3 {
-        }
-        else {
-            sample_subsample /= 2
-        }
-    }
-    else {
-        sample_subsample = args.sample_subsample.unwrap();
-    }
-
-
-    let mut rnd_forest = random_forest::Forest::initialize(&count_array, args.tree_limit, args.leaf_size_cutoff,args.processor_limit, feature_names, sample_names, args.drop, report_address);
+    let mut rnd_forest = random_forest::Forest::initialize(&counts, tree_limit, leaf_size_cutoff, processor_limit, feature_names, sample_names, dropout , report_address);
 
     rnd_forest.generate(feature_subsample,sample_subsample,input_features,output_features,false);
 
@@ -223,10 +196,10 @@ pub struct ConstructionArguments {
     sample_header_file: Option<String>,
     report_address: String,
 
-    processor_limit: usize,
-    tree_limit: usize,
-    leaf_size_cutoff: usize,
-    drop: DropMode,
+    processor_limit: Option<usize>,
+    tree_limit: Option<usize>,
+    leaf_size_cutoff: Option<usize>,
+    dropout: Option<DropMode>,
 
     feature_subsample: Option<usize>,
     sample_subsample: Option<usize>,
@@ -244,10 +217,10 @@ impl ConstructionArguments {
                     sample_header_file: None,
                     report_address: "./".to_string(),
 
-                    processor_limit: 1,
-                    tree_limit: 1,
-                    leaf_size_cutoff: 10000,
-                    drop: DropMode::Zeros,
+                    processor_limit: None,
+                    tree_limit: None,
+                    leaf_size_cutoff: None,
+                    dropout: None,
 
                     feature_subsample: None,
                     sample_subsample: None,
@@ -282,19 +255,19 @@ impl ConstructionArguments {
                     arg_struct.count_array_file = args.next().expect("Error parsing count location!");
                 },
                 "-p" | "-processors" | "-threads" => {
-                    arg_struct.processor_limit = args.next().expect("Error processing processor limit").parse::<usize>().expect("Error parsing processor limit");
+                    arg_struct.processor_limit = Some(args.next().expect("Error processing processor limit").parse::<usize>().expect("Error parsing processor limit"));
                 },
                 "-o" | "-output" => {
                     arg_struct.report_address = args.next().expect("Error processing output destination")
                 },
                 "-t" | "-trees" => {
-                    arg_struct.tree_limit = args.next().expect("Error processing tree count").parse::<usize>().expect("Error parsing tree count");
+                    arg_struct.tree_limit = Some(args.next().expect("Error processing tree count").parse::<usize>().expect("Error parsing tree count"));
                 },
                 "-l" | "-leaves" => {
-                    arg_struct.leaf_size_cutoff = args.next().expect("Error processing leaf limit").parse::<usize>().expect("Error parsing leaf limit");
+                    arg_struct.leaf_size_cutoff = Some(args.next().expect("Error processing leaf limit").parse::<usize>().expect("Error parsing leaf limit"));
                 },
                 "-d" | "-drop_mode" => {
-                    arg_struct.drop = DropMode::read(&args.next().expect("Error processing drop mode"));
+                    arg_struct.dropout = Some(DropMode::read(&args.next().expect("Error processing drop mode")));
                 },
                 "-f" | "-h" | "-features" | "-header" => {
                     arg_struct.feature_header_file = Some(args.next().expect("Error processing feature file"));
@@ -335,10 +308,10 @@ impl ConstructionArguments {
             sample_header_file: None,
             report_address: "./test.tree.".to_string(),
 
-            processor_limit: 20,
-            tree_limit: 100,
-            leaf_size_cutoff: 100,
-            drop: DropMode::Zeros,
+            processor_limit: Some(20),
+            tree_limit: Some(100),
+            leaf_size_cutoff: Some(100),
+            dropout: Some(DropMode::Zeros),
 
             feature_subsample: Some(4773),
             sample_subsample: Some(800),
@@ -406,7 +379,7 @@ impl PredictionMode {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug,Clone,Copy)]
 pub enum PredictionMode {
     Branch,
     Truncate,
@@ -567,7 +540,7 @@ impl PredictionArguments {
 }
 
 
-pub fn combined(args:CombinedArguments) {
+pub fn combined(mut args:CombinedArguments) {
 
     let mut feature_names = None;
     let mut sample_names = None;
@@ -584,7 +557,7 @@ pub fn combined(args:CombinedArguments) {
 
     println!("Reading data");
 
-    let count_array: Vec<Vec<f64>> = read_counts(&args.count_array_file);
+    let counts: Vec<Vec<f64>> = read_counts(&args.count_array_file);
 
     let report_address = &args.report_address;
 
@@ -592,56 +565,26 @@ pub fn combined(args:CombinedArguments) {
     println!("##############################################################################################################");
     println!("##############################################################################################################");
 
+    let auto_params = AutoParameters::read(&counts);
 
-    let mut rnd_forest = random_forest::Forest::initialize(&count_array, args.tree_limit, args.leaf_size_cutoff,args.processor_limit, feature_names, sample_names, args.drop, report_address);
+    let tree_limit = args.tree_limit.unwrap_or(auto_params.trees);
+    let leaf_size_cutoff = args.leaf_size_cutoff.unwrap_or(auto_params.leaf_size_cutoff);
+    let processor_limit =  args.processor_limit.unwrap_or(auto_params.processors);
+    let dropout = args.dropout.unwrap_or(auto_params.dropout);
+    let prediction_mode = args.mode.unwrap_or(auto_params.prediction_mode);
 
-    let mut input_features: usize;
+    let mut rnd_forest = random_forest::Forest::initialize(&counts, tree_limit, leaf_size_cutoff,processor_limit, feature_names, sample_names, dropout, report_address);
 
-    if args.input_features.is_none() {
-        input_features = count_array.len();
-        if input_features < 3 {
-        }
-        else if input_features < 6 {
-            input_features = input_features-1
-        }
-        else if input_features > 20 {
-            input_features /= 3
-        }
-        else if input_features > 100 {
-            input_features /= 5
-        }
-        else if input_features > 1000 {
-            input_features /= 10
-        }
-
-    }
-    else {
-        input_features = args.input_features.unwrap();
-    }
-
-    let output_features = args.input_features.unwrap_or(count_array.len());
-
-    let feature_subsample = args.feature_subsample.unwrap_or(count_array.len());
-
-    let mut sample_subsample: usize;
-
-    if args.sample_subsample.is_none() {
-        sample_subsample = count_array.get(0).unwrap_or(&vec![]).len();
-        if sample_subsample < 3 {
-        }
-        else {
-            sample_subsample /= 2
-        }
-    }
-    else {
-        sample_subsample = args.sample_subsample.unwrap();
-    }
+    let feature_subsample = args.feature_subsample.unwrap_or(auto_params.feature_subsample);
+    let sample_subsample = args.sample_subsample.unwrap_or(auto_params.sample_subsample);
+    let input_features = args.input_features.unwrap_or(auto_params.input_features);
+    let output_features = args.output_features.unwrap_or(auto_params.output_features);
 
     rnd_forest.generate(feature_subsample,sample_subsample,input_features,output_features,true);
 
     let dimensions = rnd_forest.dimensions();
 
-    let predictions = rnd_forest.predict(&count_array,&rnd_forest.feature_map(), &args.mode,&args.drop, &report_address);
+    let predictions = rnd_forest.predict(&counts,&rnd_forest.feature_map(), &prediction_mode, &dropout, &report_address);
 
 }
 
@@ -649,21 +592,22 @@ impl CombinedArguments {
     fn new<T: Iterator<Item = String>>(args: &mut T) -> CombinedArguments {
 
         let mut arg_struct = CombinedArguments {
+                    auto: false,
                     count_array_file: "".to_string(),
                     feature_header_file: None,
                     sample_header_file: None,
                     report_address: "./".to_string(),
 
-                    processor_limit: 1,
-                    tree_limit: 1,
-                    leaf_size_cutoff: 10000,
-                    drop: DropMode::Zeros,
+                    processor_limit: None,
+                    tree_limit: None,
+                    leaf_size_cutoff: None,
+                    dropout: None,
 
                     feature_subsample: None,
                     sample_subsample: None,
                     input_features: None,
                     output_features:None,
-                    mode: PredictionMode::Branch
+                    mode: None,
 
         };
 
@@ -688,24 +632,26 @@ impl CombinedArguments {
                         stdin().read_line(&mut String::new());
                     }
                 },
-
+                "-a" | "-auto" => {
+                    arg_struct.auto = true;
+                }
                 "-c" | "-counts" => {
                     arg_struct.count_array_file = args.next().expect("Error parsing count location!");
                 },
                 "-p" | "-processors" | "-threads" => {
-                    arg_struct.processor_limit = args.next().expect("Error processing processor limit").parse::<usize>().expect("Error parsing processor limit");
+                    arg_struct.processor_limit = Some(args.next().expect("Error processing processor limit").parse::<usize>().expect("Error parsing processor limit"));
                 },
                 "-o" | "-output" => {
                     arg_struct.report_address = args.next().expect("Error processing output destination")
                 },
                 "-t" | "-trees" => {
-                    arg_struct.tree_limit = args.next().expect("Error processing tree count").parse::<usize>().expect("Error parsing tree count");
+                    arg_struct.tree_limit = Some(args.next().expect("Error processing tree count").parse::<usize>().expect("Error parsing tree count"));
                 },
                 "-l" | "-leaves" => {
-                    arg_struct.leaf_size_cutoff = args.next().expect("Error processing leaf limit").parse::<usize>().expect("Error parsing leaf limit");
+                    arg_struct.leaf_size_cutoff = Some(args.next().expect("Error processing leaf limit").parse::<usize>().expect("Error parsing leaf limit"));
                 },
                 "-d" | "-drop_mode" => {
-                    arg_struct.drop = DropMode::read(&args.next().expect("Error processing drop mode"));
+                    arg_struct.dropout = Some(DropMode::read(&args.next().expect("Error processing drop mode")));
                 },
                 "-f" | "-h" | "-features" | "-header" => {
                     arg_struct.feature_header_file = Some(args.next().expect("Error processing feature file"));
@@ -726,7 +672,7 @@ impl CombinedArguments {
                     arg_struct.sample_subsample = Some(args.next().expect("Error processing sample subsample arg").parse::<usize>().expect("Error sample subsample arg"));
                 },
                 "-m" | "-mode" | "-pm" | "-prediction_mode" | "-prediction" => {
-                    arg_struct.mode = PredictionMode::read(&args.next().expect("Error reading prediction mode"));
+                    arg_struct.mode = Some(PredictionMode::read(&args.next().expect("Error reading prediction mode")));
                 },
                 &_ => {
                     if !supress_warnings {
@@ -744,21 +690,22 @@ impl CombinedArguments {
 
     fn default_vision() -> CombinedArguments {
         CombinedArguments {
+            auto:false,
             count_array_file: "./counts.txt".to_string(),
             feature_header_file: Some("./header.txt".to_string()),
             sample_header_file: None,
             report_address: "./test.tree.".to_string(),
 
-            processor_limit: 20,
-            tree_limit: 100,
-            leaf_size_cutoff: 100,
-            drop: DropMode::Zeros,
+            processor_limit: Some(20),
+            tree_limit: Some(100),
+            leaf_size_cutoff: Some(100),
+            dropout: Some(DropMode::Zeros),
 
             feature_subsample: Some(4773),
             sample_subsample: Some(800),
             input_features: Some(400),
             output_features:Some(4773),
-            mode: PredictionMode::Branch,
+            mode: Some(PredictionMode::Branch),
         }
 
     }
@@ -767,26 +714,81 @@ impl CombinedArguments {
 
 #[derive(Debug)]
 pub struct CombinedArguments {
+    auto: bool,
     count_array_file: String,
     feature_header_file: Option<String>,
     sample_header_file: Option<String>,
     report_address: String,
 
-    processor_limit: usize,
-    tree_limit: usize,
-    leaf_size_cutoff: usize,
-    drop: DropMode,
+    processor_limit: Option<usize>,
+    tree_limit: Option<usize>,
+    leaf_size_cutoff: Option<usize>,
+    dropout: Option<DropMode>,
 
     feature_subsample: Option<usize>,
     sample_subsample: Option<usize>,
     input_features: Option<usize>,
     output_features: Option<usize>,
 
-    mode: PredictionMode,
+    mode: Option<PredictionMode>,
 
 }
 
-// fn parse_args(arguments: env::Args) -> Arguments
+#[derive(Debug)]
+pub struct GradientArguments {
+    auto: bool,
+    count_array_file: String,
+    feature_header_file: Option<String>,
+    sample_header_file: Option<String>,
+    report_address: String,
+
+    processor_limit: Option<usize>,
+    epoch_size: Option<usize>,
+    epochs: Option<usize>,
+    leaf_size_cutoff: Option<usize>,
+    dropout: Option<DropMode>,
+
+    feature_subsample: Option<usize>,
+    sample_subsample: Option<usize>,
+    input_features: Option<usize>,
+    output_features: Option<usize>,
+
+    mode: Option<PredictionMode>,
+
+}
+
+fn gradient(args: GradientArguments) {
+
+    let counts = read_counts(&args.count_array_file);
+
+    let mut feature_names = None;
+    let mut sample_names = None;
+
+    if let Some(header_file) = args.feature_header_file {
+        feature_names = Some(read_header(&header_file));
+    }
+
+    if let Some(header_file) = args.sample_header_file {
+        sample_names = Some(read_sample_names(header_file));
+    }
+
+    let report_address = args.report_address;
+
+    let auto_params = AutoParameters::read(&counts);
+
+    let epoch_size = 100;
+    let epochs = 2;
+    let leaf_size_cutoff = args.leaf_size_cutoff.unwrap_or(auto_params.leaf_size_cutoff);
+    let processor_limit = args.processor_limit.unwrap_or(auto_params.processors);
+    let dropout = args.dropout.unwrap_or(auto_params.dropout);
+    let prediction_mode = args.mode.unwrap_or(auto_params.prediction_mode);
+
+    let mut forest = BoostedForest::initialize(&counts, epoch_size, leaf_size_cutoff, epochs, processor_limit, feature_names, sample_names, dropout, prediction_mode, &report_address);
+
+    forest.grow_forest();
+    forest.compact_predict(&counts, &forest.feature_map(), &prediction_mode, &dropout, &report_address);
+
+}
 
 fn read_counts(location:&str) -> Vec<Vec<f64>> {
 
@@ -843,6 +845,126 @@ fn read_counts(location:&str) -> Vec<Vec<f64>> {
     println!("{},{}", count_array.len(),count_array.get(0).unwrap_or(&vec![]).len());
 
     matrix_flip(&count_array)
+
+}
+
+struct AutoParameters {
+    input_features: usize,
+    output_features: usize,
+    feature_subsample: usize,
+    sample_subsample: usize,
+    trees: usize,
+    leaf_size_cutoff: usize,
+    processors: usize,
+    dropout: DropMode,
+    prediction_mode: PredictionMode,
+
+}
+
+impl AutoParameters {
+
+    fn read(counts:&Vec<Vec<f64>>) -> AutoParameters {
+        let features = counts.len();
+        let samples = counts.get(0).unwrap_or(&vec![]).len();
+
+        let input_features: usize;
+        let output_features: usize;
+
+        if features < 3 {
+            input_features = 1;
+            output_features = features;
+        }
+        else if features < 6 {
+            input_features = features-1;
+            output_features = features;
+
+        }
+        else if features < 25 {
+            input_features = features-3;
+            output_features = features;
+
+        }
+        else if features > 100 {
+            input_features = features/3;
+            output_features = features;
+
+        }
+        else if features > 1000 {
+            input_features = features/5;
+            output_features = features/2;
+
+        }
+        else if features > 10000 {
+            input_features = features/10;
+            output_features = features/4;
+
+        }
+        else {
+            input_features = features/20;
+            output_features = features/8;
+        }
+
+        let feature_subsample = output_features;
+
+        let sample_subsample: usize;
+
+        if samples < 10 {
+            eprintln!("Warning, you seem to be using suspiciously few samples, are you sure you specified the right file? If so, trees may not be the right solution to your problem.");
+            sample_subsample = samples;
+        }
+        else if samples < 1000 {
+            sample_subsample = (samples/3)*2;
+        }
+        else if samples < 5000 {
+            sample_subsample = samples/2;
+        }
+        else {
+            sample_subsample = samples/4;
+        }
+
+        let leaf_size_cutoff = ((sample_subsample as f64).sqrt() as usize);
+
+        let trees = 100;
+
+        let processors = num_cpus::get();
+
+        let dropout: DropMode;
+
+        if counts.iter().flat_map(|x| x).any(|x| !x.is_normal()) {
+            dropout = DropMode::NaNs;
+        }
+        else if counts.iter().flat_map(|x| x.iter().map(|y| if *y == 0. {1.} else {0.})).sum::<f64>() > ((samples * features) as f64 / 4.) {
+            dropout = DropMode::Zeros;
+        }
+        else {
+            dropout = DropMode::No;
+        }
+
+        let prediction_mode: PredictionMode;
+
+        if counts.iter().flat_map(|x| x.iter().map(|y| if *y != 0. {1.} else {0.})).sum::<f64>() > ((samples * features) as f64 / 4.) {
+            prediction_mode = PredictionMode::Abort;
+        }
+        else if counts.iter().flat_map(|x| x.iter().map(|y| if *y != 0. {1.} else {0.})).sum::<f64>() > ((samples * features) as f64 / 2.) {
+            prediction_mode = PredictionMode::Truncate;
+        }
+        else {
+            prediction_mode = PredictionMode::Branch;
+        }
+
+        AutoParameters {
+            feature_subsample: feature_subsample,
+            input_features: input_features,
+            output_features: output_features,
+            sample_subsample: sample_subsample,
+            trees: trees,
+            leaf_size_cutoff: leaf_size_cutoff,
+            processors: processors,
+            dropout: dropout,
+            prediction_mode: prediction_mode,
+        }
+
+    }
 
 }
 
@@ -912,6 +1034,30 @@ fn matrix_flip(in_mat: &Vec<Vec<f64>>) -> Vec<Vec<f64>> {
 
     out
 }
+
+fn mtx_dim(in_mat: &Vec<Vec<f64>>) -> (usize,usize) {
+    (in_mat.len(),in_mat.get(0).unwrap_or(&vec![]).len())
+}
+
+fn sub_matrix(mat1: &Vec<Vec<f64>>,mat2:&Vec<Vec<f64>>) -> Vec<Vec<f64>> {
+
+    if mtx_dim(mat1) != mtx_dim(mat2) {
+        panic!("Attempted to subtract matrices of unequal dimensions")
+    }
+
+    let dim = mtx_dim(mat1);
+
+    let mut output = vec![vec![0.;dim.1];dim.0];
+
+    for i in 0..dim.0 {
+        for j in 0..dim.1{
+            output[i][j] = mat1[i][j] - mat2[i][j];
+        }
+    }
+
+    output
+}
+
 
 fn argsort(input: &Vec<f64>) -> Vec<(usize,f64)> {
     let mut intermediate1 = input.iter().enumerate().collect::<Vec<(usize,&f64)>>();
@@ -1051,7 +1197,7 @@ pub mod primary_testing {
             assert_eq!(args.feature_header_file, Some("header_backup.txt".to_string()));
             assert_eq!(args.sample_subsample.unwrap(), 100);
             assert_eq!(args.report_address, "./elsewhere/".to_string());
-            assert_eq!(args.processor_limit, 3);
+            assert_eq!(args.processor_limit.unwrap(), 3);
 
         }
         else {

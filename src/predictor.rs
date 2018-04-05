@@ -81,7 +81,7 @@ pub fn average_leaves(nodes: Vec<Vec<&Node>>,features:&HashMap<String,usize>) ->
     let mut predictions: HashMap<&String,Vec<(f64,f64)>> = HashMap::new();
 
     for node in flat_nodes {
-        for (feature,(median,gain)) in node.features().iter().zip(node.medians().iter().zip(node.absolute_gains().as_ref().unwrap_or(&vec![]).iter())) {
+        for (feature,(median,gain)) in node.output_features().iter().zip(node.medians().iter().zip(node.absolute_gains().as_ref().unwrap_or(&vec![]).iter())) {
             predictions.entry(feature).or_insert(Vec::new()).push((*median,*gain));
         }
     }
@@ -105,7 +105,7 @@ pub fn intervals<'a>(nodes: Vec<Vec<&'a Node>>) -> HashMap<&String,Vec<(f64,f64,
     let mut intervals: HashMap<&String,Vec<(f64,f64,f64)>> = HashMap::new();
 
     for node in flat_nodes {
-        for (feature,(median,mad)) in node.features().iter().zip(node.medians().iter().zip(node.mads().iter())) {
+        for (feature,(median,mad)) in node.output_features().iter().zip(node.medians().iter().zip(node.mads().iter())) {
             intervals.entry(feature).or_insert(Vec::new()).push((*median-*mad,*median+*mad,1.));
         }
     }

@@ -56,6 +56,10 @@ impl RankVector {
 
     }
 
+    pub fn empty() -> RankVector {
+        RankVector::new(&vec![], "".to_string(), DropMode::No)
+    }
+
     fn empty_zones() -> (LeftZone,MedianZone,RightZone) {
 
         let median_zone = MedianZone {

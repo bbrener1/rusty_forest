@@ -22,11 +22,11 @@ use DropMode;
 
 impl<'a> Tree {
 
-    pub fn plant_tree(counts:&Vec<Vec<f64>>,feature_names:&[String],sample_names:&[String],input_features: Vec<String>,output_features:Vec<String>,size_limit:usize, dropout: DropMode ,processor_limit:usize,report_address: String) -> Tree {
+    pub fn prototype_tree(inputs:&Vec<Vec<f64>>,outputs:&Vec<Vec<f64>>,sample_names:&[String],input_features: &[String],output_features:&[String],size_limit:usize, dropout: DropMode ,processor_limit:usize,report_address: String) -> Tree {
         // let pool = ThreadPool::new(processor_limit);
         let feature_pool = FeatureThreadPool::new(processor_limit);
         // let mut root = Node::root(counts,feature_names,sample_names,input_features,output_features,pool.clone());
-        let root = Node::feature_root(counts,feature_names,sample_names,input_features,output_features,dropout,feature_pool.clone());
+        let root = Node::feature_root(inputs,outputs,input_features,output_features,sample_names,dropout,feature_pool.clone());
         let weights = None;
 
         Tree{
@@ -39,6 +39,7 @@ impl<'a> Tree {
             report_address: report_address
         }
     }
+
 
     pub fn serialize(self) -> Result<(),Error> {
 
@@ -116,16 +117,38 @@ impl<'a> Tree {
         self.root.root_absolute_gains();
     }
 
-    pub fn derive_from_prototype(&self, features:usize,samples:usize,input_features:usize,output_features:usize,iteration: usize) -> Tree {
+    pub fn derive_specified(&self,samples:&Vec<&String>,input_features:&Vec<&String>,output_features:&Vec<&String>,iteration: usize) -> Tree {
 
-        let new_root = self.root.derive_from_prototype(features,samples,input_features,output_features,"RT");
+        let new_root = self.root.derive_specified(samples,input_features,output_features,"RT");
 
         let mut address: Vec<String> = self.report_address.split('.').map(|x| x.to_string()).collect();
         *address.last_mut().unwrap() = iteration.to_string();
         let mut address_string: String = address.iter().zip(repeat(".")).fold(String::new(),|mut acc,x| {acc.push_str(x.0); acc.push_str(x.1); acc});
         address_string.pop();
 
-        // println!("Derived from prototype, rank table size: {:?}", new_root.rank_table.dimensions);
+        Tree{
+            feature_pool: self.feature_pool.clone(),
+            root: new_root,
+            dropout: self.dropout,
+            weights: self.weights.clone(),
+            size_limit: self.size_limit,
+            report_address: address_string,
+        }
+
+    }
+
+    pub fn derive_from_prototype(&self, features:usize,samples:usize,input_features:usize,output_features:usize,iteration: usize) -> Tree {
+
+        println!("Deriving from prototype: {},{},{},{}",features,samples,input_features,output_features);
+
+        let new_root = self.root.derive_random(samples,input_features,output_features,"RT");
+
+        let mut address: Vec<String> = self.report_address.split('.').map(|x| x.to_string()).collect();
+        *address.last_mut().unwrap() = iteration.to_string();
+        let mut address_string: String = address.iter().zip(repeat(".")).fold(String::new(),|mut acc,x| {acc.push_str(x.0); acc.push_str(x.1); acc});
+        address_string.pop();
+
+        println!("Derived from prototype, rank table size: {:?}", new_root.dimensions());
 
         Tree{
             // pool: self.pool.clone(),
@@ -205,6 +228,15 @@ impl<'a> Tree {
         Ok(())
     }
 
+    pub fn input_features(&self) -> &Vec<String> {
+        &self.root.input_features()
+    }
+
+    pub fn output_features(&self) -> &Vec<String> {
+        &self.root.output_features()
+    }
+
+
 }
 
 #[derive(Clone)]
@@ -221,7 +253,7 @@ pub struct Tree {
 
 
 pub fn grow_branches(target:&mut Node, size_limit:usize,report_address:&str,level:usize) {
-    if target.internal_report().len() > size_limit {
+    if target.samples().len() > size_limit {
         target.feature_parallel_derive();
         for child in target.children.iter_mut() {
             grow_branches(child, size_limit,report_address, level+1);
@@ -261,6 +293,14 @@ impl PredictiveTree {
             report_address: report_address
         })
 
+    }
+
+    pub fn crawl_to_leaves(&self) -> Vec<&StrippedNode> {
+        self.root.crawl_leaves()
+    }
+
+    pub fn crawl_nodes(&self) -> Vec<&StrippedNode> {
+        self.root.crawl_children()
     }
 
 }

@@ -606,8 +606,6 @@ mod raw_vector_tests {
         assert_eq!(vector.left_to_right().cloned().map(|x| x.3).collect::<Vec<f64>>(), vec![-5.,-5.,-5.,0.,0.,0.,10.,10.,10.,10.,10.,])
     }
 
-
-
 }
 
 
