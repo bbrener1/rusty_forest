@@ -570,6 +570,8 @@ pub fn combined(mut args:CombinedArguments) {
 
     let auto_params = AutoParameters::read(&counts);
 
+    println!("Automatic parameters: {:?}", auto_params);
+
     let tree_limit = args.tree_limit.unwrap_or(auto_params.trees);
     let leaf_size_cutoff = args.leaf_size_cutoff.unwrap_or(auto_params.leaf_size_cutoff);
     let processor_limit =  args.processor_limit.unwrap_or(auto_params.processors);
@@ -948,6 +950,7 @@ fn read_counts(location:&str) -> Vec<Vec<f64>> {
 
 }
 
+#[derive(Debug)]
 struct AutoParameters {
     input_features: usize,
     output_features: usize,
