@@ -6,6 +6,7 @@ use std::io::BufRead;
 use std::io;
 use std::collections::HashMap;
 use std::sync::mpsc::SyncSender;
+use std::sync::mpsc;
 
 use tree::Tree;
 use tree::PredictiveTree;
@@ -61,7 +62,7 @@ impl Forest {
 
             for tree in 1..self.size+1 {
 
-                let (tx,rx) = sync_channel(0);
+                let (tx,rx) = mpsc::channel();
 
                 tree_pool.send((tree,tx));
 
@@ -72,9 +73,8 @@ impl Forest {
             for receiver in tree_receivers {
                 println!("Unwrapping tree");
                 let new_tree = receiver.recv().unwrap();
-                new_tree.serialize_compact();
                 if remember {
-                    self.predictive_trees.push(new_tree.strip_consume());
+                    self.predictive_trees.push(new_tree);
                 }
 
             }

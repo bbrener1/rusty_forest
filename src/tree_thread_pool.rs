@@ -12,9 +12,10 @@ use std::thread;
 extern crate rand;
 
 use tree::Tree;
+use tree::PredictiveTree;
 
 impl TreeThreadPool{
-    pub fn new(prototype:&Tree,features_per_tree:usize,samples_per_tree:usize,input_features:usize,output_features:usize,processors: usize) -> Sender<(usize, mpsc::SyncSender<Tree>)> {
+    pub fn new(prototype:&Tree,features_per_tree:usize,samples_per_tree:usize,input_features:usize,output_features:usize,processors: usize) -> Sender<(usize, mpsc::Sender<PredictiveTree>)> {
 
         println!("Initializing thread pool, args:");
         println!("{},{},{},{}",features_per_tree,samples_per_tree,input_features,output_features);
@@ -45,13 +46,13 @@ impl TreeThreadPool{
 
 pub struct TreeThreadPool {
     workers: Vec<Worker>,
-    worker_receiver_channel: Arc<Mutex<Receiver<(Tree, mpsc::SyncSender<Tree>)>>>,
+    worker_receiver_channel: Arc<Mutex<Receiver<(Tree, mpsc::Sender<PredictiveTree>)>>>,
 }
 
 
 impl Worker{
 
-    pub fn new(id:usize,prototype:Tree,features_per_tree:usize,samples_per_tree:usize,input_features:usize,output_features:usize, channel:Arc<Mutex<Receiver<(usize, mpsc::SyncSender<Tree>)>>>) -> Worker {
+    pub fn new(id:usize,prototype:Tree,features_per_tree:usize,samples_per_tree:usize,input_features:usize,output_features:usize, channel:Arc<Mutex<Receiver<(usize, mpsc::Sender<PredictiveTree>)>>>) -> Worker {
         Worker{
             id: id,
             thread: std::thread::spawn(move || {
@@ -65,7 +66,8 @@ impl Worker{
                             println!("Tree Pool: Growing {}", tree_iter);
                             tree.grow_branches();
                             println!("Tree Pool: Sending {}", tree_iter);
-                            tree
+                            tree.serialize_compact();
+                            tree.strip_consume()
                         }).expect("Tree worker thread error");
                     }
                 }
