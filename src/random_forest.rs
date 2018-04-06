@@ -73,7 +73,7 @@ impl Forest {
                 let new_tree = receiver.recv().unwrap();
                 new_tree.serialize_compact();
                 if remember {
-                    self.trees.push(new_tree);
+                    self.predictive_trees.push(new_tree.strip_consume());
                 }
 
             }

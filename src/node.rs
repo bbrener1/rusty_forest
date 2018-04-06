@@ -64,7 +64,7 @@ impl Node {
 
         for draw_order in draw_orders {
             if let Some(minimum) = self.output_table.parallel_split_order(draw_order,&self.feature_weights,self.feature_pool.clone()) {
-                println!("Minimum: {:?}",minimum);
+                // println!("Minimum: {:?}",minimum);
                 minima.push(minimum);
             }
         };

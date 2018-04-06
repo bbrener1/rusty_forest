@@ -587,7 +587,7 @@ pub fn combined(mut args:CombinedArguments) {
 
     let dimensions = rnd_forest.dimensions();
 
-    let predictions = rnd_forest.predict(&counts,&rnd_forest.feature_map(), &prediction_mode, &dropout, &report_address);
+    let predictions = rnd_forest.compact_predict(&counts,&rnd_forest.feature_map(), &prediction_mode, &dropout, &report_address);
 
 }
 
