@@ -19,6 +19,8 @@ impl TreeThreadPool{
         println!("Initializing thread pool, args:");
         println!("{},{},{},{}",features_per_tree,samples_per_tree,input_features,output_features);
 
+        println!("Prototype tree: {},{},{}", prototype.input_features().len(), prototype.output_features().len(),prototype.root.samples().len());
+
         if processors < 1 {
             panic!("Warning, no processors were allocated to the pool, quitting!");
         }
