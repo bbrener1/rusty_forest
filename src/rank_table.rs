@@ -266,8 +266,6 @@ impl RankTable {
 
     pub fn parallel_split_order(&mut self,draw_order:Vec<usize>,feature_weights:&Vec<f64>,pool:mpsc::Sender<(((RankVector,Arc<Vec<usize>>),mpsc::Sender<(Vec<(f64,f64)>,RankVector)>))>) -> Option<(usize,f64)> {
 
-        println!("Parallel split debug 1 (ex 4): {}",self.meta_vector.len());
-
         let forward_draw = Arc::new(draw_order);
         let mut reverse_draw: Arc<Vec<usize>> = Arc::new(forward_draw.iter().cloned().rev().collect());
 
@@ -287,8 +285,6 @@ impl RankTable {
             forward_receivers.push(rx);
         }
 
-        println!("Parallel split debug 2 (ex 0): {}",self.meta_vector.len());
-
         for (i,fr) in forward_receivers.iter().enumerate() {
             if let Ok((disp,feature)) = fr.recv() {
                 for (j,(m,d)) in disp.into_iter().enumerate() {
@@ -305,15 +301,11 @@ impl RankTable {
 
         }
 
-        println!("Parallel split debug 3 (ex 4): {}",self.meta_vector.len());
-
         for feature in self.meta_vector.drain(..) {
             let (tx,rx) = mpsc::channel();
             pool.send(((feature,reverse_draw.clone()),tx));
             reverse_receivers.push(rx);
         }
-
-        println!("Parallel split debug 4 (ex 0): {}",self.meta_vector.len());
 
         for (i,rr) in reverse_receivers.iter().enumerate() {
             if let Ok((disp,feature)) = rr.recv() {
@@ -330,9 +322,6 @@ impl RankTable {
             }
 
         }
-
-        println!("Parallel split debug 4 (ex 4): {}",self.meta_vector.len());
-
 
         Some(mad_minimum(forward_covs, reverse_covs, feature_weights))
 
