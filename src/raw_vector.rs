@@ -298,13 +298,13 @@ impl RawVector {
         let index_map: HashMap<usize,usize> = self.vector.iter().map(|x| x.1).filter(|x| derived_set.contains(x)).enumerate().map(|x| (x.1,x.0)).collect();
 
         let mut intermediate = vec![(0,0,0,0.,0);derived_set.len()];
-        let mut new_draw_order = Vec::new();
+        let mut new_draw_order = Vec::with_capacity(indecies.len());
+        let mut new_dirty_set: HashSet<usize> = HashSet::with_capacity(indecies.len());
 
         let mut i = 0;
         let mut previous = 0;
         let mut first = 0;
         let mut new_index = 0;
-
 
         for sample in self.iter_full() {
             if derived_set.contains(&sample.1) {
@@ -312,6 +312,10 @@ impl RawVector {
                 let new: (usize,usize,usize,f64,usize);
 
                 new_index = index_map[&sample.1];
+
+                if self.dirty_set.contains(&sample.1) {
+                    new_dirty_set.insert(new_index);
+                }
 
                 if i == 0 {
                     new = (new_index,new_index,i,sample.3,new_index);
@@ -335,8 +339,6 @@ impl RawVector {
         let last = new_index;
 
         let new_drop_set = HashSet::new();
-
-        let new_dirty_set = self.dirty_set.intersection(&derived_set).cloned().collect();
 
         let new_raw = RawVector {
             first: Some(first),
