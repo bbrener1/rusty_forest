@@ -57,12 +57,16 @@ impl Worker{
             thread: std::thread::spawn(move || {
                 loop{
                     let message = channel.lock().unwrap().recv().ok();
-                    if let Some((tree,sender)) = message {
+                    if let Some((tree_iter,sender)) = message {
+                        println!("Tree Pool: Request for tree: {}",tree_iter);
                         sender.send({
-                            let mut tree = prototype.derive_from_prototype(features_per_tree,samples_per_tree,input_features,output_features,tree);
+                            println!("Tree Pool: Deriving {}", tree_iter);
+                            let mut tree = prototype.derive_from_prototype(features_per_tree,samples_per_tree,input_features,output_features,tree_iter);
+                            println!("Tree Pool: Growing {}", tree_iter);
                             tree.grow_branches();
+                            println!("Tree Pool: Sending {}", tree_iter);
                             tree
-                        });
+                        }).expect("Tree worker thread error");
                     }
                 }
             }),
