@@ -58,11 +58,14 @@ impl Node {
             panic!("Tried to split with no input features");
         };
 
+        println!("Trying different best splits");
+
         let mut minima = Vec::new();
 
         let draw_orders: Vec<Vec<usize>> = self.input_features().iter().map(|x| self.input_table.sort_by_feature(x)).collect();
 
         for draw_order in draw_orders {
+            println!("Trying a draw order with {} elements", draw_order.len());
             if let Some(minimum) = self.output_table.parallel_split_order(draw_order,&self.feature_weights,self.feature_pool.clone()) {
                 // println!("Minimum: {:?}",minimum);
                 minima.push(minimum);
