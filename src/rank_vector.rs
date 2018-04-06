@@ -539,6 +539,8 @@ impl RankVector {
 
     pub fn ordered_mad(&mut self,draw_order: &Vec<usize>) -> Vec<(f64,f64)> {
 
+
+
         let mut meds_mads = Vec::with_capacity(draw_order.len());
         for draw in draw_order {
             self.pop(*draw);
