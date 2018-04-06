@@ -92,6 +92,9 @@ impl Node {
 
     pub fn feature_parallel_derive(&mut self) {
 
+        println!("Feature parallel derive:");
+        println!("{},{},{},{}", self.input_features().len(),self.output_features().len(),self.input_table.samples().len(),self.output_table.samples().len());
+
         let (feature,_dispersion,split_value, left_indecies,right_indecies) = self.feature_parallel_best_split();
 
         let mut left_child_id = self.id.clone();
