@@ -32,7 +32,10 @@ impl TreeThreadPool{
         let mut workers = Vec::with_capacity(processors);
 
         if processors > 11 {
-            for i in 0..processors/11 {
+            for i in 0..(processors/11) {
+
+                println!("Spawning tree pool worker");
+                println!("Prototype tree has {} threads", processors/(processors/11));
 
                 workers.push(Worker::new(i,prototype.pool_switch_clone(processors/(processors/11)),features_per_tree,samples_per_tree,input_features,output_features, worker_receiver_channel.clone()))
 

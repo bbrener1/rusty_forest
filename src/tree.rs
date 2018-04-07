@@ -48,9 +48,9 @@ impl<'a> Tree {
 
     pub fn serialize(self) -> Result<(),Error> {
 
-        self.report_summary();
-        self.dump_data();
-        self.report_interactions();
+        self.report_summary()?;
+        self.dump_data()?;
+        self.report_interactions()?;
 
         println!("Serializing to:");
         println!("{}",self.report_address);
