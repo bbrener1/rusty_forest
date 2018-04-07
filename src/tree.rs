@@ -66,6 +66,19 @@ impl<'a> Tree {
         Ok(())
     }
 
+    pub fn serialize_compact_consume(self) -> Result<PredictiveTree,Error> {
+        println!("Serializing to:");
+        println!("{}.compact",self.report_address);
+
+        let mut tree_dump = OpenOptions::new().create(true).append(true).open([&self.report_address,".compact"].join(""))?;
+
+        let p_tree = self.strip_consume();
+
+        tree_dump.write(p_tree.root.clone().to_string().as_bytes())?;
+        tree_dump.write(b"\n")?;
+        Ok(p_tree)
+    }
+
     pub fn strip(&self) -> PredictiveTree {
         PredictiveTree {
             root: self.root.strip_clone(),
@@ -293,6 +306,24 @@ impl PredictiveTree {
             report_address: report_address
         })
 
+    }
+
+    pub fn serialize_compact(&self) -> Result<(),Error> {
+        println!("Serializing to:");
+        println!("{}.compact",self.report_address);
+        let mut tree_dump = OpenOptions::new().create(true).append(true).open([&self.report_address,".compact"].join(""))?;
+        tree_dump.write(self.root.clone().to_string().as_bytes())?;
+        tree_dump.write(b"\n")?;
+        Ok(())
+    }
+
+    pub fn serialize_compact_consume(self) -> Result<(),Error> {
+        println!("Serializing to:");
+        println!("{}.compact",self.report_address);
+        let mut tree_dump = OpenOptions::new().create(true).append(true).open([&self.report_address,".compact"].join(""))?;
+        tree_dump.write(self.root.to_string().as_bytes())?;
+        tree_dump.write(b"\n")?;
+        Ok(())
     }
 
     pub fn crawl_to_leaves(&self) -> Vec<&StrippedNode> {

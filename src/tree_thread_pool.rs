@@ -4,7 +4,6 @@ use std::sync::Arc;
 use std::sync::mpsc;
 use std::sync::Mutex;
 use std::sync::mpsc::Receiver;
-use std::sync::mpsc::SyncSender;
 use std::sync::mpsc::Sender;
 
 use std::thread;
@@ -65,7 +64,6 @@ impl Worker{
                         println!("Tree Pool: Growing {}", tree_iter);
                         tree.grow_branches();
                         println!("Tree Pool: Sending {}", tree_iter);
-                        tree.serialize_compact();
                         let p_tree = tree.strip_consume();
                         sender.send(p_tree).expect("Tree worker thread error");
                     }

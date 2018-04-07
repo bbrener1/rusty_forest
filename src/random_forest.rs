@@ -73,6 +73,7 @@ impl Forest {
             for receiver in tree_receivers {
                 println!("Unwrapping tree");
                 let new_tree = receiver.recv().unwrap();
+                new_tree.serialize_compact();
                 if remember {
                     self.predictive_trees.push(new_tree);
                 }
