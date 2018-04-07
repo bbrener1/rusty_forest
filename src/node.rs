@@ -9,7 +9,9 @@ use serde_json;
 extern crate rand;
 use rank_table::RankTable;
 use rank_vector::RankVector;
+use feature_thread_pool::FeatureThreadPool;
 use DropMode;
+
 
 impl Node {
 
@@ -303,6 +305,10 @@ impl Node {
 
     pub fn set_weights(&mut self, weights:Vec<f64>) {
         self.feature_weights = weights;
+    }
+
+    pub fn set_pool(&mut self, pool: &mpsc::Sender<(((RankVector,Arc<Vec<usize>>),mpsc::Sender<(Vec<(f64,f64)>,RankVector)>))>) {
+        self.feature_pool = pool.clone()
     }
 
     pub fn wrap_consume(self) -> NodeWrapper {

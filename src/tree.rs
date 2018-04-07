@@ -41,8 +41,10 @@ impl<'a> Tree {
     }
 
     pub fn pool_switch_clone(&self,processor_limit:usize) -> Tree {
+        let new_pool = FeatureThreadPool::new(processor_limit);
         let mut new_tree = self.clone();
-        new_tree.feature_pool = FeatureThreadPool::new(processor_limit);
+        new_tree.root.set_pool(&new_pool);
+        new_tree.feature_pool = new_pool;
         new_tree
     }
 
