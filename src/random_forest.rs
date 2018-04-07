@@ -5,7 +5,6 @@ use std::io::Error;
 use std::io::BufRead;
 use std::io;
 use std::collections::HashMap;
-use std::sync::mpsc::SyncSender;
 use std::sync::mpsc;
 
 use tree::Tree;
@@ -36,7 +35,7 @@ impl Forest {
 
         let report_string = format!("{}.0",report_address).to_string();
 
-        let prototype_tree = Tree::prototype_tree(&counts,&counts,&sample_names,&feature_names,&feature_names,leaf_size, dropout ,processor_limit,report_string);
+        let prototype_tree = Tree::prototype_tree(&counts,&counts,&sample_names,&feature_names,&feature_names,leaf_size, dropout ,1,report_string);
 
         prototype_tree.serialize_compact();
 
@@ -58,7 +57,7 @@ impl Forest {
 
             let mut tree_receivers = Vec::with_capacity(self.size);
 
-            let tree_pool = TreeThreadPool::new(self.prototype_tree.as_ref().unwrap(),features_per_tree,samples_per_tree,input_features,output_features, (self.processor_limit/10).max(1));
+            let tree_pool = TreeThreadPool::new(self.prototype_tree.as_ref().unwrap(),features_per_tree,samples_per_tree,input_features,output_features, self.processor_limit);
 
             for tree in 1..self.size+1 {
 

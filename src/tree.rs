@@ -40,6 +40,11 @@ impl<'a> Tree {
         }
     }
 
+    pub fn pool_switch_clone(&self,processor_limit:usize) -> Tree {
+        let mut new_tree = self.clone();
+        new_tree.feature_pool = FeatureThreadPool::new(processor_limit);
+        new_tree
+    }
 
     pub fn serialize(self) -> Result<(),Error> {
 
