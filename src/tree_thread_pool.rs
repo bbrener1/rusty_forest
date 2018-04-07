@@ -60,15 +60,14 @@ impl Worker{
                     let message = channel.lock().unwrap().recv().ok();
                     if let Some((tree_iter,sender)) = message {
                         println!("Tree Pool: Request for tree: {}",tree_iter);
-                        sender.send({
-                            println!("Tree Pool: Deriving {}", tree_iter);
-                            let mut tree = prototype.derive_from_prototype(features_per_tree,samples_per_tree,input_features,output_features,tree_iter);
-                            println!("Tree Pool: Growing {}", tree_iter);
-                            tree.grow_branches();
-                            println!("Tree Pool: Sending {}", tree_iter);
-                            tree.serialize_compact();
-                            tree.strip_consume()
-                        }).expect("Tree worker thread error");
+                        println!("Tree Pool: Deriving {}", tree_iter);
+                        let mut tree = prototype.derive_from_prototype(features_per_tree,samples_per_tree,input_features,output_features,tree_iter);
+                        println!("Tree Pool: Growing {}", tree_iter);
+                        tree.grow_branches();
+                        println!("Tree Pool: Sending {}", tree_iter);
+                        tree.serialize_compact();
+                        let p_tree = tree.strip_consume();
+                        sender.send(p_tree).expect("Tree worker thread error");
                     }
                 }
             }),
