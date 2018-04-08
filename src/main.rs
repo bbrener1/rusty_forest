@@ -1049,10 +1049,10 @@ impl AutoParameters {
 
         let prediction_mode: PredictionMode;
 
-        if counts.iter().flat_map(|x| x.iter().map(|y| if *y != 0. {1.} else {0.})).sum::<f64>() > ((samples * features) as f64 / 4.) {
+        if counts.iter().flat_map(|x| x.iter().map(|y| if *y != 0. {1.} else {0.})).sum::<f64>() < ((samples * features) as f64 / 4.) {
             prediction_mode = PredictionMode::Abort;
         }
-        else if counts.iter().flat_map(|x| x.iter().map(|y| if *y != 0. {1.} else {0.})).sum::<f64>() > ((samples * features) as f64 / 2.) {
+        else if counts.iter().flat_map(|x| x.iter().map(|y| if *y != 0. {1.} else {0.})).sum::<f64>() < ((samples * features) as f64 / 2.) {
             prediction_mode = PredictionMode::Truncate;
         }
         else {

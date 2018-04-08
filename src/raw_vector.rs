@@ -195,6 +195,11 @@ impl RawVector {
 
     pub fn drop_nan(&mut self) {
         self.drop_set.extend(&self.dirty_set);
+        for i in self.drop_set.clone() {
+            self.pop(i);
+        }
+        self.drop = true;
+
     }
 
     pub fn iter(&self) -> RawVectDropNone {

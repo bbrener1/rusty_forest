@@ -70,7 +70,11 @@ impl RankTable {
     }
 
     pub fn sort_by_feature(& self, feature: &str) -> Vec<usize> {
-        self.meta_vector[self.feature_dictionary[feature]].give_draw_order()
+
+        println!("Dropped: {:?}", self.meta_vector[self.feature_dictionary[feature]].give_dropped_order());
+        println!("Full: {:?}", self.meta_vector[self.feature_dictionary[feature]].give_draw_order());
+
+        self.meta_vector[self.feature_dictionary[feature]].give_dropped_order()
     }
 
     pub fn split_indecies_by_feature(&self, feature: &str, split: &f64) -> (Vec<usize>,Vec<usize>){
