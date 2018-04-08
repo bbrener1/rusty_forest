@@ -555,6 +555,9 @@ impl RankVector {
     }
 
     pub fn give_dropped_order(&self) -> Vec<usize> {
+        println!("Dropped order: {:?}",self.vector.dropped_draw_order());
+        println!("Full order: {:?}", self.vector.draw_order);
+
         self.vector.dropped_draw_order()
     }
 

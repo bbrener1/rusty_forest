@@ -65,8 +65,12 @@ impl RankTable {
         self.meta_vector.iter().map(|x| x.mad()).collect()
     }
 
+    pub fn covs(&self) -> Vec<f64> {
+        self.dispersions().into_iter().zip(self.dispersions().into_iter()).map(|x| x.0/x.1).map(|y| if y.is_nan() {0.} else {y}).collect()
+    }
+
     pub fn sort_by_feature(& self, feature: &str) -> Vec<usize> {
-        self.meta_vector[self.feature_dictionary[feature]].give_draw_order()
+        self.meta_vector[self.feature_dictionary[feature]].give_dropped_order()
     }
 
     pub fn split_indecies_by_feature(&self, feature: &str, split: &f64) -> (Vec<usize>,Vec<usize>){

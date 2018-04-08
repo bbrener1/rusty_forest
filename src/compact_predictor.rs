@@ -100,7 +100,10 @@ pub fn average_leaves(nodes: Vec<Vec<&StrippedNode>>,features:&HashMap<String,us
 
     for (feature,values) in predictions {
         let sum = values.iter().fold((0.,0.),|acc,x| (acc.0 + (x.0 * x.1.max(0.)), acc.1 + x.1.max(0.)));
-        let mean = sum.0 / sum.1;
+        let mut mean = sum.0 / sum.1;
+        if mean.is_nan() {
+            mean = 0.;
+        }
         agg_predictions[features[feature]] = mean;
     }
 
