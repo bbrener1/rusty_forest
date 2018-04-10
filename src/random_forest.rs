@@ -254,7 +254,11 @@ impl Forest {
     }
 
     pub fn feature_map(&self) -> HashMap<String,usize> {
-        self.feature_names.clone().into_iter().enumerate().map(|x| (x.1,x.0)).collect()
+        println!("Secondary feature name check: {}", self.feature_names.len());
+        let out: HashMap<String,usize> = self.feature_names.clone().into_iter().enumerate().map(|x| (x.1,x.0)).collect();
+        println!("Tertiary: {}", out.len());
+        out
+
     }
 
 }
