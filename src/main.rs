@@ -151,12 +151,12 @@ pub fn construct(args: ConstructionArguments) {
     let mut feature_names = None;
     let mut sample_names = None;
 
-    if args.feature_header_file.is_some() {
-        feature_names = Some(read_header(&args.feature_header_file.clone().unwrap()));
+    if let Some(ref feature_header_file) = args.feature_header_file {
+        feature_names = Some(read_header(feature_header_file));
     }
 
-    if args.sample_header_file.is_some() {
-        sample_names = Some(read_sample_names(args.sample_header_file.clone().unwrap()));
+    if let Some(ref sample_header_file) = args.sample_header_file {
+        sample_names = Some(read_sample_names(sample_header_file));
     }
 
     println!("Argumnets parsed: {:?}", args);
@@ -550,12 +550,12 @@ pub fn combined(mut args:CombinedArguments) {
     let mut feature_names = None;
     let mut sample_names = None;
 
-    if args.feature_header_file.is_some() {
-        feature_names = Some(read_header(&args.feature_header_file.clone().unwrap()));
+    if let Some(ref feature_header_file) = args.feature_header_file {
+        feature_names = Some(read_header(feature_header_file));
     }
 
-    if args.sample_header_file.is_some() {
-        sample_names = Some(read_sample_names(args.sample_header_file.clone().unwrap()));
+    if let Some(ref sample_header_file) = args.sample_header_file {
+        sample_names = Some(read_sample_names(sample_header_file));
     }
 
     println!("Argumnets parsed: {:?}", args);
@@ -868,12 +868,12 @@ fn gradient(args: GradientArguments) {
     let mut feature_names = None;
     let mut sample_names = None;
 
-    if let Some(header_file) = args.feature_header_file {
-        feature_names = Some(read_header(&header_file));
+    if let Some(ref feature_header_file) = args.feature_header_file {
+        feature_names = Some(read_header(feature_header_file));
     }
 
-    if let Some(header_file) = args.sample_header_file {
-        sample_names = Some(read_sample_names(header_file));
+    if let Some(ref sample_header_file) = args.sample_header_file {
+        sample_names = Some(read_sample_names(sample_header_file));
     }
 
     let report_address = args.report_address;
@@ -1093,7 +1093,7 @@ fn read_header(location: &str) -> Vec<String> {
     header_vector
 }
 
-fn read_sample_names(location: String) -> Vec<String> {
+fn read_sample_names(location: &str) -> Vec<String> {
 
     let mut header_vector = Vec::new();
 

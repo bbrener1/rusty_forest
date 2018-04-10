@@ -27,7 +27,7 @@ use tsv_format;
 impl Forest {
     pub fn initialize(counts:&Vec<Vec<f64>>,trees:usize,leaf_size:usize,processor_limit:usize, feature_option: Option<Vec<String>>, sample_option: Option<Vec<String>>, dropout: DropMode, report_address:&str) -> Forest {
 
-        let dimensions = (counts.len(),counts.first().unwrap_or(&Vec::with_capacity(0)).len());
+        let dimensions = (counts.len(),counts.first().unwrap_or(&vec![]).len());
 
         let feature_names = feature_option.unwrap_or((0..dimensions.0).map(|x| x.to_string()).collect());
 
@@ -36,6 +36,10 @@ impl Forest {
         let report_string = format!("{}.0",report_address).to_string();
 
         let prototype_tree = Tree::prototype_tree(&counts,&counts,&sample_names,&feature_names,&feature_names,leaf_size, dropout ,1,report_string);
+
+        println!("Name dimensions");
+        println!("{}",feature_names.len());
+        println!("{}",sample_names.len());
 
         prototype_tree.serialize_compact();
 
