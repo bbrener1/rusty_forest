@@ -1087,7 +1087,7 @@ fn read_header(location: &str) -> Vec<String> {
     for (i,line) in header_file_iterator.by_ref().enumerate() {
         let feature = line.unwrap_or("error".to_string());
         let mut renamed = feature.clone();
-        let j = 1;
+        let mut j = 1;
         while header_map.contains_key(&renamed) {
             renamed = [feature.clone(),j.to_string()].join("");
             eprintln!("WARNING: Two individual features were named the same thing: {}",feature);
