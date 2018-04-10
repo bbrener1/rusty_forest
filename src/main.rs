@@ -1091,6 +1091,7 @@ fn read_header(location: &str) -> Vec<String> {
         while header_map.contains_key(&renamed) {
             renamed = [feature.clone(),j.to_string()].join("");
             eprintln!("WARNING: Two individual features were named the same thing: {}",feature);
+            j += 1;
         }
         header_map.insert(renamed,i);
     };
