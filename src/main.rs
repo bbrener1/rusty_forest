@@ -930,8 +930,11 @@ fn read_counts(location:&str) -> Vec<Vec<f64>> {
 
                 },
                 Err(msg) => {
-                    println!("Couldn't parse a cell in the text file, Rust sez: {:?}",msg);
-                    println!("Cell content: {:?}", gene);
+
+                    if gene != "nan" && gene != "NAN" {
+                        println!("Couldn't parse a cell in the text file, Rust sez: {:?}",msg);
+                        println!("Cell content: {:?}", gene);
+                    }
                     gene_vector.push(f64::NAN);
                 }
             }
