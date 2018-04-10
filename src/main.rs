@@ -1079,14 +1079,25 @@ fn read_header(location: &str) -> Vec<String> {
 
     println!("Reading header: {}", location);
 
-    let mut header_vector = Vec::new();
+    let mut header_map = HashMap::new();
 
     let header_file = File::open(location).expect("Header file error!");
     let mut header_file_iterator = io::BufReader::new(&header_file).lines();
 
-    for line in header_file_iterator.by_ref() {
-        header_vector.push(line.expect("Error reading header line!").to_string());
-    }
+    for (i,line) in header_file_iterator.by_ref().enumerate() {
+        let feature = line.unwrap_or("error".to_string());
+        let mut renamed = feature.clone();
+        let j = 1;
+        while header_map.contains_key(&renamed) {
+            renamed = [feature.clone(),j.to_string()].join("");
+            eprintln!("WARNING: Two individual features were named the same thing: {}",feature);
+        }
+        header_map.insert(renamed,i);
+    };
+
+    let mut header_inter: Vec<(String,usize)> = header_map.iter().map(|x| (x.0.clone().clone(),x.1.clone())).collect();
+    header_inter.sort_unstable_by_key(|x| x.1);
+    let header_vector: Vec<String> = header_inter.into_iter().map(|x| x.0).collect();
 
     println!("Read {} lines", header_vector.len());
 
