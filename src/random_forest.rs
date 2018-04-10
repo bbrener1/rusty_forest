@@ -201,9 +201,10 @@ impl Forest {
         truth_dump.write(&tsv_format(&matrix_flip(&self.counts)).as_bytes())?;
         truth_dump.write(b"\n")?;
 
+        let mut header_vec = vec!["";feature_map.len()];
+        for (f,i) in feature_map { header_vec[*i] = f; };
+        let header = tsv_format(&vec![header_vec]);
 
-        let linearized_map: Vec<(usize,String)> = feature_map.iter().map(|(x,y)| (y.clone(),x.clone())).collect();
-        let header = tsv_format(&vec![linearized_map]);
         let mut prediction_header = OpenOptions::new().create(true).append(true).open([report_address,".prediction_header"].join("")).unwrap();
         prediction_header.write(header.as_bytes())?;
         prediction_header.write(b"\n")?;
@@ -225,8 +226,9 @@ impl Forest {
         truth_dump.write(&tsv_format(&matrix_flip(&self.counts)).as_bytes())?;
         truth_dump.write(b"\n")?;
 
-        let linearized_map: Vec<(usize,String)> = feature_map.iter().map(|(x,y)| (y.clone(),x.clone())).collect();
-        let header = tsv_format(&vec![linearized_map]);
+        let mut header_vec = vec!["";feature_map.len()];
+        for (f,i) in feature_map { header_vec[*i] = f; };
+        let header = tsv_format(&vec![header_vec]);
 
         let mut prediction_header = OpenOptions::new().create(true).append(true).open([report_address,".prediction_header"].join("")).unwrap();
         prediction_header.write(&header.as_bytes())?;
