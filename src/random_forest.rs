@@ -198,7 +198,7 @@ impl Forest {
         prediction_dump.write(b"\n")?;
 
         let mut truth_dump = OpenOptions::new().create(true).append(true).open([report_address,".prediction_truth"].join("")).unwrap();
-        truth_dump.write(&format!("{:?}",&tsv_format(&matrix_flip(&self.counts))).as_bytes())?;
+        truth_dump.write(&tsv_format(&matrix_flip(&self.counts)).as_bytes())?;
         truth_dump.write(b"\n")?;
 
 
@@ -222,7 +222,7 @@ impl Forest {
         prediction_dump.write(b"\n")?;
 
         let mut truth_dump = OpenOptions::new().create(true).append(true).open([report_address,".prediction_truth"].join("")).unwrap();
-        truth_dump.write(&format!("{:?}",&tsv_format(&matrix_flip(&self.counts))).as_bytes())?;
+        truth_dump.write(&tsv_format(&matrix_flip(&self.counts)).as_bytes())?;
         truth_dump.write(b"\n")?;
 
         let linearized_map: Vec<(usize,String)> = feature_map.iter().map(|(x,y)| (y.clone(),x.clone())).collect();
