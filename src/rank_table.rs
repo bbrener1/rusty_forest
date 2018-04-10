@@ -70,10 +70,10 @@ impl RankTable {
     }
 
     pub fn sort_by_feature(& self, feature: &str) -> Vec<usize> {
-
-        println!("Dropped: {:?}", self.meta_vector[self.feature_dictionary[feature]].give_dropped_order());
-        println!("Full: {:?}", self.meta_vector[self.feature_dictionary[feature]].give_draw_order());
-
+        //
+        // println!("Dropped: {:?}", self.meta_vector[self.feature_dictionary[feature]].give_dropped_order());
+        // println!("Full: {:?}", self.meta_vector[self.feature_dictionary[feature]].give_draw_order());
+        //
         self.meta_vector[self.feature_dictionary[feature]].give_dropped_order()
     }
 
@@ -128,12 +128,6 @@ impl RankTable {
 
 
     pub fn derive(&self, indecies:&[usize]) -> RankTable {
-
-        println!("Derive debug: {:?}", indecies);
-
-        println!("Meta vector: {}", self.meta_vector.len());
-
-        println!("Samples: {:?}",self.samples());
 
         let mut new_meta_vector: Vec<RankVector> = Vec::with_capacity(indecies.len());
 

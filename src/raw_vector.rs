@@ -238,6 +238,10 @@ impl RawVector {
         self.vector.iter().cloned().map(|x| x.3).collect()
     }
 
+    pub fn iter_raw(&self) -> &Vec<(usize,usize,usize,f64,usize)> {
+        &self.vector
+    }
+
     pub fn drop_skip<'a>(&'a self) -> RawVectDropSkip<'a> {
         RawVectDropSkip::new(self.iter_full(), &self.drop_set)
     }

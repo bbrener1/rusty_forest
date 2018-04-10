@@ -3,6 +3,7 @@ use std::sync::Arc;
 use std::cmp::PartialOrd;
 use std::cmp::Ordering;
 use std::sync::mpsc;
+use std::f64;
 use serde_json;
 
 
@@ -60,18 +61,17 @@ impl Node {
             panic!("Tried to split with no input features");
         };
 
-        println!("Trying different best splits");
-
         let mut minima = Vec::new();
 
         let draw_orders: Vec<Vec<usize>> = self.input_features().iter().map(|x| self.input_table.sort_by_feature(x)).collect();
 
-        for draw_order in draw_orders {
+        for draw_order in draw_orders.iter().cloned() {
             // println!("Trying a draw order with {} elements", draw_order.len());
-            if let Some(minimum) = self.output_table.parallel_split_order(draw_order,&self.feature_weights,self.feature_pool.clone()) {
-                // println!("Minimum: {:?}",minimum);
-                minima.push(minimum);
-            }
+
+            minima.push( {
+                self.output_table.parallel_split_order(draw_order,&self.feature_weights,self.feature_pool.clone()).unwrap_or((0,f64::INFINITY))
+            } );
+
         };
 
         let (best_input_feature_index,(split_index,split_dispersion)) = minima.into_iter().enumerate().min_by(|a,b| (a.1).1.partial_cmp(&(b.1).1).unwrap_or(Ordering::Greater)).unwrap();
