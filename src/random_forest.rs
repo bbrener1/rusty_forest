@@ -255,6 +255,10 @@ impl Forest {
 
     pub fn feature_map(&self) -> HashMap<String,usize> {
         println!("Secondary feature name check: {}", self.feature_names.len());
+        println!("{}", self.feature_names.clone().len());
+        println!("{}", self.feature_names.clone().into_iter().collect::<Vec<String>>().len());
+        println!("{}", self.feature_names.clone().into_iter().enumerate().collect::<Vec<(usize,String)>>().len());
+        println!("{}", self.feature_names.clone().into_iter().enumerate().map(|x| (x.1,x.0)).collect::<Vec<(String,usize)>>().len());
         let out: HashMap<String,usize> = self.feature_names.clone().into_iter().enumerate().map(|x| (x.1,x.0)).collect();
         println!("Tertiary: {}", out.len());
         out
