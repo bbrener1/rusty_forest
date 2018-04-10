@@ -1077,6 +1077,8 @@ impl AutoParameters {
 
 fn read_header(location: &str) -> Vec<String> {
 
+    println!("Reading header: {}", location);
+
     let mut header_vector = Vec::new();
 
     let header_file = File::open(location).expect("Header file error!");
@@ -1085,6 +1087,8 @@ fn read_header(location: &str) -> Vec<String> {
     for line in header_file_iterator.by_ref() {
         header_vector.push(line.expect("Error reading header line!").to_string());
     }
+
+    println!("Read {} lines", header_vector.len());
 
     header_vector
 }
