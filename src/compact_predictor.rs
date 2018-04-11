@@ -126,6 +126,7 @@ pub fn intervals<'a>(nodes: Vec<Vec<&'a StrippedNode>>) -> HashMap<&String,Vec<(
 
     println!("Features with intervals: {}", intervals.len());
     println!("Intervals: {}", intervals.iter().map(|x| x.1.len()).sum::<usize>());
+    println!("{:?}", intervals);
 
     intervals
 }
