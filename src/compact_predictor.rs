@@ -19,23 +19,24 @@ pub fn compact_predict(trees: &Vec<PredictiveTree>, counts: &Vec<Vec<f64>>, feat
     // println!("Individual observations");
     for sample in counts {
         let mut leaves = Vec::with_capacity(trees.len());
-        // println!("Trees: {}",trees.len());
+        println!("Trees: {}",trees.len());
         for tree in trees {
             leaves.push(node_predict_leaves(&tree.root,sample,features,prediction_mode,drop_mode));
         }
-        // println!("Leaves: {}", leaves.len());
-        let sample_prediction: Vec<f64>;
+        println!("Leaves: {}", leaves.len());
+        // let sample_prediction: Vec<f64>;
 
 /// Hard-coded alternative modes of averaging leaves. I'll add an option later.
 
-        match false {
-            true => {
-                let sample_intervals = intervals(leaves);
-                sample_prediction = aggregate_predictions(sample_intervals, features);
-            },
-            _ => sample_prediction = average_leaves(leaves, features),
+        // match true {
+        //     true => {
+        //         let sample_intervals = intervals(leaves);
+        //         sample_prediction = aggregate_predictions(sample_intervals, features);
+        //     },
+        //     _ => sample_prediction = average_leaves(leaves, features),
 
-        }
+        let sample_intervals = intervals(leaves);
+        let sample_prediction = aggregate_predictions(sample_intervals, features);
         // println!("Intervals: {:?}", sample_intervals);
         predictions.push(sample_prediction);
         // println!("{}",predictions.len());
@@ -52,8 +53,8 @@ pub fn node_predict_leaves<'a>(node: &'a StrippedNode, vector: &Vec<f64>, header
     let mut leaves: Vec<&StrippedNode> = Vec::new();
 
     if let (&Some(ref feature),&Some(ref split)) = (node.feature(),node.split()) {
-        if *vector.get(*header.get(feature).unwrap_or(&(vector.len()+1))).unwrap_or(&0.) != drop_mode.cmp() {
-            if vector[header[feature]] > split.clone() {
+        if *vector.get(*header.get(feature).unwrap_or(&(vector.len()+1))).unwrap_or(&drop_mode.cmp()) != drop_mode.cmp() {
+            if vector[header[feature]] > *split {
                 leaves.append(&mut node_predict_leaves(&node.children[1], vector, header, prediction_mode, drop_mode));
             }
             else {
@@ -127,6 +128,7 @@ pub fn intervals<'a>(nodes: Vec<Vec<&'a StrippedNode>>) -> HashMap<&String,Vec<(
 }
 
 pub fn aggregate_predictions(feature_intervals:HashMap<&String,Vec<(f64,f64,f64)>>,features: &HashMap<String,usize>) -> Vec<f64> {
+
     let mut predictions = vec![0.;features.len()];
 
     for (feature,intervals) in feature_intervals.into_iter() {
