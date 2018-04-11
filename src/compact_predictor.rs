@@ -54,7 +54,7 @@ pub fn node_predict_leaves<'a>(node: &'a StrippedNode, vector: &Vec<f64>, header
 
     if let (&Some(ref feature),&Some(ref split)) = (node.feature(),node.split()) {
         if *vector.get(*header.get(feature).unwrap_or(&(vector.len()+1))).unwrap_or(&drop_mode.cmp()) != drop_mode.cmp() {
-            if vector[header[feature]] > *split {
+            if vector[header[feature]] < *split {
                 leaves.append(&mut node_predict_leaves(&node.children[1], vector, header, prediction_mode, drop_mode));
             }
             else {
@@ -124,9 +124,9 @@ pub fn intervals<'a>(nodes: Vec<Vec<&'a StrippedNode>>) -> HashMap<&String,Vec<(
         }
     }
 
-    // println!("Features with intervals: {}", intervals.len());
-    // println!("Intervals: {}", intervals.iter().map(|x| x.1.len()).sum::<usize>());
-    // println!("{:?}", intervals);
+    println!("Features with intervals: {}", intervals.len());
+    println!("Intervals: {}", intervals.iter().map(|x| x.1.len()).sum::<usize>());
+    println!("{:?}", intervals);
 
     intervals
 }
