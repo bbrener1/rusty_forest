@@ -136,7 +136,7 @@ pub fn aggregate_predictions(feature_intervals:HashMap<&String,Vec<(f64,f64,f64)
     let mut predictions = vec![0.;features.len()];
 
     for (feature,intervals) in feature_intervals.into_iter() {
-        println!("{} Intervals:{:?}", feature, intervals);
+        println!("{},{} Intervals:{:?}", feature, features[feature], intervals);
         predictions[features[feature]] = max_interval(interval_stack(intervals));
         println!("Predictions:{:?}",predictions[features[feature]]);
     }
