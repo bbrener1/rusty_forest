@@ -54,8 +54,8 @@ pub fn node_predict_leaves<'a>(node: &'a StrippedNode, vector: &Vec<f64>, header
     if let (&Some(ref feature),&Some(ref split)) = (node.feature(),node.split()) {
         if *vector.get(*header.get(feature).unwrap_or(&(vector.len()+1))).unwrap_or(&drop_mode.cmp()) != drop_mode.cmp() {
             println!("Observing: {}", vector[header[feature]]);
-            if vector[header[feature]] < *split {
-                println!("Less than split, going right???");
+            if vector[header[feature]] > *split {
+                println!("More than split, going right???");
                 leaves.append(&mut node_predict_leaves(&node.children[1], vector, header, prediction_mode, drop_mode));
             }
             else {
