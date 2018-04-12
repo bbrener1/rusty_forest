@@ -47,21 +47,24 @@ pub fn compact_predict(trees: &Vec<PredictiveTree>, counts: &Vec<Vec<f64>>, feat
 
 pub fn node_predict_leaves<'a>(node: &'a StrippedNode, vector: &Vec<f64>, header: &HashMap<String,usize>, prediction_mode: &PredictionMode, drop_mode: &DropMode) -> Vec<&'a StrippedNode> {
 
-    // println!("Crawling node: {}", node.id);
-    // println!("{:?},{:?}", node.feature(),node.split());
+    println!("Crawling node: {:?},{:?}", node.feature(),node.split());
 
     let mut leaves: Vec<&StrippedNode> = Vec::new();
 
     if let (&Some(ref feature),&Some(ref split)) = (node.feature(),node.split()) {
         if *vector.get(*header.get(feature).unwrap_or(&(vector.len()+1))).unwrap_or(&drop_mode.cmp()) != drop_mode.cmp() {
+            println!("Observing: {}", vector[header[feature]]);
             if vector[header[feature]] < *split {
+                println!("Less than split, going right???");
                 leaves.append(&mut node_predict_leaves(&node.children[1], vector, header, prediction_mode, drop_mode));
             }
             else {
+                println!("Less than split, going left???");
                 leaves.append(&mut node_predict_leaves(&node.children[0], vector, header, prediction_mode, drop_mode));
             }
         }
         else {
+            println!("Branching");
             match prediction_mode {
                 &PredictionMode::Branch => {
                     leaves.append(&mut node_predict_leaves(&node.children[0], vector, header, prediction_mode, drop_mode));
@@ -78,6 +81,7 @@ pub fn node_predict_leaves<'a>(node: &'a StrippedNode, vector: &Vec<f64>, header
         }
     }
     else {
+        println!("Found a leaf");
         leaves.push(&node);
     }
 
