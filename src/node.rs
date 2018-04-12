@@ -89,7 +89,7 @@ impl Node {
 
         println!("Best split: {:?}", (best_feature.clone(),split_index, split_value,split_dispersion));
 
-        (best_feature.clone(),split_dispersion,split_value,split_order[split_index..].iter().cloned().collect(),split_order[..split_index].iter().cloned().collect())
+        (best_feature.clone(),split_dispersion,split_value,split_order[..split_index].iter().cloned().collect(),split_order[split_index..].iter().cloned().collect())
 
     }
 
