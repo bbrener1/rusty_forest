@@ -10,16 +10,13 @@ use std::thread;
 
 extern crate rand;
 
-use tree::Tree;
-use tree::PredictiveTree;
+use std::cmp::Ordering;
+
 
 impl PredictThreadPool{
-    pub fn new(prototype:&Tree,features_per_tree:usize,samples_per_tree:usize,input_features:usize,output_features:usize,processors: usize) -> Sender<(usize, mpsc::Sender<PredictiveTree>)> {
+    pub fn new(processors: usize) -> Sender<(Vec<(f64,f64,f64)>,Sender<Vec<(f64,f64,f64)>>)> {
 
-        println!("Initializing thread pool, args:");
-        println!("{},{},{},{}",features_per_tree,samples_per_tree,input_features,output_features);
-
-        println!("Prototype tree: {},{},{}", prototype.input_features().len(), prototype.output_features().len(),prototype.root.samples().len());
+        println!("Initializing predictor thread pool, processors:{}", processors);
 
         if processors < 1 {
             panic!("Warning, no processors were allocated to the pool, quitting!");
@@ -31,20 +28,11 @@ impl PredictThreadPool{
 
         let mut workers = Vec::with_capacity(processors);
 
-        if processors > 11 {
-            for i in 0..(processors/11) {
+        for i in 0..(processors) {
 
-                println!("Spawning tree pool worker");
-                println!("Prototype tree has {} threads", processors/(processors/11));
+            workers.push(Worker::new(i, worker_receiver_channel.clone()))
 
-                workers.push(Worker::new(i,prototype.pool_switch_clone(processors/(processors/11)),features_per_tree,samples_per_tree,input_features,output_features, worker_receiver_channel.clone()))
-
-            }
         }
-        else {
-            workers.push(Worker::new(0,prototype.pool_switch_clone(processors),features_per_tree,samples_per_tree,input_features,output_features, worker_receiver_channel.clone()))
-        }
-
 
         tx
     }
@@ -52,29 +40,22 @@ impl PredictThreadPool{
 }
 
 
-pub struct TreeThreadPool {
+pub struct PredictThreadPool {
     workers: Vec<Worker>,
-    worker_receiver_channel: Arc<Mutex<Receiver<(Tree, mpsc::Sender<PredictiveTree>)>>>,
+    worker_receiver_channel: Arc<Mutex<Receiver<(Vec<(f64,f64,f64)>, mpsc::Sender<Vec<(f64,f64,f64)>>)>>>,
 }
 
 
 impl Worker{
 
-    pub fn new(id:usize,prototype:Tree,features_per_tree:usize,samples_per_tree:usize,input_features:usize,output_features:usize, channel:Arc<Mutex<Receiver<(usize, mpsc::Sender<PredictiveTree>)>>>) -> Worker {
+    pub fn new(id:usize,channel:Arc<Mutex<Receiver<(Vec<(f64,f64,f64)>,mpsc::Sender<Vec<(f64,f64,f64)>>)>>>) -> Worker {
         Worker{
             id: id,
             thread: std::thread::spawn(move || {
                 loop{
                     let message = channel.lock().unwrap().recv().ok();
-                    if let Some((tree_iter,sender)) = message {
-                        println!("Tree Pool: Request for tree: {}",tree_iter);
-                        println!("Tree Pool: Deriving {}", tree_iter);
-                        let mut tree = prototype.derive_from_prototype(features_per_tree,samples_per_tree,input_features,output_features,tree_iter);
-                        println!("Tree Pool: Growing {}", tree_iter);
-                        tree.grow_branches();
-                        println!("Tree Pool: Sending {}", tree_iter);
-                        let p_tree = tree.strip_consume();
-                        sender.send(p_tree).expect("Tree worker thread error");
+                    if let Some((intervals,sender)) = message {
+                        sender.send(interval_stack(intervals)).expect("Tree worker thread error");
                     }
                 }
             }),
@@ -87,4 +68,23 @@ struct Worker {
     id: usize,
     thread: thread::JoinHandle<()>,
     // worker_receiver_channel: Arc<Mutex<Receiver<((usize,(RankTableSplitter,RankTableSplitter,Vec<usize>),Vec<f64>), mpsc::Sender<(usize,usize,f64,Vec<usize>)>)>>>,
+}
+
+pub fn interval_stack(intervals: Vec<(f64,f64,f64)>) -> Vec<(f64,f64,f64)> {
+    let mut aggregate_intervals: Vec<f64> = intervals.iter().fold(Vec::with_capacity(intervals.len()*2), |mut acc,x| {acc.push(x.0); acc.push(x.1); acc});
+    aggregate_intervals.sort_by(|a,b| a.partial_cmp(&b).unwrap_or(Ordering::Greater));
+    let mut aggregate_scores = vec![0.;aggregate_intervals.len()-1];
+    for (s_start,s_end,score) in intervals {
+        for (i,(w_start,w_end)) in aggregate_intervals.iter().zip(aggregate_intervals.iter().skip(1)).enumerate() {
+            if (*w_start >= s_start) && (*w_end <= s_end) {
+                aggregate_scores[i] += score;
+            }
+            // else {
+            //     aggregate_scores[i] -= score;
+            // }
+        }
+    }
+    let scored: Vec<(f64,f64,f64)> = aggregate_intervals.iter().zip(aggregate_intervals.iter().skip(1)).zip(aggregate_scores.into_iter()).map(|((begin,end),score)| (*begin,*end,score)).collect();
+    let filtered: Vec<(f64,f64,f64)> = scored.into_iter().filter(|x| x.0 != x.1 && x.2 != 0.).collect();
+    filtered
 }

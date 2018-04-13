@@ -17,6 +17,7 @@ use node::Node;
 use node::NodeWrapper;
 use node::StrippedNode;
 use feature_thread_pool::FeatureThreadPool;
+use feature_thread_pool::FeatureMessage;
 use rank_vector::RankVector;
 use DropMode;
 
@@ -102,7 +103,7 @@ impl<'a> Tree {
         }
     }
 
-    pub fn reload(location: &str,feature_pool: mpsc::Sender<(((RankVector,Arc<Vec<usize>>),mpsc::Sender<(Vec<(f64,f64)>,RankVector)>))>, size_limit: usize , report_address: String) -> Result<Tree,Error> {
+    pub fn reload(location: &str,feature_pool: mpsc::Sender<FeatureMessage>, size_limit: usize , report_address: String) -> Result<Tree,Error> {
 
         println!("Reloading!");
 
@@ -256,13 +257,16 @@ impl<'a> Tree {
         &self.root.output_features()
     }
 
+    pub fn terminate_pool(&mut self) {
+        FeatureThreadPool::terminate(&mut self.feature_pool);
+    }
 
 }
 
 #[derive(Clone)]
 pub struct Tree {
     // pool: mpsc::Sender<((usize, (RankTableSplitter,RankTableSplitter,Vec<usize>),Vec<f64>), mpsc::Sender<(usize,usize,f64,Vec<usize>)>)>,
-    feature_pool: mpsc::Sender<(((RankVector,Arc<Vec<usize>>),mpsc::Sender<(Vec<(f64,f64)>,RankVector)>))>,
+    feature_pool: mpsc::Sender<FeatureMessage>,
     pub root: Node,
     dropout: DropMode,
     weights: Option<Vec<f64>>,
@@ -291,7 +295,7 @@ pub struct PredictiveTree {
 
 impl PredictiveTree {
 
-    pub fn reload(location: &str,feature_pool: mpsc::Sender<(((RankVector,Arc<Vec<usize>>),mpsc::Sender<(Vec<(f64,f64)>,RankVector)>))>, size_limit: usize , report_address: String) -> Result<PredictiveTree,Error> {
+    pub fn reload(location: &str, size_limit: usize , report_address: String) -> Result<PredictiveTree,Error> {
 
         println!("Reloading!");
 

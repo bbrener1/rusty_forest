@@ -62,7 +62,7 @@ impl Forest {
 
             let mut tree_receivers = Vec::with_capacity(self.size);
 
-            let tree_pool = TreeThreadPool::new(self.prototype_tree.as_ref().unwrap(),features_per_tree,samples_per_tree,input_features,output_features, self.processor_limit);
+            let mut tree_pool = TreeThreadPool::new(self.prototype_tree.as_ref().unwrap(),features_per_tree,samples_per_tree,input_features,output_features, self.processor_limit);
 
             for tree in 1..self.size+1 {
 
@@ -84,10 +84,15 @@ impl Forest {
 
             }
 
+            TreeThreadPool::terminate(&mut tree_pool);
+
         }
         else {
             panic!("Attempted to generate a forest without a prototype tree. Are you trying to do predictions after reloading from compact backups?")
         }
+
+        self.prototype_tree = None;
+
     }
 
     pub fn compact_reconstitute(tree_locations: TreeBackups, feature_option: Option<Vec<String>>,sample_option:Option<Vec<String>>,processor_option: Option<usize>, report_address:&str) -> Result<Forest,Error> {
@@ -103,13 +108,13 @@ impl Forest {
                 let mut tree_locations: Vec<String> = io::BufReader::new(&tree_file).lines().map(|x| x.expect("Tree location error!")).collect();
                 predictive_trees = Vec::with_capacity(tree_locations.len());
                 for loc in tree_locations {
-                    predictive_trees.push(PredictiveTree::reload(&loc,feature_pool.clone(),1,"".to_string())?);
+                    predictive_trees.push(PredictiveTree::reload(&loc,1,"".to_string())?);
                 }
             }
             TreeBackups::Vector(tree_locations) => {
                 predictive_trees = Vec::with_capacity(tree_locations.len());
                 for loc in tree_locations {
-                    predictive_trees.push(PredictiveTree::reload(&loc,feature_pool.clone(),1,"".to_string())?);
+                    predictive_trees.push(PredictiveTree::reload(&loc,1,"".to_string())?);
                 }
             }
             TreeBackups::Trees(backup_trees) => {

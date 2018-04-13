@@ -11,13 +11,14 @@ extern crate rand;
 use rank_table::RankTable;
 use rank_vector::RankVector;
 use feature_thread_pool::FeatureThreadPool;
+use feature_thread_pool::FeatureMessage;
 use DropMode;
 
 
 impl Node {
 
 
-    pub fn feature_root<'a>(input_counts:&Vec<Vec<f64>>,output_counts:&Vec<Vec<f64>>,input_feature_names:&'a[String],output_feature_names:&'a[String],sample_names:&'a[String],dropout:DropMode,feature_pool: mpsc::Sender<(((RankVector,Arc<Vec<usize>>),mpsc::Sender<(Vec<(f64,f64)>,RankVector)>))>) -> Node {
+    pub fn feature_root<'a>(input_counts:&Vec<Vec<f64>>,output_counts:&Vec<Vec<f64>>,input_feature_names:&'a[String],output_feature_names:&'a[String],sample_names:&'a[String],dropout:DropMode,feature_pool: mpsc::Sender<FeatureMessage>) -> Node {
 
         let input_table = RankTable::new(input_counts,&input_feature_names,&sample_names,dropout);
 
@@ -319,7 +320,7 @@ impl Node {
         self.feature_weights = weights;
     }
 
-    pub fn set_pool(&mut self, pool: &mpsc::Sender<(((RankVector,Arc<Vec<usize>>),mpsc::Sender<(Vec<(f64,f64)>,RankVector)>))>) {
+    pub fn set_pool(&mut self, pool: &mpsc::Sender<FeatureMessage>) {
         self.feature_pool = pool.clone()
     }
 
@@ -607,7 +608,7 @@ impl Node {
 pub struct Node {
 
     // pool: mpsc::Sender<((usize,(RankTableSplitter,RankTableSplitter,Vec<usize>),Vec<f64>),mpsc::Sender<(usize,usize,f64,Vec<usize>)>)>,
-    feature_pool: mpsc::Sender<(((RankVector,Arc<Vec<usize>>),mpsc::Sender<(Vec<(f64,f64)>,RankVector)>))>,
+    feature_pool: mpsc::Sender<FeatureMessage>,
 
     input_table: RankTable,
     output_table: RankTable,
@@ -632,7 +633,7 @@ impl NodeWrapper {
         serde_json::to_string(&self).unwrap()
     }
 
-    pub fn unwrap(self,feature_pool: mpsc::Sender<(((RankVector,Arc<Vec<usize>>),mpsc::Sender<(Vec<(f64,f64)>,RankVector)>))>) -> Node {
+    pub fn unwrap(self,feature_pool: mpsc::Sender<FeatureMessage>) -> Node {
         let mut children: Vec<Node> = Vec::with_capacity(self.children.len());
         for child in self.children {
             // println!("#######################################\n");

@@ -49,8 +49,11 @@ impl TreeThreadPool{
         tx
     }
 
-}
+    pub fn terminate(channel: &mut Sender<(usize, mpsc::Sender<PredictiveTree>)>) {
+        while let Ok(()) = channel.send((0,mpsc::channel().0)) {}
+    }
 
+}
 
 pub struct TreeThreadPool {
     workers: Vec<Worker>,
@@ -60,13 +63,18 @@ pub struct TreeThreadPool {
 
 impl Worker{
 
-    pub fn new(id:usize,prototype:Tree,features_per_tree:usize,samples_per_tree:usize,input_features:usize,output_features:usize, channel:Arc<Mutex<Receiver<(usize, mpsc::Sender<PredictiveTree>)>>>) -> Worker {
+    pub fn new(id:usize,mut prototype:Tree,features_per_tree:usize,samples_per_tree:usize,input_features:usize,output_features:usize, channel:Arc<Mutex<Receiver<(usize, mpsc::Sender<PredictiveTree>)>>>) -> Worker {
         Worker{
             id: id,
             thread: std::thread::spawn(move || {
                 loop{
                     let message = channel.lock().unwrap().recv().ok();
                     if let Some((tree_iter,sender)) = message {
+                        if tree_iter == 0 {
+                            println!("Termination request");
+                            prototype.terminate_pool();
+                            break
+                        }
                         println!("Tree Pool: Request for tree: {}",tree_iter);
                         println!("Tree Pool: Deriving {}", tree_iter);
                         let mut tree = prototype.derive_from_prototype(features_per_tree,samples_per_tree,input_features,output_features,tree_iter);

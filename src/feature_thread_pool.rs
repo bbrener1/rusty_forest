@@ -14,7 +14,7 @@ use rank_vector::RankVector;
 
 
 impl FeatureThreadPool{
-    pub fn new(size: usize) -> Sender<((RankVector,Arc<Vec<usize>>), mpsc::Sender<(Vec<(f64,f64)>,RankVector)>)> {
+    pub fn new(size: usize) -> Sender<FeatureMessage> {
 
         if size < 1 {
             panic!("Warning, no processors were allocated to the pool, quitting!");
@@ -29,9 +29,14 @@ impl FeatureThreadPool{
         for i in 0..size {
 
             workers.push(Worker::new(i,worker_receiver_channel.clone()))
+
         }
 
         tx
+    }
+
+    pub fn terminate(channel: &mut Sender<FeatureMessage>) {
+        while let Ok(()) = channel.send(FeatureMessage::Terminate) {};
     }
 
 }
@@ -39,20 +44,26 @@ impl FeatureThreadPool{
 
 pub struct FeatureThreadPool {
     workers: Vec<Worker>,
-    worker_receiver_channel: Arc<Mutex<Receiver<((RankVector,Arc<Vec<usize>>), mpsc::Sender<(Vec<(f64,f64)>,RankVector)>)>>>
+    worker_receiver_channel: Arc<Mutex<Receiver<FeatureMessage>>>,
+    sender: Sender<FeatureMessage>
 }
 
 
 impl Worker{
 
-    pub fn new(id:usize,channel:Arc<Mutex<Receiver<((RankVector,Arc<Vec<usize>>), mpsc::Sender<(Vec<(f64,f64)>,RankVector)>)>>>) -> Worker {
+    pub fn new(id:usize,channel:Arc<Mutex<Receiver<FeatureMessage>>>) -> Worker {
         Worker{
             id: id,
             thread: std::thread::spawn(move || {
                 loop{
-                    let message = channel.lock().unwrap().recv().ok();
-                    if let Some(((vector,draw_order),sender)) = message {
-                        sender.send(compute(vector,draw_order));
+                    let message_option = channel.lock().unwrap().recv().ok();
+                    if let Some(message) = message_option {
+                        match message {
+                            FeatureMessage::Message((vector,draw_order),sender) => {
+                                sender.send(compute(vector,draw_order)).expect("Failed to send feature result");
+                            },
+                            FeatureMessage::Terminate => break
+                        }
                     }
                 }
             }),
@@ -60,14 +71,16 @@ impl Worker{
     }
 }
 
-
 struct Worker {
     id: usize,
     thread: thread::JoinHandle<()>,
     // worker_receiver_channel: Arc<Mutex<Receiver<((usize,(RankTableSplitter,RankTableSplitter,Vec<usize>),Vec<f64>), mpsc::Sender<(usize,usize,f64,Vec<usize>)>)>>>,
 }
 
-
+pub enum FeatureMessage {
+    Message((RankVector,Arc<Vec<usize>>), mpsc::Sender<(Vec<(f64,f64)>,RankVector)>),
+    Terminate
+}
 
 fn compute (mut vector: RankVector , draw_order: Arc<Vec<usize>>) -> (Vec<(f64,f64)>,RankVector) {
 

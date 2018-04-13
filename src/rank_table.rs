@@ -5,6 +5,7 @@ use std::sync::Arc;
 use std::mem::swap;
 use std::sync::mpsc;
 use node::mad_minimum;
+use feature_thread_pool::FeatureMessage;
 extern crate rand;
 
 
@@ -266,7 +267,7 @@ impl RankTable {
         }
     }
 
-    pub fn parallel_split_order(&mut self,draw_order:Vec<usize>,feature_weights:&Vec<f64>,pool:mpsc::Sender<(((RankVector,Arc<Vec<usize>>),mpsc::Sender<(Vec<(f64,f64)>,RankVector)>))>) -> Option<(usize,f64)> {
+    pub fn parallel_split_order(&mut self,draw_order:Vec<usize>,feature_weights:&Vec<f64>,pool:mpsc::Sender<FeatureMessage>) -> Option<(usize,f64)> {
 
         let forward_draw = Arc::new(draw_order);
         let mut reverse_draw: Arc<Vec<usize>> = Arc::new(forward_draw.iter().cloned().rev().collect());
@@ -283,7 +284,7 @@ impl RankTable {
 
         for feature in self.meta_vector.drain(..) {
             let (tx,rx) = mpsc::channel();
-            pool.send(((feature,forward_draw.clone()),tx));
+            pool.send(FeatureMessage::Message((feature,forward_draw.clone()),tx));
             forward_receivers.push(rx);
         }
 
@@ -305,7 +306,7 @@ impl RankTable {
 
         for feature in self.meta_vector.drain(..) {
             let (tx,rx) = mpsc::channel();
-            pool.send(((feature,reverse_draw.clone()),tx));
+            pool.send(FeatureMessage::Message((feature,reverse_draw.clone()),tx));
             reverse_receivers.push(rx);
         }
 

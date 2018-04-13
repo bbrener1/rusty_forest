@@ -26,6 +26,7 @@ mod rank_table;
 mod node;
 mod tree;
 mod feature_thread_pool;
+mod predict_thread_pool;
 mod tree_thread_pool;
 mod random_forest;
 mod predictor;
