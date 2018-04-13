@@ -57,6 +57,7 @@ impl Forest {
     }
 
     pub fn generate(&mut self, features_per_tree:usize, samples_per_tree:usize,input_features:usize,output_features:usize, remember: bool) {
+
         if let Some(ref prototype) = self.prototype_tree {
 
             let mut tree_receivers = Vec::with_capacity(self.size);

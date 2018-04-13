@@ -81,12 +81,12 @@ impl RankTable {
         self.meta_vector[self.feature_dictionary[feature]].split_indecies(split)
     }
 
-    pub fn feature_name(&self, feature_index: usize) -> String {
-        self.feature_names[feature_index].clone()
+    pub fn feature_name(&self, feature_index: usize) -> Option<&String> {
+        self.feature_names.get(feature_index)
     }
 
-    pub fn feature_index(&self, feature_name: &str) -> usize {
-        self.feature_dictionary[feature_name]
+    pub fn feature_index(&self, feature_name: &str) -> Option<&usize> {
+        self.feature_dictionary.get(feature_name)
     }
 
     pub fn feature_fetch(&self, feature: &str, index: usize) -> f64 {

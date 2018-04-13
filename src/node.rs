@@ -63,14 +63,26 @@ impl Node {
 
         let mut minima = Vec::new();
 
-        let draw_orders: Vec<Vec<usize>> = self.input_features().iter().map(|x| self.input_table.sort_by_feature(x)).collect();
+        for input_feature in self.input_features().clone().iter() {
 
-        for draw_order in draw_orders.iter().cloned() {
-            // println!("Trying a draw order with {} elements", draw_order.len());
+            let draw_order = self.input_table.sort_by_feature(&input_feature);
+
+            let mut saved_weight = 0.;
+
+            if let Some(input_index) = self.output_table.feature_index(&input_feature) {
+                saved_weight = self.feature_weights[*input_index];
+                self.feature_weights[*input_index] = 0.;
+            }
 
             minima.push( {
+
                 self.output_table.parallel_split_order(draw_order,&self.feature_weights,self.feature_pool.clone()).unwrap_or((0,f64::INFINITY))
+
             } );
+
+            if let Some(input_index) = self.output_table.feature_index(&input_feature) {
+                self.feature_weights[*input_index] = saved_weight;
+            }
 
         };
 
@@ -215,11 +227,11 @@ impl Node {
 
         let mut rng = rand::thread_rng();
 
-        let shuffle = rand::seq::sample_indices(&mut rng, input_features.max(output_features), input_features.max(output_features));
+        // let shuffle = rand::seq::sample_indices(&mut rng, self.output_table.features().len().max(self.input_table.features.len()), input_features.max(output_features));
 
-        let new_input_features = &shuffle[..input_features].iter().map(|x| &self.input_features()[*x]).collect();
+        let new_input_features = &rand::seq::sample_iter(&mut rng, self.input_features(), input_features).expect("Couldn't generate input features");
 
-        let new_output_features = &shuffle[(shuffle.len() - output_features)..].iter().map(|x| &self.input_features()[*x]).collect();
+        let new_output_features = &&rand::seq::sample_iter(&mut rng, self.output_features(), output_features).expect("Couldn't generate output features");;
 
         // println!("Deriving a node:");
         // println!("Input features: {:?}", new_input_features);
