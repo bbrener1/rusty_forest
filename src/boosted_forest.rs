@@ -134,7 +134,7 @@ impl BoostedForest {
 
         println!("Predicting:");
 
-        let predictions = compact_predict(&self.predictive_trees,&matrix_flip(counts),feature_map,prediction_mode,drop_mode);
+        let predictions = compact_predict(&self.predictive_trees,&matrix_flip(counts),feature_map,prediction_mode,drop_mode, self.processor_limit);
 
         let mut prediction_dump = OpenOptions::new().create(true).append(true).open([report_address,".prediction"].join("")).unwrap();
         prediction_dump.write(&tsv_format(&predictions).as_bytes())?;

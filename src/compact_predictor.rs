@@ -7,11 +7,14 @@ use shuffler::fragment_nodes;
 
 extern crate rand;
 
+use std::sync::mpsc;
 
 use node::StrippedNode;
 use tree::PredictiveTree;
+use predict_thread_pool::PredictThreadPool;
+use predict_thread_pool::PredictionMessage;
 
-pub fn compact_predict(trees: &Vec<PredictiveTree>, counts: &Vec<Vec<f64>>, features: &HashMap<String,usize>, prediction_mode: &PredictionMode,drop_mode: &DropMode) -> Vec<Vec<f64>> {
+pub fn compact_predict(trees: &Vec<PredictiveTree>, counts: &Vec<Vec<f64>>, features: &HashMap<String,usize>, prediction_mode: &PredictionMode,drop_mode: &DropMode, processor_limit: usize) -> Vec<Vec<f64>> {
     let mut predictions: Vec<Vec<f64>> = Vec::with_capacity(counts.len());
     let feature_intervals: Vec<Vec<(f64,f64,f64)>> = Vec::with_capacity(features.len());
     // println!("Predicting");
@@ -32,7 +35,7 @@ pub fn compact_predict(trees: &Vec<PredictiveTree>, counts: &Vec<Vec<f64>>, feat
         match true {
             true => {
                 let sample_intervals = intervals(leaves);
-                sample_prediction = aggregate_predictions(sample_intervals, features);
+                sample_prediction = aggregate_predictions(sample_intervals, features, processor_limit);
             },
             _ => sample_prediction = average_leaves(leaves, features),
         }
@@ -134,14 +137,25 @@ pub fn intervals<'a>(nodes: Vec<Vec<&'a StrippedNode>>) -> HashMap<&String,Vec<(
     intervals
 }
 
-pub fn aggregate_predictions(feature_intervals:HashMap<&String,Vec<(f64,f64,f64)>>,features: &HashMap<String,usize>) -> Vec<f64> {
+pub fn aggregate_predictions(feature_intervals:HashMap<&String,Vec<(f64,f64,f64)>>,features: &HashMap<String,usize>,processor_limit: usize) -> Vec<f64> {
 
     let mut predictions = vec![0.;features.len()];
 
+    let mut pool = PredictThreadPool::new(processor_limit);
+    let mut receivers = Vec::with_capacity(feature_intervals.len());
+
     for (feature,intervals) in feature_intervals.into_iter() {
-        println!("{},{} Intervals:{:?}", feature, features[feature], intervals);
-        predictions[features[feature]] = max_interval(interval_stack(intervals));
-        println!("Predictions:{:?}",predictions[features[feature]]);
+
+        let (tx,rx) = mpsc::channel();
+
+        pool.send(PredictionMessage::Message(intervals,tx));
+
+        receivers.push((feature,rx));
+
+    }
+
+    for (feature,reciever) in receivers {
+        predictions[features[feature]] = reciever.recv().expect("Predictor pool error");
     }
 
     predictions
