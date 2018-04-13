@@ -91,8 +91,6 @@ impl Forest {
             panic!("Attempted to generate a forest without a prototype tree. Are you trying to do predictions after reloading from compact backups?")
         }
 
-        self.prototype_tree = None;
-
     }
 
     pub fn compact_reconstitute(tree_locations: TreeBackups, feature_option: Option<Vec<String>>,sample_option:Option<Vec<String>>,processor_option: Option<usize>, report_address:&str) -> Result<Forest,Error> {
