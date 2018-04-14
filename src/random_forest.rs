@@ -19,7 +19,7 @@ use TreeBackups;
 use feature_thread_pool::FeatureThreadPool;
 use tree_thread_pool::TreeThreadPool;
 use std::sync::mpsc::sync_channel;
-use predictor::predict;
+// use predictor::predict;
 use compact_predictor::compact_predict;
 use matrix_flip;
 use tsv_format;
@@ -195,30 +195,30 @@ impl Forest {
         })
     }
 
-    pub fn predict(&self,counts:&Vec<Vec<f64>>,feature_map: &HashMap<String,usize>,prediction_mode:&PredictionMode, drop_mode: &DropMode,report_address: &str) -> Result<Vec<Vec<f64>>,Error> {
-
-        println!("Predicting:");
-
-        let predictions = predict(&self.trees,&matrix_flip(counts),feature_map,prediction_mode,drop_mode);
-
-        let mut prediction_dump = OpenOptions::new().create(true).append(true).open([report_address,".prediction"].join("")).unwrap();
-        prediction_dump.write(&tsv_format(&predictions).as_bytes())?;
-        prediction_dump.write(b"\n")?;
-
-        let mut truth_dump = OpenOptions::new().create(true).append(true).open([report_address,".prediction_truth"].join("")).unwrap();
-        truth_dump.write(&tsv_format(&matrix_flip(&self.counts)).as_bytes())?;
-        truth_dump.write(b"\n")?;
-
-        let mut header_vec = vec!["";feature_map.len()];
-        for (f,i) in feature_map { header_vec[*i] = f; };
-        let header = tsv_format(&vec![header_vec]);
-
-        let mut prediction_header = OpenOptions::new().create(true).append(true).open([report_address,".prediction_header"].join("")).unwrap();
-        prediction_header.write(header.as_bytes())?;
-        prediction_header.write(b"\n")?;
-
-        Ok(predictions)
-    }
+    // pub fn predict(&self,counts:&Vec<Vec<f64>>,feature_map: &HashMap<String,usize>,prediction_mode:&PredictionMode, drop_mode: &DropMode,report_address: &str) -> Result<Vec<Vec<f64>>,Error> {
+    //
+    //     println!("Predicting:");
+    //
+    //     let predictions = predict(&self.trees,&matrix_flip(counts),feature_map,prediction_mode,drop_mode);
+    //
+    //     let mut prediction_dump = OpenOptions::new().create(true).append(true).open([report_address,".prediction"].join("")).unwrap();
+    //     prediction_dump.write(&tsv_format(&predictions).as_bytes())?;
+    //     prediction_dump.write(b"\n")?;
+    //
+    //     let mut truth_dump = OpenOptions::new().create(true).append(true).open([report_address,".prediction_truth"].join("")).unwrap();
+    //     truth_dump.write(&tsv_format(&matrix_flip(&self.counts)).as_bytes())?;
+    //     truth_dump.write(b"\n")?;
+    //
+    //     let mut header_vec = vec!["";feature_map.len()];
+    //     for (f,i) in feature_map { header_vec[*i] = f; };
+    //     let header = tsv_format(&vec![header_vec]);
+    //
+    //     let mut prediction_header = OpenOptions::new().create(true).append(true).open([report_address,".prediction_header"].join("")).unwrap();
+    //     prediction_header.write(header.as_bytes())?;
+    //     prediction_header.write(b"\n")?;
+    //
+    //     Ok(predictions)
+    // }
 
     pub fn compact_predict(&self,counts:&Vec<Vec<f64>>,feature_map: &HashMap<String,usize>,prediction_mode:&PredictionMode, drop_mode: &DropMode,report_address: &str) -> Result<Vec<Vec<f64>>,Error> {
 
