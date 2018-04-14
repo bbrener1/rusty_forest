@@ -5,9 +5,10 @@ use std::collections::HashMap;
 use std::io::Error;
 use std::fs::OpenOptions;
 use std::io::Write;
-use std::io::Read;
+use std::cmp::Ordering;
 use compact_predictor::compact_predict;
 use rand::thread_rng;
+use rand::seq::sample_indices;
 use tree::Tree;
 use rank_table::RankTable;
 use tree::PredictiveTree;
@@ -276,44 +277,54 @@ pub fn weighted_sampling<T: Clone>(draws: usize, samples: &Vec<T>, weights: &Vec
     let mut drawn_samples: Vec<T> = Vec::with_capacity(draws);
     let mut drawn_indecies: Vec<usize> = Vec::with_capacity(draws);
 
+    let weight_sum: f64 = weights.iter().sum();
+
+
+
     if replacement {
 
-        for i in 0..draws {
+        let mut weighted_choices: Vec<f64> = (0..draws).map(|_| rng.gen_range::<f64>(0.,weight_sum)).collect();
+        weighted_choices.sort_unstable_by(|a,b| a.partial_cmp(&b).unwrap_or(Ordering::Greater));
 
-            if i%1000 == 0 {
-                println!("{}",i);
+        let mut descending_weight = weight_sum;
+
+        for element in weights.iter().rev() {
+            descending_weight -= element;
+            while let Some(choice) = weighted_choices.pop() {
+                if choice > descending_weight {
+                    drawn_indecies.push(weighted_choices.len());
+                }
+                else {
+                    weighted_choices.push(choice);
+                    break
+                }
             }
-
-            let weighted_choice = rng.gen_range::<f64>(0.,weights.iter().sum());
-
-            let (index,sum) = weights.iter().enumerate().fold( (0,0.), |mut acc,x| {if acc.1 <= weighted_choice {acc.0 = x.0}; (acc.0,acc.1 + x.1) });
-
-            drawn_samples.push(samples[index].clone());
-            drawn_indecies.push(index);
         }
 
     }
 
     else {
 
-        let mut local_samples: Vec<T> = samples.iter().cloned().collect();
-        let mut local_weights: Vec<&f64> = weights.iter().collect();
+        let mut local_samples: Vec<T> = samples.clone();
+        let mut local_weights: Vec<f64> = weights.clone();
+        let mut maximum_weight = local_weights.iter().max_by(|a,b| a.partial_cmp(&b).unwrap_or(Ordering::Greater)).map(|x| x.clone()).unwrap_or(0.);
 
         for i in 0..draws {
 
-            if i%1000 == 0 {
-                println!("{}",i);
+            let mut accumulator = 0.;
+
+            let current_draw = sample_indices(&mut rng, local_weights.len(), 1)[0];
+
+            while accumulator <= maximum_weight {
+                accumulator += local_weights[current_draw]
             }
 
-            let weighted_choice = rng.gen_range::<f64>(0.,local_weights.iter().cloned().sum());
+            drawn_indecies.push(current_draw);
+            drawn_samples.push(local_samples.swap_remove(current_draw));
+            if maximum_weight == local_weights.swap_remove(current_draw) {
+                maximum_weight = local_weights.iter().max_by(|a,b| a.partial_cmp(&b).unwrap_or(Ordering::Greater)).map(|x| x.clone()).unwrap_or(0.);
+            }
 
-            let (index,sum) = local_weights.iter().enumerate().fold( (0,0.), |mut acc,x| {if acc.1 <= weighted_choice {acc.0 = x.0}; (acc.0, acc.1 + *x.1) });
-
-            drawn_samples.push(local_samples[index].clone());
-            drawn_indecies.push(index);
-
-            local_samples.remove(index);
-            local_weights.remove(index);
         }
 
     }
