@@ -57,8 +57,8 @@ impl BoostedForest {
 
         let sample_names = sample_option.unwrap_or((0..dimensions.1).map(|x| x.to_string()).collect());
 
-        let feature_similarity_matrix = vec![vec![0.;dimensions.1];dimensions.0];
-        let cell_coocurrence_matrix = vec![vec![0.;dimensions.1];dimensions.0];
+        let feature_similarity_matrix = vec![vec![0.;dimensions.0];dimensions.0];
+        let cell_coocurrence_matrix = vec![vec![0.;dimensions.1];dimensions.1];
 
         let report_string = format!("{}.0",report_address).to_string();
 
