@@ -66,7 +66,6 @@ impl Worker{
                     // println!("Received a message");
                     if let Some(PredictionMessage::Message(intervals,sender)) = message_option {
                         sender.send(max_interval(interval_stack(intervals))).expect("Tree worker thread error");
-                        println!("Sent return");
                     }
                     else if let Some(PredictionMessage::Terminate) = message_option {
                         println!("Received a termination message");

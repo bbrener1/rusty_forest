@@ -8,6 +8,7 @@ use shuffler::fragment_nodes;
 extern crate rand;
 
 use std::sync::mpsc;
+use std::sync::mpsc::Sender;
 
 use node::StrippedNode;
 use tree::PredictiveTree;
@@ -20,6 +21,10 @@ pub fn compact_predict(trees: &Vec<PredictiveTree>, counts: &Vec<Vec<f64>>, feat
     // println!("Predicting");
     // println!("{}",counts.len());
     // println!("Individual observations");
+
+    let mut prediction_pool = PredictThreadPool::new(processor_limit);
+
+
     for sample in counts {
         let mut leaves = Vec::with_capacity(trees.len());
         println!("Trees: {}",trees.len());
@@ -30,12 +35,12 @@ pub fn compact_predict(trees: &Vec<PredictiveTree>, counts: &Vec<Vec<f64>>, feat
 
         let sample_prediction: Vec<f64>;
 
-/// Hard-coded alternative modes of averaging leaves. I'll add an option later.
+            /// Hard-coded alternative modes of averaging leaves. I'll add an option later.
 
         match true {
             true => {
                 let sample_intervals = intervals(leaves);
-                sample_prediction = aggregate_predictions(sample_intervals, features, processor_limit);
+                sample_prediction = aggregate_predictions(sample_intervals, features, prediction_pool.clone());
             },
             _ => sample_prediction = average_leaves(leaves, features),
         }
@@ -44,6 +49,9 @@ pub fn compact_predict(trees: &Vec<PredictiveTree>, counts: &Vec<Vec<f64>>, feat
         // println!("{}",predictions.len());
 
     }
+
+    prediction_pool.send(PredictionMessage::Terminate);
+
     predictions
 }
 
@@ -137,18 +145,17 @@ pub fn intervals<'a>(nodes: Vec<Vec<&'a StrippedNode>>) -> HashMap<&String,Vec<(
     intervals
 }
 
-pub fn aggregate_predictions(feature_intervals:HashMap<&String,Vec<(f64,f64,f64)>>,features: &HashMap<String,usize>,processor_limit: usize) -> Vec<f64> {
+pub fn aggregate_predictions(feature_intervals:HashMap<&String,Vec<(f64,f64,f64)>>,features: &HashMap<String,usize>,prediction_pool: Sender<PredictionMessage>) -> Vec<f64> {
 
     let mut predictions = vec![0.;features.len()];
 
-    let mut pool = PredictThreadPool::new(processor_limit);
     let mut receivers = Vec::with_capacity(feature_intervals.len());
 
     for (feature,intervals) in feature_intervals.into_iter() {
 
         let (tx,rx) = mpsc::channel();
 
-        pool.send(PredictionMessage::Message(intervals,tx)).expect("Failed to send feature");
+        prediction_pool.send(PredictionMessage::Message(intervals,tx)).expect("Failed to send feature");
 
         receivers.push((feature,rx));
 
