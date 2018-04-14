@@ -269,6 +269,8 @@ pub fn weighted_sampling<T: Clone>(draws: usize, samples: &Vec<T>, weights: &Vec
 
     let mut rng = thread_rng();
 
+    println!("Weighted sampling, draws: {}", draws);
+
     let mut exclusion_set: HashSet<usize> = HashSet::new();
 
     let mut drawn_samples: Vec<T> = Vec::with_capacity(draws);
@@ -277,6 +279,10 @@ pub fn weighted_sampling<T: Clone>(draws: usize, samples: &Vec<T>, weights: &Vec
     if replacement {
 
         for i in 0..draws {
+
+            if i%1000 == 0 {
+                println!("{}",i);
+            }
 
             let weighted_choice = rng.gen_range::<f64>(0.,weights.iter().sum());
 
@@ -294,6 +300,10 @@ pub fn weighted_sampling<T: Clone>(draws: usize, samples: &Vec<T>, weights: &Vec
         let mut local_weights: Vec<&f64> = weights.iter().collect();
 
         for i in 0..draws {
+
+            if i%1000 == 0 {
+                println!("{}",i);
+            }
 
             let weighted_choice = rng.gen_range::<f64>(0.,local_weights.iter().cloned().sum());
 
