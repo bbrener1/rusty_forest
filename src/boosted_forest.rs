@@ -204,13 +204,19 @@ impl BoostedForest {
 
     pub fn draw_weights(&self,cells:usize) -> (Vec<f64>,Vec<f64>,Vec<f64>) {
 
+        println!("Drawing weights");
+
         let error_cells = self.sample_cells(cells);
+
+        println!("Error cells drawn");
 
         let mut output_feature_weights = vec![0.;self.features().len()];
 
         for (j,cell) in error_cells.iter().enumerate() {
             output_feature_weights[cell.0] += 1.;
         };
+
+        println!("Output feature weights drawn");
 
         let input_feature_weights = {
             self.counts
@@ -230,9 +236,11 @@ impl BoostedForest {
                 .collect::<Vec<f64>>()
             };
 
+        println!("Input feature weights drawn");
+
         let sample_weights = matrix_flip(&self.error_matrix).iter().map(|x| x.iter().sum()).collect();
 
-        let input_feature_weights = vec![1.;self.features().len()];
+        println!("Sample weights drawn");
 
         (input_feature_weights,output_feature_weights,sample_weights)
 
