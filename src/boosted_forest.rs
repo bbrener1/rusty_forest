@@ -292,6 +292,11 @@ pub fn weighted_sampling<T: Clone>(draws: usize, samples: &Vec<T>, weights: &Vec
             descending_weight -= *element;
             while let Some(choice) = weighted_choices.pop() {
                 if choice > descending_weight {
+
+                    if weighted_choices.len()%1000 == 0 {
+                        println!("{}",weighted_choices.len());
+                    }
+
                     drawn_indecies.push(weighted_choices.len());
                 }
                 else {
@@ -310,6 +315,10 @@ pub fn weighted_sampling<T: Clone>(draws: usize, samples: &Vec<T>, weights: &Vec
         let mut maximum_weight = local_weights.iter().max_by(|a,b| a.partial_cmp(&b).unwrap_or(Ordering::Greater)).map(|x| x.clone()).unwrap_or(0.);
 
         for i in 0..draws {
+
+            if i%1000 == 0 {
+                println!("{}",i);
+            }
 
             let mut accumulator = 0.;
 
