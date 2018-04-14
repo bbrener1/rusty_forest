@@ -194,9 +194,16 @@ impl BoostedForest {
 
     pub fn sample_cells(&self,draws:usize) -> Vec<(usize,usize,f64)> {
 
+        println!("Sampling cells");
+
         let flattened_cells: Vec<(usize,usize,f64)> = self.error_matrix.iter().enumerate().flat_map(|y| repeat(y.0).zip(y.1.iter().enumerate())).map(|(a,(b,c))| (a,b,*c)).collect();
 
+        println!("Flattened the cells");
+        println!("{}", flattened_cells.len());
+
         let picks = weighted_sampling(draws, &flattened_cells, &flattened_cells.iter().map(|x| x.2).collect(), false).0;
+
+        println!("Done drawing cells");
 
         picks
     }
