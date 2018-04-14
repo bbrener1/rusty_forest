@@ -114,6 +114,7 @@ pub fn intervals<'a>(nodes: Vec<Vec<&'a Node>>) -> HashMap<&String,Vec<(f64,f64,
 }
 
 pub fn aggregate_predictions(feature_intervals:HashMap<&String,Vec<(f64,f64,f64)>>,features: &HashMap<String,usize>) -> Vec<f64> {
+    
     let mut predictions = vec![0.;features.len()];
 
     for (feature,intervals) in feature_intervals.into_iter() {

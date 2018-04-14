@@ -77,6 +77,7 @@ struct Worker {
     // worker_receiver_channel: Arc<Mutex<Receiver<((usize,(RankTableSplitter,RankTableSplitter,Vec<usize>),Vec<f64>), mpsc::Sender<(usize,usize,f64,Vec<usize>)>)>>>,
 }
 
+
 pub enum FeatureMessage {
     Message((RankVector,Arc<Vec<usize>>), mpsc::Sender<(Vec<(f64,f64)>,RankVector)>),
     Terminate

@@ -36,6 +36,8 @@ impl PredictThreadPool{
 
         }
 
+        println!("Workers initialized");
+
         tx
     }
 
@@ -59,7 +61,9 @@ impl Worker{
             id: id,
             thread: std::thread::spawn(move || {
                 loop{
+                    println!("Trying to acquire lock");
                     let message_option = channel.lock().unwrap().recv().ok();
+                    println!("Received a message");
                     if let Some(PredictionMessage::Message(intervals,sender)) = message_option {
                         sender.send(max_interval(interval_stack(intervals))).expect("Tree worker thread error");
                     }
