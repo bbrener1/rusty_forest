@@ -163,7 +163,7 @@ pub fn aggregate_predictions(feature_intervals:HashMap<&String,Vec<(f64,f64,f64)
 
     for (feature,reciever) in receivers {
 
-        println!("Receiving feature: {}", feature);
+        // println!("Receiving feature: {}", feature);
         predictions[features[feature]] = reciever.recv().expect("Predictor pool error");
 
     }
