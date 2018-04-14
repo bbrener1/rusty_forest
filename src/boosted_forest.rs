@@ -106,12 +106,19 @@ impl BoostedForest {
 
     pub fn grow_epoch (&mut self,samples_per_tree:usize,input_features_per_tree:usize,output_features_per_tree:usize,epoch:usize) {
 
+        println!("Initializing an epoch");
+
         let prototype_tree =  Tree::prototype_tree(&self.counts,&self.counts,&self.sample_names,&self.feature_names,&self.feature_names,self.leaf_size, self.dropout, self.processor_limit, [self.report_string.clone(),format!(".{}.0",epoch)].join(""));
+
+        println!("Epoch prototype done, drawing weights");
 
         let (mut input_feature_weights, mut output_feature_weights, mut sample_weights) = self.draw_weights(output_features_per_tree * samples_per_tree);
 
+        println!("Weights drawn");
+
         for i in 1..self.epoch_duration {
 
+            println!("Tree {}", i);
 
             let samples = weighted_sampling(samples_per_tree, &self.sample_names, &sample_weights, false).0;
 
