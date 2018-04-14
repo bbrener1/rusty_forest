@@ -817,7 +817,7 @@ impl GradientArguments {
                     arg_struct.epochs = Some(args.next().expect("Error reading number of epochs").parse::<usize>().expect("-e not a number"));
                 },
                 "-es" | "-ed" | "-epoch_duration"=> {
-                    arg_struct.epochs = Some(args.next().expect("Error reading epoch duration").parse::<usize>().expect("-ed not a number"));
+                    arg_struct.epoch_size = Some(args.next().expect("Error reading epoch duration").parse::<usize>().expect("-ed not a number"));
                 },
 
                 "-l" | "-leaves" => {
