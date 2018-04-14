@@ -123,7 +123,11 @@ impl BoostedForest {
 
             let samples = weighted_sampling(samples_per_tree, &self.sample_names, &sample_weights, false).0;
 
+            println!("Samples drawn");
+
             let (input_features,output_features) = self.inputs_and_outputs(input_features_per_tree, output_features_per_tree, input_feature_weights.clone(), output_feature_weights.clone());
+
+            println!("Features drawn");
 
             let mut new_tree = prototype_tree.derive_specified(&samples.iter().collect(),&input_features.iter().collect(),&output_features.iter().collect(),i);
 
@@ -169,6 +173,9 @@ impl BoostedForest {
         /// Otherwise output features that are poorly predicted will frequently get picked, and will never serve as input features
         ///
 
+        println!("Drawing features");
+        println!("{},{}",input_draws,output_draws);
+
         let mut input_features = Vec::with_capacity(input_draws);
 
         for i in 0..input_draws {
@@ -188,7 +195,11 @@ impl BoostedForest {
             input_features.push(self.features()[feature_index].clone())
         }
 
+        println!("Inputs drawn");
+
         let output_features = weighted_sampling(output_draws, &self.features(), &output_feature_weights, false).0.iter().cloned().collect();
+
+        println!("Outputs drawn");
 
         (input_features,output_features)
     }
