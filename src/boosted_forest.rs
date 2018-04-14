@@ -322,11 +322,11 @@ pub fn weighted_sampling<T: Clone>(draws: usize, samples: &Vec<T>, weights: &Vec
 
             let mut accumulator = 0.;
 
-            let current_draw = sample_indices(&mut rng, local_weights.len(), 1)[0];
+            let mut current_draw = sample_indices(&mut rng, local_weights.len(), 1)[0];
 
             while accumulator <= maximum_weight {
-                accumulator += local_weights[current_draw]
-                current_draw = sample_indices(&mut rng, local_weights.len(), 1)[0]
+                accumulator += local_weights[current_draw];
+                current_draw = sample_indices(&mut rng, local_weights.len(), 1)[0];
             }
 
             drawn_indecies.push(current_draw);
