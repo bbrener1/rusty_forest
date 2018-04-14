@@ -148,14 +148,17 @@ pub fn aggregate_predictions(feature_intervals:HashMap<&String,Vec<(f64,f64,f64)
 
         let (tx,rx) = mpsc::channel();
 
-        pool.send(PredictionMessage::Message(intervals,tx));
+        pool.send(PredictionMessage::Message(intervals,tx)).expect("Failed to send feature");
 
         receivers.push((feature,rx));
 
     }
 
     for (feature,reciever) in receivers {
+
+        println!("Receiving feature: {}", feature);
         predictions[features[feature]] = reciever.recv().expect("Predictor pool error");
+
     }
 
     predictions
