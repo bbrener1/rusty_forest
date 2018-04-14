@@ -289,7 +289,7 @@ pub fn weighted_sampling<T: Clone>(draws: usize, samples: &Vec<T>, weights: &Vec
         let mut descending_weight = weight_sum;
 
         for element in weights.iter().rev() {
-            descending_weight -= element;
+            descending_weight -= *element;
             while let Some(choice) = weighted_choices.pop() {
                 if choice > descending_weight {
                     drawn_indecies.push(weighted_choices.len());
