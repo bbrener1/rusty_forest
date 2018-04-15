@@ -1169,7 +1169,7 @@ fn mtx_dim(in_mat: &Vec<Vec<f64>>) -> (usize,usize) {
 fn sub_matrix(mat1: &Vec<Vec<f64>>,mat2:&Vec<Vec<f64>>) -> Vec<Vec<f64>> {
 
     if mtx_dim(mat1) != mtx_dim(mat2) {
-        panic!("Attempted to subtract matrices of unequal dimensions")
+        panic!("Attempted to subtract matrices of unequal dimensions: {:?},{:?}", mtx_dim(mat1),mtx_dim(mat2));
     }
 
     let dim = mtx_dim(mat1);
