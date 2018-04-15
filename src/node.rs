@@ -716,13 +716,10 @@ pub fn mad_minimum(forward:Vec<Vec<f64>>,reverse: Vec<Vec<f64>>, feature_weights
             sample_dispersions.push(feature_dispersion * feature_weights[j])
 
         }
-        // print!("F:{:?} :" , forward[i]);
-        // println!("{:?}", forward[i].iter().sum::<f64>());
-        // print!("R:{:?} :", reverse[i]);
-        // println!("{:?}", reverse[i].iter().sum::<f64>());
-        // print!("{:?} ", sample_dispersions);
-        // println!("{:?}", sample_dispersions.iter().sum::<f64>());
-        dispersions.push(sample_dispersions.iter().sum());
+
+        // dispersions.push(sample_dispersions.iter().sum());
+        dispersions.push(sample_dispersions.iter().map(|x| x.powi(2)).sum());
+
     }
 
     let mut truncated: Vec<(usize,f64)> = dispersions.into_iter().enumerate().collect();

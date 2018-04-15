@@ -321,7 +321,9 @@ pub fn weighted_sampling<T: Clone>(draws: usize, samples: &Vec<T>, weights: &Vec
                 if choice > descending_weight {
 
                     if weighted_choices.len()%1000 == 0 {
-                        // println!("{}",weighted_choices.len());
+                        if weighted_choices.len() > 0 {
+                            println!("{}",weighted_choices.len());
+                        }
                     }
 
                     drawn_indecies.push(weighted_choices.len());
@@ -344,7 +346,9 @@ pub fn weighted_sampling<T: Clone>(draws: usize, samples: &Vec<T>, weights: &Vec
         for i in 0..draws {
 
             if i%1000 == 0 {
-                println!("{}",i);
+                if i > 0 {
+                    println!("{}",i);
+                }
             }
 
             let mut accumulator = 0.;
