@@ -12,6 +12,9 @@ use rand::seq::sample_indices;
 use tree::Tree;
 use rank_table::RankTable;
 use tree::PredictiveTree;
+use boosted_tree_thread_pool::BoostedTreeThreadPool;
+use boosted_tree_thread_pool::BoostedMessage;
+use std::sync::mpsc;
 use DropMode;
 use PredictionMode;
 use matrix_flip;
@@ -109,13 +112,17 @@ impl BoostedForest {
 
         println!("Initializing an epoch");
 
-        let prototype_tree =  Tree::prototype_tree(&self.counts,&self.counts,&self.sample_names,&self.feature_names,&self.feature_names,self.leaf_size, self.dropout, self.processor_limit, [self.report_string.clone(),format!(".{}.0",epoch)].join(""));
+        let prototype_tree =  Tree::prototype_tree(&self.counts,&self.counts,&self.sample_names,&self.feature_names,&self.feature_names,self.leaf_size, self.dropout, 1, [self.report_string.clone(),format!(".{}.0",epoch)].join(""));
 
         println!("Epoch prototype done, drawing weights");
 
         let (mut input_feature_weights, mut output_feature_weights, mut sample_weights) = self.draw_weights(output_features_per_tree * samples_per_tree);
 
         println!("Weights drawn");
+
+        let thread_pool = BoostedTreeThreadPool::new(&prototype_tree,self.processor_limit);
+
+        let mut tree_receivers = Vec::with_capacity(self.epoch_duration);
 
         for i in 1..self.epoch_duration {
 
@@ -129,13 +136,18 @@ impl BoostedForest {
 
             println!("Features drawn");
 
-            let mut new_tree = prototype_tree.derive_specified(&samples.iter().collect(),&input_features.iter().collect(),&output_features.iter().collect(),i);
+            let (tx,rx) = mpsc::channel();
 
-            println!("{:?}", new_tree.report_address);
-            new_tree.grow_branches();
-            new_tree.serialize_compact();
-            self.predictive_trees.push(new_tree.strip_consume());
+            thread_pool.send(BoostedMessage::Selections(i,input_features,output_features,samples,tx));
 
+            tree_receivers.push(rx);
+
+        }
+
+        for receiver in tree_receivers {
+            let tree = receiver.recv().expect("Failed to unwrap boosted tree");
+            tree.serialize_compact();
+            self.predictive_trees.push(tree);
         }
 
 

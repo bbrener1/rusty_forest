@@ -33,6 +33,7 @@ mod predictor;
 mod shuffler;
 mod compact_predictor;
 mod boosted_forest;
+mod boosted_tree_thread_pool;
 
 use tree::Tree;
 use random_forest::Forest;
