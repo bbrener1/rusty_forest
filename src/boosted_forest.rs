@@ -96,7 +96,7 @@ impl BoostedForest {
 
             let epoch_predictions = self.compact_predict(&self.counts, &self.feature_map(), &self.prediction_mode, &self.dropout, &[self.report_string.clone(),format!(".{}.prediction",i)].join(""))?;
 
-            self.error_matrix = sub_matrix(&self.counts, &epoch_predictions)
+            self.error_matrix = sub_matrix(&self.counts, &matrix_flip(&epoch_predictions))
 
         }
 
@@ -281,7 +281,7 @@ pub fn weighted_sampling<T: Clone>(draws: usize, samples: &Vec<T>, weights: &Vec
 
     let mut rng = thread_rng();
 
-    println!("Weighted sampling, draws: {}", draws);
+    // println!("Weighted sampling, draws: {}", draws);
 
     let mut exclusion_set: HashSet<usize> = HashSet::new();
 
@@ -305,7 +305,7 @@ pub fn weighted_sampling<T: Clone>(draws: usize, samples: &Vec<T>, weights: &Vec
                 if choice > descending_weight {
 
                     if weighted_choices.len()%1000 == 0 {
-                        println!("{}",weighted_choices.len());
+                        // println!("{}",weighted_choices.len());
                     }
 
                     drawn_indecies.push(weighted_choices.len());
