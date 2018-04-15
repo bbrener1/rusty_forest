@@ -94,7 +94,7 @@ impl BoostedForest {
 
             self.grow_epoch(800, 400, 1000, i);
 
-            let epoch_predictions = self.compact_predict(&self.counts, &self.feature_map(), &self.prediction_mode, &self.dropout, &[self.report_string.clone(),format!(".{}.prediction",i)].join(""))?;
+            let epoch_predictions = self.compact_predict(&self.counts, &self.feature_map(), &self.prediction_mode, &self.dropout, &[self.report_string.clone(),format!(".{}",i)].join(""))?;
 
             self.error_matrix = sub_matrix(&self.counts, &matrix_flip(&epoch_predictions))
 
@@ -146,18 +146,22 @@ impl BoostedForest {
 
         println!("Predicting:");
 
-        let predictions = compact_predict(&self.predictive_trees,&matrix_flip(counts),feature_map,prediction_mode,drop_mode, self.processor_limit);
+        let predictions = compact_predict(&self.predictive_trees,&matrix_flip(counts),feature_map,prediction_mode,drop_mode,self.processor_limit);
 
         let mut prediction_dump = OpenOptions::new().create(true).append(true).open([report_address,".prediction"].join("")).unwrap();
         prediction_dump.write(&tsv_format(&predictions).as_bytes())?;
         prediction_dump.write(b"\n")?;
 
         let mut truth_dump = OpenOptions::new().create(true).append(true).open([report_address,".prediction_truth"].join("")).unwrap();
-        truth_dump.write(&format!("{:?}",&matrix_flip(&self.counts)).as_bytes())?;
+        truth_dump.write(&tsv_format(&matrix_flip(&self.counts)).as_bytes())?;
         truth_dump.write(b"\n")?;
 
+        let mut header_vec = vec!["";feature_map.len()];
+        for (f,i) in feature_map { header_vec[*i] = f; };
+        let header = tsv_format(&vec![header_vec]);
+
         let mut prediction_header = OpenOptions::new().create(true).append(true).open([report_address,".prediction_header"].join("")).unwrap();
-        prediction_header.write(&format!("{:?}",feature_map).as_bytes())?;
+        prediction_header.write(&header.as_bytes())?;
         prediction_header.write(b"\n")?;
 
         Ok(predictions)

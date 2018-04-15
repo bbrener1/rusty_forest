@@ -864,6 +864,9 @@ impl GradientArguments {
 
 fn gradient(args: GradientArguments) {
 
+
+    println!("Read arguments: {:?}", args);
+
     let counts = read_counts(&args.count_array_file);
 
     let mut feature_names = None;
