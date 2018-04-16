@@ -936,11 +936,22 @@ fn gradient(args: GradientArguments) {
     let processor_limit = args.processor_limit.unwrap_or(auto_params.processors);
     let dropout = args.dropout.unwrap_or(auto_params.dropout);
     let prediction_mode = args.mode.unwrap_or(auto_params.prediction_mode);
+    let boost_mode = args.boost_mode.unwrap();
 
-    let mut forest = AdditiveBooster::initialize(&counts, epoch_size, leaf_size_cutoff, epochs, processor_limit, feature_names, sample_names, dropout, prediction_mode, &report_address);
+    match boost_mode {
+        BoostMode::Additive => {
+            let mut forest = AdditiveBooster::initialize(&counts, epoch_size, leaf_size_cutoff, epochs, processor_limit, feature_names, sample_names, dropout, prediction_mode, &report_address);
 
-    forest.additive_growth();
-    forest.compact_predict(&counts, &forest.feature_map(), &prediction_mode, &dropout, &report_address);
+            forest.additive_growth();
+            forest.compact_predict(&counts, &forest.feature_map(), &prediction_mode, &dropout, &report_address);
+        },
+        BoostMode::Subsampling => {
+            let mut forest = BoostedForest::initialize(&counts, epoch_size, leaf_size_cutoff, epochs, processor_limit, feature_names, sample_names, dropout, prediction_mode, &report_address);
+
+            forest.grow_forest();
+            forest.compact_predict(&counts, &forest.feature_map(), &prediction_mode, &dropout, &report_address);
+        }
+    }
 
 }
 
