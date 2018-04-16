@@ -278,7 +278,7 @@ impl BoostedForest {
 
         println!("Input feature weights drawn");
 
-        let sample_weights = matrix_flip(&self.error_matrix).iter().map(|x| x.iter().sum()).collect();
+        let sample_weights = matrix_flip(&self.error_matrix).iter().map(|x| x.iter().map(|y| y.abs()).sum()).collect();
 
         println!("Sample weights drawn");
 
