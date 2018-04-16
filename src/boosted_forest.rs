@@ -365,8 +365,8 @@ pub fn weighted_sampling<T: Clone>(draws: usize, samples: &Vec<T>, weights: &Vec
                 if maximum_weight.0 == current_draw.0 {
                     maximum_weight = local_weights.iter().max_by(|a,b| a.partial_cmp(&b).unwrap_or(Ordering::Greater)).map(|x| x.clone()).unwrap_or((0,0.));
                 }
-                let mut random_index = rng.gen_range::<usize>(0,local_weights.len());
-                let mut current_draw = local_weights.swap_remove(random_index);
+                random_index = rng.gen_range::<usize>(0,local_weights.len());
+                current_draw = local_weights.swap_remove(random_index);
             }
 
             drawn_indecies.push(current_draw.0);
