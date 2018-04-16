@@ -95,7 +95,7 @@ impl BoostedForest {
 
         for i in 0..self.epochs {
 
-            self.grow_epoch(800, 400, 1000, i);
+            self.grow_epoch(400, 400, 400, i);
 
             let epoch_predictions = self.compact_predict(&self.counts, &self.feature_map(), &self.prediction_mode, &self.dropout, &[self.report_string.clone(),format!(".{}",i)].join(""))?;
 
