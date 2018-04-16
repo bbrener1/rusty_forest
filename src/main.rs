@@ -1126,6 +1126,71 @@ impl AutoParameters {
 
 }
 
+pub struct Parameters {
+    auto: bool,
+    command: Commandtmp,
+    count_array_file: String,
+    feature_header_file: Option<String>,
+    sample_header_file: Option<String>,
+    report_address: String,
+
+    processor_limit: Option<usize>,
+    tree_limit: Option<usize>,
+    leaf_size_cutoff: Option<usize>,
+    dropout: Option<DropMode>,
+
+    feature_subsample: Option<usize>,
+    sample_subsample: Option<usize>,
+    input_features: Option<usize>,
+    output_features: Option<usize>,
+
+    prediction_mode: Option<PredictionMode>,
+    averaging_mode: Option<AveragingMode>,
+
+    epochs: Option<usize>,
+    epoch_duration: Option<usize>,
+    boost_mode: Option<BoostMode>,
+
+}
+
+impl Parameters {
+    pub fn parse<T: Iterator<Item = String>>(args: &mut T) -> Parameters {
+        let arg_struct = Parameters {
+            auto: false,
+            command: Commandtmp::Gradient,
+            count_array_file: "".to_string(),
+            feature_header_file: None,
+            sample_header_file: None,
+            report_address: "./".to_string(),
+
+            processor_limit: None,
+            tree_limit: None,
+            leaf_size_cutoff: None,
+            dropout: None,
+
+            feature_subsample: None,
+            sample_subsample: None,
+            input_features: None,
+            output_features: None,
+
+            prediction_mode: None,
+            averaging_mode: None,
+
+            epochs: None,
+            epoch_duration: None,
+            boost_mode: None,
+        };
+        arg_struct
+    }
+}
+
+pub enum Commandtmp {
+    Combined,
+    Construct,
+    Predict,
+    Gradient,
+}
+
 fn read_header(location: &str) -> Vec<String> {
 
     println!("Reading header: {}", location);

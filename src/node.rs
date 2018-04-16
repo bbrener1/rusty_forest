@@ -146,7 +146,7 @@ impl Node {
 
             let medians = new_output_table.medians();
             let dispersions = new_output_table.dispersions();
-            let feature_weights = vec![1.;new_output_table.dimensions.0];
+            let feature_weights = self.feature_weights.clone();
 
             let mut local_gains = Vec::with_capacity(dispersions.len());
 
@@ -196,7 +196,7 @@ impl Node {
 
         let medians = new_output_table.medians();
         let dispersions = new_output_table.dispersions();
-        let feature_weights = vec![1.;new_output_table.dimensions.0];
+        let feature_weights = output_features.iter().map(|x| self.output_rank_table().feature_index(x).unwrap()).map(|y| self.feature_weights[*y]).collect();
 
         let child = Node {
             // pool: self.pool.clone(),
