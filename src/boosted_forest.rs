@@ -19,6 +19,7 @@ use DropMode;
 use PredictionMode;
 use matrix_flip;
 use sub_matrix;
+use mtx_dim;
 use tsv_format;
 
 
@@ -99,7 +100,9 @@ impl BoostedForest {
 
             let epoch_predictions = self.compact_predict(&self.counts, &self.feature_map(), &self.prediction_mode, &self.dropout, &[self.report_string.clone(),format!(".{}",i)].join(""))?;
 
-            self.error_matrix = sub_matrix(&self.counts, &matrix_flip(&epoch_predictions))
+            self.error_matrix = sub_matrix(&self.counts, &matrix_flip(&epoch_predictions));
+
+            println!("Error matrix dimensions:{:?}",mtx_dim(&self.error_matrix));
 
         }
 
