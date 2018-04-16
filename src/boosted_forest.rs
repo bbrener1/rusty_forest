@@ -233,7 +233,7 @@ impl BoostedForest {
         println!("Flattened the cells");
         println!("{}", flattened_cells.len());
 
-        let picks = weighted_sampling(draws, &flattened_cells, &flattened_cells.iter().map(|x| x.2).collect(), false).0;
+        let picks = weighted_sampling(draws, &flattened_cells, &flattened_cells.iter().map(|x| x.2.abs()).collect(), false).0;
 
         println!("Done drawing cells");
 
