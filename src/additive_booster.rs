@@ -296,9 +296,14 @@ impl AdditiveBooster {
 
         println!("Input feature weights drawn");
 
-        let sample_weights = matrix_flip(&self.error_matrix).iter().map(|x| x.iter().map(|y| y.abs()).sum()).collect();
+        let sample_weights: Vec<f64> = matrix_flip(&self.error_matrix).iter().map(|x| x.iter().map(|y| y.abs()).sum()).collect();
 
         println!("Sample weights drawn");
+
+        let mut weight_dump = OpenOptions::new().create(true).append(true).open([self.report_string.clone(),format!(".{}.weights",self.predictive_trees.len())].join("")).unwrap();
+        weight_dump.write(&tsv_format(&vec![input_feature_weights.clone(),output_feature_weights.clone(),sample_weights.clone()]).as_bytes()).expect("Failed to dump weights");
+        weight_dump.write(b"\n").expect("weight error");
+
 
         (input_feature_weights,output_feature_weights,sample_weights)
 
