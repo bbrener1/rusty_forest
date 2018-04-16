@@ -364,7 +364,7 @@ pub fn weighted_sampling<T: Clone>(draws: usize, samples: &Vec<T>, weights: &Vec
             let mut current_draw = local_weights[random_index];
 
             while accumulator <= maximum_weight.1 {
-                // println!("{}",local_weights.len());
+                println!("{}",local_weights.len());
                 accumulator += current_draw.1;
                 random_index = rng.gen_range::<usize>(0,local_weights.len());
                 current_draw = local_weights[random_index];
