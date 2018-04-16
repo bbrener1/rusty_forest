@@ -346,7 +346,7 @@ pub fn weighted_sampling<T: Clone>(draws: usize, samples: &Vec<T>, weights: &Vec
         let mut local_weights: Vec<(usize,f64)> = weights.iter().cloned().enumerate().collect();
         // println!("weight debug: {}", local_weights.len());
         // println!("weights: {:?}", local_weights.iter().take(10).collect::<Vec<&(usize,f64)>>());
-        let mut maximum_weight = local_weights.iter().max_by(|a,b| a.partial_cmp(&b).unwrap_or(Ordering::Greater)).map(|x| x.clone()).unwrap_or((0,0.));
+        let mut maximum_weight = local_weights.iter().max_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Greater)).map(|x| x.clone()).unwrap_or((0,0.));
 
         // println!("draws:{}",draws);
 
