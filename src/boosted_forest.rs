@@ -120,7 +120,7 @@ impl BoostedForest {
 
         println!("Weights drawn");
 
-        let thread_pool = BoostedTreeThreadPool::new(&prototype_tree,self.processor_limit);
+        let mut thread_pool = BoostedTreeThreadPool::new(&prototype_tree,self.processor_limit);
 
         let mut tree_receivers = Vec::with_capacity(self.epoch_duration);
 
@@ -149,6 +149,8 @@ impl BoostedForest {
             tree.serialize_compact();
             self.predictive_trees.push(tree);
         }
+
+        BoostedTreeThreadPool::terminate(&mut thread_pool);
 
 
     }
