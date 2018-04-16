@@ -34,10 +34,12 @@ mod shuffler;
 mod compact_predictor;
 mod boosted_forest;
 mod boosted_tree_thread_pool;
+mod additive_booster;
 
 use tree::Tree;
 use random_forest::Forest;
 use boosted_forest::BoostedForest;
+use additive_booster::AdditiveBooster;
 
 /// Author: Boris Brenerman
 /// Created: 2017 Academic Year, Johns Hopkins University, Department of Biology, Taylor Lab
@@ -894,9 +896,9 @@ fn gradient(args: GradientArguments) {
     let dropout = args.dropout.unwrap_or(auto_params.dropout);
     let prediction_mode = args.mode.unwrap_or(auto_params.prediction_mode);
 
-    let mut forest = BoostedForest::initialize(&counts, epoch_size, leaf_size_cutoff, epochs, processor_limit, feature_names, sample_names, dropout, prediction_mode, &report_address);
+    let mut forest = AdditiveBooster::initialize(&counts, epoch_size, leaf_size_cutoff, epochs, processor_limit, feature_names, sample_names, dropout, prediction_mode, &report_address);
 
-    forest.grow_forest();
+    forest.additive_growth();
     forest.compact_predict(&counts, &forest.feature_map(), &prediction_mode, &dropout, &report_address);
 
 }
@@ -1170,6 +1172,26 @@ fn mtx_dim(in_mat: &Vec<Vec<f64>>) -> (usize,usize) {
     (in_mat.len(),in_mat.get(0).unwrap_or(&vec![]).len())
 }
 
+fn add_matrix(mat1: &Vec<Vec<f64>>,mat2:&Vec<Vec<f64>>) -> Vec<Vec<f64>> {
+
+    if mtx_dim(mat1) != mtx_dim(mat2) {
+        panic!("Attempted to subtract matrices of unequal dimensions: {:?},{:?}", mtx_dim(mat1),mtx_dim(mat2));
+    }
+
+    let dim = mtx_dim(mat1);
+
+    let mut output = vec![vec![0.;dim.1];dim.0];
+
+    for i in 0..dim.0 {
+        for j in 0..dim.1{
+            output[i][j] = mat1[i][j] + mat2[i][j];
+        }
+    }
+
+    output
+
+}
+
 fn sub_matrix(mat1: &Vec<Vec<f64>>,mat2:&Vec<Vec<f64>>) -> Vec<Vec<f64>> {
 
     if mtx_dim(mat1) != mtx_dim(mat2) {
@@ -1189,6 +1211,28 @@ fn sub_matrix(mat1: &Vec<Vec<f64>>,mat2:&Vec<Vec<f64>>) -> Vec<Vec<f64>> {
     output
 }
 
+fn multiply_matrix(mat1: &Vec<Vec<f64>>,mat2:&Vec<Vec<f64>>) -> Vec<Vec<f64>> {
+
+    if mtx_dim(mat1) != mtx_dim(mat2) {
+        panic!("Attempted to subtract matrices of unequal dimensions: {:?},{:?}", mtx_dim(mat1),mtx_dim(mat2));
+    }
+
+    let dim = mtx_dim(mat1);
+
+    let mut output = vec![vec![0.;dim.1];dim.0];
+
+    for i in 0..dim.0 {
+        for j in 0..dim.1{
+            output[i][j] = mat1[i][j] * mat2[i][j];
+        }
+    }
+
+    output
+}
+
+fn zero_matrix(x:usize,y:usize) -> Vec<Vec<f64>> {
+    vec![vec![0.;y];x]
+}
 
 fn argsort(input: &Vec<f64>) -> Vec<(usize,f64)> {
     let mut intermediate1 = input.iter().enumerate().collect::<Vec<(usize,&f64)>>();

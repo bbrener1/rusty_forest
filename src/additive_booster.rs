@@ -17,12 +17,16 @@ use std::sync::mpsc;
 use DropMode;
 use PredictionMode;
 use matrix_flip;
+use add_matrix;
 use sub_matrix;
+use multiply_matrix;
+use zero_matrix;
 use mtx_dim;
 use tsv_format;
+use boosted_forest::weighted_sampling;
 
 
-pub struct BoostedForest {
+pub struct AdditiveBooster {
     leaf_size: usize,
     processor_limit: usize,
     report_string: String,
@@ -36,8 +40,7 @@ pub struct BoostedForest {
     error_matrix: Vec<Vec<f64>>,
 
     counts: Vec<Vec<f64>>,
-    trees: Vec<Tree>,
-    predictive_trees: Vec<PredictiveTree>,
+    predictive_trees: Vec<Vec<PredictiveTree>>,
 
     dimensions: (usize,usize),
     epoch_duration: usize,
@@ -50,9 +53,9 @@ pub struct BoostedForest {
     prediction_mode: PredictionMode,
 }
 
-impl BoostedForest {
+impl AdditiveBooster {
 
-    pub fn initialize(counts:&Vec<Vec<f64>>,epoch_duration:usize,leaf_size:usize,epochs:usize,processor_limit:usize, feature_option: Option<Vec<String>>, sample_option: Option<Vec<String>>, dropout: DropMode, prediction_mode: PredictionMode, report_address:&str) -> BoostedForest {
+    pub fn initialize(counts:&Vec<Vec<f64>>,epoch_duration:usize,leaf_size:usize,epochs:usize,processor_limit:usize, feature_option: Option<Vec<String>>, sample_option: Option<Vec<String>>, dropout: DropMode, prediction_mode: PredictionMode, report_address:&str) -> AdditiveBooster {
 
         let dimensions: (usize,usize) = (counts.len(),counts.first().unwrap_or(&vec![]).len());
 
@@ -67,8 +70,7 @@ impl BoostedForest {
 
         let prototype_table = RankTable::new(&counts,&feature_names,&sample_names,dropout);
 
-        BoostedForest {
-            trees: Vec::new(),
+        AdditiveBooster {
             leaf_size: leaf_size,
             processor_limit: processor_limit,
             report_string: report_string,
@@ -91,11 +93,14 @@ impl BoostedForest {
         }
     }
 
-    pub fn grow_forest(&mut self) -> Result<(),Error>{
+
+    pub fn additive_growth(&mut self) -> Result<(),Error> {
 
         for i in 0..self.epochs {
 
-            self.grow_epoch(400, 400, 400, i);
+            let epoch_trees = self.add_epoch(400, 400, 400, i);
+
+            self.predictive_trees.push(epoch_trees);
 
             let epoch_predictions = self.compact_predict(&self.counts, &self.feature_map(), &self.prediction_mode, &self.dropout, &[self.report_string.clone(),format!(".{}",i)].join(""))?;
 
@@ -103,16 +108,18 @@ impl BoostedForest {
 
             println!("Error matrix dimensions:{:?}",mtx_dim(&self.error_matrix));
 
-        }
+        };
 
         Ok(())
     }
 
-    pub fn grow_epoch (&mut self,samples_per_tree:usize,input_features_per_tree:usize,output_features_per_tree:usize,epoch:usize) {
+    pub fn add_epoch(&mut self,samples_per_tree:usize,input_features_per_tree:usize,output_features_per_tree:usize,epoch:usize) -> Vec<PredictiveTree> {
 
         println!("Initializing an epoch");
 
-        let mut prototype_tree =  Tree::prototype_tree(&self.counts,&self.counts,&self.sample_names,&self.feature_names,&self.feature_names,self.leaf_size, self.dropout, 1, [self.report_string.clone(),format!(".{}.0",epoch)].join(""));
+        let mut p_trees = Vec::with_capacity(self.epoch_duration);
+
+        let mut prototype_tree =  Tree::prototype_tree(&self.counts,&matrix_flip(&self.error_matrix),&self.sample_names,&self.feature_names,&self.feature_names,self.leaf_size, self.dropout, 1, [self.report_string.clone(),format!(".{}.0",epoch)].join(""));
 
         println!("Epoch prototype done, drawing weights");
 
@@ -147,23 +154,33 @@ impl BoostedForest {
         for receiver in tree_receivers {
             let tree = receiver.recv().expect("Failed to unwrap boosted tree");
             tree.serialize_compact();
-            self.predictive_trees.push(tree);
+            p_trees.push(tree);
         }
 
         BoostedTreeThreadPool::terminate(&mut thread_pool);
         prototype_tree.terminate_pool();
 
+        p_trees
     }
+
 
 
     pub fn compact_predict(&self,counts:&Vec<Vec<f64>>,feature_map: &HashMap<String,usize>,prediction_mode:&PredictionMode, drop_mode: &DropMode,report_address: &str) -> Result<Vec<Vec<f64>>,Error> {
 
         println!("Predicting:");
 
-        let predictions = compact_predict(&self.predictive_trees,&matrix_flip(counts),feature_map,prediction_mode,drop_mode,self.processor_limit);
+        let mut aggregate_predictions = Vec::with_capacity(self.predictive_trees.len());
+
+        for p_tree_epoch in &self.predictive_trees {
+
+            let predictions = compact_predict(p_tree_epoch,&matrix_flip(counts),feature_map,prediction_mode,drop_mode,self.processor_limit);
+
+            aggregate_predictions = add_matrix(&aggregate_predictions,&predictions);
+
+        }
 
         let mut prediction_dump = OpenOptions::new().create(true).append(true).open([report_address,".prediction"].join("")).unwrap();
-        prediction_dump.write(&tsv_format(&predictions).as_bytes())?;
+        prediction_dump.write(&tsv_format(&aggregate_predictions).as_bytes())?;
         prediction_dump.write(b"\n")?;
 
         let mut truth_dump = OpenOptions::new().create(true).append(true).open([report_address,".prediction_truth"].join("")).unwrap();
@@ -178,7 +195,9 @@ impl BoostedForest {
         prediction_header.write(&header.as_bytes())?;
         prediction_header.write(b"\n")?;
 
-        Ok(predictions)
+        Ok(aggregate_predictions)
+
+
     }
 
     pub fn feature_map(&self) -> HashMap<String,usize> {
@@ -292,150 +311,3 @@ impl BoostedForest {
     }
 
 }
-
-
-
-pub fn weighted_sampling<T: Clone>(draws: usize, samples: &Vec<T>, weights: &Vec<f64>,replacement:bool) -> (Vec<T>,Vec<usize>) {
-
-    let mut rng = thread_rng();
-
-    println!("Weighted sampling, draws, weights: {},{}", draws, weights.len());
-
-    let mut exclusion_set: HashSet<usize> = HashSet::new();
-
-    let mut drawn_samples: Vec<T> = Vec::with_capacity(draws);
-    let mut drawn_indecies: Vec<usize> = Vec::with_capacity(draws);
-
-    let mut weight_sum: f64 = weights.iter().sum();
-
-    // println!("Initiated sampling");
-
-    if replacement {
-
-        let mut weighted_choices: Vec<f64> = (0..draws).map(|_| rng.gen_range::<f64>(0.,weight_sum)).collect();
-        weighted_choices.sort_unstable_by(|a,b| a.partial_cmp(&b).unwrap_or(Ordering::Greater));
-
-        let mut descending_weight = weight_sum;
-
-        for element in weights.iter().rev() {
-            descending_weight -= *element;
-            while let Some(choice) = weighted_choices.pop() {
-                if choice > descending_weight {
-
-                    if weighted_choices.len()%1000 == 0 {
-                        if weighted_choices.len() > 0 {
-                            // println!("{}",weighted_choices.len());
-                        }
-                    }
-
-                    drawn_indecies.push(weighted_choices.len());
-                }
-                else {
-                    weighted_choices.push(choice);
-                    break
-                }
-            }
-        }
-
-    }
-
-    else {
-
-        let mut local_weights: Vec<(usize,f64)> = weights.iter().cloned().enumerate().collect();
-        // println!("weight debug: {}", local_weights.len());
-        // println!("weights: {:?}", local_weights.iter().take(10).collect::<Vec<&(usize,f64)>>());
-        let mut maximum_weight = local_weights.iter().max_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Greater)).map(|x| x.clone()).unwrap_or((0,0.));
-
-        // println!("draws:{}",draws);
-
-        for i in 0..draws {
-
-            // if i%1000 == 0 {
-            //     if i > 0 {
-            //         println!("{}",i);
-            //     }
-            // }
-
-            let mut accumulator = 0.;
-
-            let mut random_index = rng.gen_range::<usize>(0,local_weights.len());
-            let mut current_draw = local_weights[random_index];
-
-            while accumulator <= maximum_weight.1 {
-                // println!("acc:{}",accumulator);
-                accumulator += current_draw.1;
-                random_index = rng.gen_range::<usize>(0,local_weights.len());
-                current_draw = local_weights[random_index];
-            }
-
-            local_weights.swap_remove(random_index);
-
-            if maximum_weight.0 == current_draw.0 {
-                maximum_weight = local_weights.iter().max_by(|a,b| a.partial_cmp(&b).unwrap_or(Ordering::Greater)).map(|x| x.clone()).unwrap_or((0,0.));
-            }
-
-            weight_sum -= current_draw.1;
-
-            if weight_sum == 0. {
-                panic!("No weighted samples remaining");
-            }
-
-            drawn_indecies.push(current_draw.0);
-            drawn_samples.push(samples[current_draw.0].clone());
-
-
-        }
-
-    }
-
-    (drawn_samples,drawn_indecies)
-
-}
-
-// pub fn weighted_sampling<'a,T>(draws: usize, samples: &'a Vec<T>, weights: &Vec<f64>,replacement:bool) -> (Vec<&'a T>,Vec<usize>) {
-//
-//     let mut rng = thread_rng();
-//
-//     let mut exclusion_set: HashSet<usize> = HashSet::new();
-//
-//     let mut drawn_samples = Vec::with_capacity(draws);
-//     let mut drawn_indecies = Vec::with_capacity(draws);
-//
-//     if replacement {
-//
-//         for i in 0..draws {
-//
-//             let weighted_choice = rng.gen_range::<f64>(0.,weights.iter().sum());
-//
-//             let (index,sum) = weights.iter().enumerate().fold( (0,0.), |mut acc,x| {if acc.1 <= weighted_choice {acc.0 = x.0}; (acc.0,acc.1 + x.1) });
-//
-//             drawn_samples.push(&samples[index]);
-//             drawn_indecies.push(index);
-//         }
-//
-//     }
-//
-//     else {
-//
-//         let mut local_samples: Vec<&T> = samples.iter().collect();
-//         let mut local_weights: Vec<&f64> = weights.iter().collect();
-//
-//         for i in 0..draws {
-//
-//             let weighted_choice = rng.gen_range::<f64>(0.,local_weights.iter().cloned().sum());
-//
-//             let (index,sum) = local_weights.iter().enumerate().fold( (0,0.), |mut acc,x| {if acc.1 <= weighted_choice {acc.0 = x.0}; (acc.0, acc.1 + *x.1) });
-//
-//             drawn_samples.push(local_samples[index]);
-//             drawn_indecies.push(index);
-//
-//             local_samples.remove(index);
-//             local_weights.remove(index);
-//         }
-//
-//     }
-//
-//
-//     (drawn_samples,drawn_indecies)
-//
-// }
