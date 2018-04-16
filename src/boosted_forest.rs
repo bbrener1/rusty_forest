@@ -302,7 +302,7 @@ pub fn weighted_sampling<T: Clone>(draws: usize, samples: &Vec<T>, weights: &Vec
 
     let mut rng = thread_rng();
 
-    // println!("Weighted sampling, draws: {}", draws);
+    println!("Weighted sampling, draws: {}", draws);
 
     let mut exclusion_set: HashSet<usize> = HashSet::new();
 
