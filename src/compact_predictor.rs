@@ -50,7 +50,7 @@ pub fn compact_predict(trees: &Vec<PredictiveTree>, counts: &Vec<Vec<f64>>, feat
 
     }
 
-    prediction_pool.send(PredictionMessage::Terminate);
+    PredictThreadPool::terminate(&mut prediction_pool);
 
     predictions
 }
