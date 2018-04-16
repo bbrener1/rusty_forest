@@ -396,6 +396,22 @@ pub enum PredictionMode {
     Auto
 }
 
+#[derive(Debug,Clone,Copy)]
+pub enum AveragingMode {
+    Arithmetic,
+    Stacking
+}
+
+impl AveragingMode {
+    pub fn read(input:&str) -> AveragingMode {
+        match input {
+            "a" | "arithmetic" | "average" => AveragingMode::Arithmetic,
+            "s" | "stacking" => AveragingMode::Stacking,
+            _ => panic!("Not a valid averaging mode, choose arithmetic or stacking.")
+        }
+    }
+}
+
 impl DropMode {
     pub fn read(input: &str) -> DropMode {
         match input {
@@ -405,6 +421,7 @@ impl DropMode {
             _ => panic!("Not a valid drop mode, choose zero, nan, or none")
         }
     }
+
     pub fn cmp(&self) -> f64 {
         match self {
             &DropMode::Zeros => 0.,
@@ -758,6 +775,7 @@ pub struct GradientArguments {
     epochs: Option<usize>,
     leaf_size_cutoff: Option<usize>,
     dropout: Option<DropMode>,
+    boost_mode: Option<BoostMode>,
 
     feature_subsample: Option<usize>,
     sample_subsample: Option<usize>,
@@ -765,6 +783,26 @@ pub struct GradientArguments {
     output_features: Option<usize>,
 
     mode: Option<PredictionMode>,
+
+}
+
+#[derive(Debug)]
+pub enum BoostMode {
+    Additive,
+    Subsampling,
+}
+
+impl BoostMode {
+    pub fn read(input: &str) -> BoostMode {
+        match input {
+            "additive" | "a" | "add" => BoostMode::Additive,
+            "s" | "subsampling" | "subsample" => BoostMode::Subsampling,
+            _ => {
+                eprintln!("Not a valid boost mode, choose sub or add (defaulting to add)");
+                BoostMode::Additive
+            }
+        }
+    }
 
 }
 
@@ -783,6 +821,7 @@ impl GradientArguments {
                     epochs:None,
                     leaf_size_cutoff: None,
                     dropout: None,
+                    boost_mode: None,
 
                     feature_subsample: None,
                     sample_subsample: None,
@@ -819,10 +858,12 @@ impl GradientArguments {
                 "-e" | "-epochs" => {
                     arg_struct.epochs = Some(args.next().expect("Error reading number of epochs").parse::<usize>().expect("-e not a number"));
                 },
-                "-es" | "-ed" | "-epoch_duration"=> {
+                "-es" | "-ed" | "-epoch_duration" => {
                     arg_struct.epoch_size = Some(args.next().expect("Error reading epoch duration").parse::<usize>().expect("-ed not a number"));
                 },
-
+                "-b" | "-boost_mode" => {
+                    arg_struct.boost_mode = Some(BoostMode::read(&args.next().expect("Failed to read boost mode")));
+                }
                 "-l" | "-leaves" => {
                     arg_struct.leaf_size_cutoff = Some(args.next().expect("Error processing leaf limit").parse::<usize>().expect("Error parsing leaf limit"));
                 },

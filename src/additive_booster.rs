@@ -171,7 +171,7 @@ impl AdditiveBooster {
 
         println!("Predicting:");
 
-        let mut aggregate_predictions = zero_matrix(mtx_dim(counts).0,mtx_dim(counts).1);
+        let mut aggregate_predictions = zero_matrix(mtx_dim(counts).1,mtx_dim(counts).0);
 
         for p_tree_epoch in &self.predictive_trees {
 
