@@ -37,7 +37,7 @@ pub fn compact_predict(trees: &Vec<PredictiveTree>, counts: &Vec<Vec<f64>>, feat
 
             /// Hard-coded alternative modes of averaging leaves. I'll add an option later.
 
-        match false {
+        match true {
             true => {
                 let sample_intervals = intervals(leaves);
                 sample_prediction = aggregate_predictions(sample_intervals, features, prediction_pool.clone());
@@ -133,8 +133,8 @@ pub fn intervals<'a>(nodes: Vec<Vec<&'a StrippedNode>>) -> HashMap<&String,Vec<(
     let mut intervals: HashMap<&String,Vec<(f64,f64,f64)>> = HashMap::new();
 
     for node in flat_nodes {
-        for (feature,(median,mad)) in node.features().iter().zip(node.medians().iter().zip(node.mads().iter())) {
-            intervals.entry(feature).or_insert(Vec::new()).push((*median-*mad,*median+*mad,1.));
+        for (feature,((median,mad),gain)) in node.features().iter().zip(node.medians().iter().zip(node.mads().iter()).zip(node.absolute_gains().as_ref().unwrap().iter())) {
+            intervals.entry(feature).or_insert(Vec::new()).push((*median-*mad,*median+*mad,gain.powi(2)));
         }
     }
 
