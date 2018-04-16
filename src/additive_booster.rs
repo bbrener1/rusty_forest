@@ -98,7 +98,7 @@ impl AdditiveBooster {
 
         for i in 0..self.epochs {
 
-            let epoch_trees = self.add_epoch(400, 400, 400, i);
+            let epoch_trees = self.add_epoch(800, 400, 1000, i);
 
             self.predictive_trees.push(epoch_trees);
 
