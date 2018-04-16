@@ -134,7 +134,7 @@ pub fn intervals<'a>(nodes: Vec<Vec<&'a StrippedNode>>) -> HashMap<&String,Vec<(
 
     for node in flat_nodes {
         for (feature,((median,mad),gain)) in node.features().iter().zip(node.medians().iter().zip(node.mads().iter()).zip(node.absolute_gains().as_ref().unwrap().iter())) {
-            intervals.entry(feature).or_insert(Vec::new()).push((*median-*mad,*median+*mad,gain.powi(2)));
+            intervals.entry(feature).or_insert(Vec::new()).push((*median-*mad,*median+*mad,gain);
         }
     }
 
