@@ -37,7 +37,7 @@ pub fn compact_predict(trees: &Vec<PredictiveTree>, counts: &Vec<Vec<f64>>, feat
 
             /// Hard-coded alternative modes of averaging leaves. I'll add an option later.
 
-        match true {
+        match false {
             true => {
                 let sample_intervals = intervals(leaves);
                 sample_prediction = aggregate_predictions(sample_intervals, features, prediction_pool.clone());
