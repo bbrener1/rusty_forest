@@ -308,7 +308,7 @@ pub fn weighted_sampling<T: Clone>(draws: usize, samples: &Vec<T>, weights: &Vec
     let mut drawn_samples: Vec<T> = Vec::with_capacity(draws);
     let mut drawn_indecies: Vec<usize> = Vec::with_capacity(draws);
 
-    let weight_sum: f64 = weights.iter().sum();
+    let mut weight_sum: f64 = weights.iter().sum();
 
     // println!("Initiated sampling");
 
@@ -374,6 +374,12 @@ pub fn weighted_sampling<T: Clone>(draws: usize, samples: &Vec<T>, weights: &Vec
 
             if maximum_weight.0 == current_draw.0 {
                 maximum_weight = local_weights.iter().max_by(|a,b| a.partial_cmp(&b).unwrap_or(Ordering::Greater)).map(|x| x.clone()).unwrap_or((0,0.));
+            }
+
+            weight_sum -= current_draw.1;
+
+            if weight_sum == 0. {
+                panic!("No weighted samples remaining");
             }
 
             drawn_indecies.push(current_draw.0);
