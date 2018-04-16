@@ -301,7 +301,7 @@ pub fn weighted_sampling<T: Clone>(draws: usize, samples: &Vec<T>, weights: &Vec
 
     let mut rng = thread_rng();
 
-    // println!("Weighted sampling, draws, weights: {},{}", draws, weights.len());
+    println!("Weighted sampling, draws, weights: {},{}", draws, weights.len());
 
     let mut exclusion_set: HashSet<usize> = HashSet::new();
 
@@ -354,7 +354,7 @@ pub fn weighted_sampling<T: Clone>(draws: usize, samples: &Vec<T>, weights: &Vec
 
             if i%1000 == 0 {
                 if i > 0 {
-                    // println!("{}",i);
+                    println!("{}",i);
                 }
             }
 
@@ -364,7 +364,7 @@ pub fn weighted_sampling<T: Clone>(draws: usize, samples: &Vec<T>, weights: &Vec
             let mut current_draw = local_weights[random_index];
 
             while accumulator <= maximum_weight.1 {
-                // println!("{}",accumulator);
+                println!("acc:{}",accumulator);
                 accumulator += current_draw.1;
                 random_index = rng.gen_range::<usize>(0,local_weights.len());
                 current_draw = local_weights[random_index];
@@ -389,7 +389,6 @@ pub fn weighted_sampling<T: Clone>(draws: usize, samples: &Vec<T>, weights: &Vec
         }
 
     }
-
 
     (drawn_samples,drawn_indecies)
 
