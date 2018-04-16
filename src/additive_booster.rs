@@ -120,7 +120,7 @@ impl AdditiveBooster {
 
         let mut p_trees = Vec::with_capacity(self.epoch_duration);
 
-        let mut prototype_tree =  Tree::prototype_tree(&self.counts,&matrix_flip(&self.error_matrix),&self.sample_names,&self.feature_names,&self.feature_names,self.leaf_size, self.dropout, 1, [self.report_string.clone(),format!(".{}.0",epoch)].join(""));
+        let mut prototype_tree =  Tree::prototype_tree(&self.counts,&self.error_matrix,&self.sample_names,&self.feature_names,&self.feature_names,self.leaf_size, self.dropout, 1, [self.report_string.clone(),format!(".{}.0",epoch)].join(""));
 
         println!("Epoch prototype done, drawing weights");
 
