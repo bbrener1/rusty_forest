@@ -302,7 +302,7 @@ pub fn weighted_sampling<T: Clone>(draws: usize, samples: &Vec<T>, weights: &Vec
 
     let mut rng = thread_rng();
 
-    println!("Weighted sampling, draws, weights: {},{}", draws, weights.len());
+    // println!("Weighted sampling, draws, weights: {},{}", draws, weights.len());
 
     let mut exclusion_set: HashSet<usize> = HashSet::new();
 
@@ -311,7 +311,7 @@ pub fn weighted_sampling<T: Clone>(draws: usize, samples: &Vec<T>, weights: &Vec
 
     let weight_sum: f64 = weights.iter().sum();
 
-    println!("Initiated sampling");
+    // println!("Initiated sampling");
 
     if replacement {
 
@@ -327,7 +327,7 @@ pub fn weighted_sampling<T: Clone>(draws: usize, samples: &Vec<T>, weights: &Vec
 
                     if weighted_choices.len()%1000 == 0 {
                         if weighted_choices.len() > 0 {
-                            println!("{}",weighted_choices.len());
+                            // println!("{}",weighted_choices.len());
                         }
                     }
 
@@ -345,17 +345,17 @@ pub fn weighted_sampling<T: Clone>(draws: usize, samples: &Vec<T>, weights: &Vec
     else {
 
         let mut local_weights: Vec<(usize,f64)> = weights.iter().cloned().enumerate().collect();
-        println!("weight debug: {}", local_weights.len());
-        println!("weights: {:?}", local_weights.iter().take(10).collect::<Vec<&(usize,f64)>>());
+        // println!("weight debug: {}", local_weights.len());
+        // println!("weights: {:?}", local_weights.iter().take(10).collect::<Vec<&(usize,f64)>>());
         let mut maximum_weight = local_weights.iter().max_by(|a,b| a.partial_cmp(&b).unwrap_or(Ordering::Greater)).map(|x| x.clone()).unwrap_or((0,0.));
 
-        println!("draws:{}",draws);
+        // println!("draws:{}",draws);
 
         for i in 0..draws {
 
             if i%1000 == 0 {
                 if i > 0 {
-                    println!("{}",i);
+                    // println!("{}",i);
                 }
             }
 
