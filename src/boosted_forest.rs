@@ -8,7 +8,6 @@ use std::io::Write;
 use std::cmp::Ordering;
 use compact_predictor::compact_predict;
 use rand::thread_rng;
-use rand::seq::sample_indices;
 use tree::Tree;
 use rank_table::RankTable;
 use tree::PredictiveTree;
@@ -115,11 +114,11 @@ impl BoostedForest {
 
         println!("Initializing an epoch");
 
-        let prototype_tree =  Tree::prototype_tree(&self.counts,&self.counts,&self.sample_names,&self.feature_names,&self.feature_names,self.leaf_size, self.dropout, 1, [self.report_string.clone(),format!(".{}.0",epoch)].join(""));
+        let mut prototype_tree =  Tree::prototype_tree(&self.counts,&self.counts,&self.sample_names,&self.feature_names,&self.feature_names,self.leaf_size, self.dropout, 1, [self.report_string.clone(),format!(".{}.0",epoch)].join(""));
 
         println!("Epoch prototype done, drawing weights");
 
-        let (mut input_feature_weights, mut output_feature_weights, mut sample_weights) = self.draw_weights(output_features_per_tree * samples_per_tree);
+        let (input_feature_weights, output_feature_weights, sample_weights) = self.draw_weights(output_features_per_tree * samples_per_tree);
 
         println!("Weights drawn");
 
@@ -154,7 +153,7 @@ impl BoostedForest {
         }
 
         BoostedTreeThreadPool::terminate(&mut thread_pool);
-
+        prototype_tree.terminate_pool();
 
     }
 
