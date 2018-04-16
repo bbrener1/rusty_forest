@@ -936,7 +936,7 @@ fn gradient(args: GradientArguments) {
     let processor_limit = args.processor_limit.unwrap_or(auto_params.processors);
     let dropout = args.dropout.unwrap_or(auto_params.dropout);
     let prediction_mode = args.mode.unwrap_or(auto_params.prediction_mode);
-    let boost_mode = args.boost_mode.unwrap();
+    let boost_mode = args.boost_mode.unwrap_or(BoostMode::Subsampling);
 
     match boost_mode {
         BoostMode::Additive => {
@@ -1201,6 +1201,38 @@ pub enum Commandtmp {
     Predict,
     Gradient,
 }
+
+impl Commandtmp {
+
+    pub fn parse<T: Iterator<Item = String>> (args: &mut T) -> Command {
+
+        let command = args.next().unwrap_or("".to_string());
+
+        match &command[..] {
+            "construct" => {
+                Command::Construct(ConstructionArguments::new(args))
+            },
+            "predict" => {
+                Command::Predict(PredictionArguments::new(args))
+            },
+            "construct_predict" | "conpred" | "combined" => {
+                Command::ConstructPredict(CombinedArguments::new(args))
+            }
+            "gradient" => {
+                Command::Gradient(GradientArguments::new(args))
+            }
+            _ =>{
+                println!("Not a valid top-level command, please choose from \"construct\",\"predict\", or \"construct_predict\". Exiting");
+                panic!()
+            }
+        }
+    }
+}
+
+
+
+
+
 
 fn read_header(location: &str) -> Vec<String> {
 

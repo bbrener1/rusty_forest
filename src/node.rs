@@ -713,12 +713,14 @@ pub fn mad_minimum(forward:Vec<Vec<f64>>,reverse: Vec<Vec<f64>>, feature_weights
         let mut sample_dispersions = Vec::with_capacity(y);
         for j in 0..y {
             let feature_dispersion = (forward[i][j] * ((x - i) as f64 / x as f64)) + (reverse[i][j] * ((i + 1) as f64/ x as f64));
-            sample_dispersions.push(feature_dispersion * feature_weights[j])
+            // sample_dispersions.push(feature_dispersion * feature_weights[j])
+            sample_dispersions.push(feature_dispersion)
 
         }
 
         // dispersions.push(sample_dispersions.iter().sum());
-        dispersions.push(sample_dispersions.iter().map(|x| x.powi(2)).sum());
+        // dispersions.push(sample_dispersions.iter().map(|x| x.powi(2)).sum());
+        dispersions.push(sample_dispersions.iter().map(|x| x.powi(2)).zip(feature_weights.iter()).map(|(x,y)| x*y).sum::<f64>() / feature_weights.iter().sum::<f64>());
 
     }
 
