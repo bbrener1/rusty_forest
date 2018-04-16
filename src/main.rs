@@ -1175,7 +1175,7 @@ fn mtx_dim(in_mat: &Vec<Vec<f64>>) -> (usize,usize) {
 fn add_matrix(mat1: &Vec<Vec<f64>>,mat2:&Vec<Vec<f64>>) -> Vec<Vec<f64>> {
 
     if mtx_dim(mat1) != mtx_dim(mat2) {
-        panic!("Attempted to subtract matrices of unequal dimensions: {:?},{:?}", mtx_dim(mat1),mtx_dim(mat2));
+        panic!("Attempted to add matrices of unequal dimensions: {:?},{:?}", mtx_dim(mat1),mtx_dim(mat2));
     }
 
     let dim = mtx_dim(mat1);
@@ -1214,7 +1214,7 @@ fn sub_matrix(mat1: &Vec<Vec<f64>>,mat2:&Vec<Vec<f64>>) -> Vec<Vec<f64>> {
 fn multiply_matrix(mat1: &Vec<Vec<f64>>,mat2:&Vec<Vec<f64>>) -> Vec<Vec<f64>> {
 
     if mtx_dim(mat1) != mtx_dim(mat2) {
-        panic!("Attempted to subtract matrices of unequal dimensions: {:?},{:?}", mtx_dim(mat1),mtx_dim(mat2));
+        panic!("Attempted to multiply matrices of unequal dimensions: {:?},{:?}", mtx_dim(mat1),mtx_dim(mat2));
     }
 
     let dim = mtx_dim(mat1);

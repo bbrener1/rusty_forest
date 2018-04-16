@@ -35,7 +35,7 @@ impl Forest {
 
         let report_string = format!("{}.0",report_address).to_string();
 
-        let prototype_tree = Tree::prototype_tree(&counts,&counts,&sample_names,&feature_names,&feature_names,leaf_size, dropout ,1,report_string);
+        let prototype_tree = Tree::prototype_tree(&counts,&counts,&sample_names,&feature_names,&feature_names,None,leaf_size, dropout ,1,report_string);
 
         println!("Name dimensions");
         println!("{}",feature_names.len());

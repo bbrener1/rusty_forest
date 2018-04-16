@@ -120,13 +120,14 @@ impl AdditiveBooster {
 
         let mut p_trees = Vec::with_capacity(self.epoch_duration);
 
-        let mut prototype_tree =  Tree::prototype_tree(&self.counts,&self.error_matrix,&self.sample_names,&self.feature_names,&self.feature_names,self.leaf_size, self.dropout, 1, [self.report_string.clone(),format!(".{}.0",epoch)].join(""));
-
-        println!("Epoch prototype done, drawing weights");
+        println!("Drawing weights");
 
         let (input_feature_weights, output_feature_weights, sample_weights) = self.draw_weights(output_features_per_tree * samples_per_tree);
 
         println!("Weights drawn");
+
+        let mut prototype_tree =  Tree::prototype_tree(&self.counts,&self.error_matrix,&self.sample_names,&self.feature_names,&self.feature_names, Some(output_feature_weights.clone()),self.leaf_size, self.dropout, 1, [self.report_string.clone(),format!(".{}.0",epoch)].join(""));
+
 
         let mut thread_pool = BoostedTreeThreadPool::new(&prototype_tree,self.processor_limit);
 
@@ -170,7 +171,7 @@ impl AdditiveBooster {
 
         println!("Predicting:");
 
-        let mut aggregate_predictions = Vec::with_capacity(self.predictive_trees.len());
+        let mut aggregate_predictions = zero_matrix(mtx_dim(counts).0,mtx_dim(counts).1);
 
         for p_tree_epoch in &self.predictive_trees {
 

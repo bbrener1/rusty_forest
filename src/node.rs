@@ -18,13 +18,13 @@ use DropMode;
 impl Node {
 
 
-    pub fn feature_root<'a>(input_counts:&Vec<Vec<f64>>,output_counts:&Vec<Vec<f64>>,input_feature_names:&'a[String],output_feature_names:&'a[String],sample_names:&'a[String],dropout:DropMode,feature_pool: mpsc::Sender<FeatureMessage>) -> Node {
+    pub fn feature_root<'a>(input_counts:&Vec<Vec<f64>>,output_counts:&Vec<Vec<f64>>,input_feature_names:&'a[String],output_feature_names:&'a[String],sample_names:&'a[String],dropout:DropMode, feature_weight_option: Option<Vec<f64>>, feature_pool: mpsc::Sender<FeatureMessage>) -> Node {
 
         let input_table = RankTable::new(input_counts,&input_feature_names,&sample_names,dropout);
 
         let output_table = RankTable::new(output_counts,&output_feature_names,&sample_names,dropout);
 
-        let feature_weights = vec![1.;output_feature_names.len()];
+        let feature_weights = feature_weight_option.unwrap_or(vec![1.;output_feature_names.len()]);
 
         let medians = output_table.medians();
 

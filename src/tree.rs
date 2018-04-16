@@ -23,12 +23,12 @@ use DropMode;
 
 impl<'a> Tree {
 
-    pub fn prototype_tree(inputs:&Vec<Vec<f64>>,outputs:&Vec<Vec<f64>>,sample_names:&[String],input_features: &[String],output_features:&[String],size_limit:usize, dropout: DropMode ,processor_limit:usize,report_address: String) -> Tree {
+    pub fn prototype_tree(inputs:&Vec<Vec<f64>>,outputs:&Vec<Vec<f64>>,sample_names:&[String],input_features: &[String],output_features:&[String], feature_weight_option: Option<Vec<f64>>,size_limit:usize, dropout: DropMode ,processor_limit:usize,report_address: String) -> Tree {
         // let pool = ThreadPool::new(processor_limit);
         let feature_pool = FeatureThreadPool::new(processor_limit);
         // let mut root = Node::root(counts,feature_names,sample_names,input_features,output_features,pool.clone());
-        let root = Node::feature_root(inputs,outputs,input_features,output_features,sample_names,dropout,feature_pool.clone());
-        let weights = None;
+        let root = Node::feature_root(inputs,outputs,input_features,output_features,sample_names,dropout, feature_weight_option.clone() ,feature_pool.clone());
+        let weights = feature_weight_option;
 
         Tree{
             // pool: pool,
