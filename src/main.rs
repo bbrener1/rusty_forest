@@ -1234,6 +1234,10 @@ fn zero_matrix(x:usize,y:usize) -> Vec<Vec<f64>> {
     vec![vec![0.;y];x]
 }
 
+fn float_matrix(x:usize,y:usize,float:f64) -> Vec<Vec<f64>> {
+    vec![vec![float;y];x]
+}
+
 fn argsort(input: &Vec<f64>) -> Vec<(usize,f64)> {
     let mut intermediate1 = input.iter().enumerate().collect::<Vec<(usize,&f64)>>();
     intermediate1.sort_unstable_by(|a,b| a.1.partial_cmp(b.1).unwrap_or(Ordering::Greater));

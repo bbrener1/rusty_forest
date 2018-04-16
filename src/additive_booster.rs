@@ -21,6 +21,7 @@ use add_matrix;
 use sub_matrix;
 use multiply_matrix;
 use zero_matrix;
+use float_matrix;
 use mtx_dim;
 use tsv_format;
 use boosted_forest::weighted_sampling;
