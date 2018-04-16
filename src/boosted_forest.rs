@@ -341,9 +341,8 @@ pub fn weighted_sampling<T: Clone>(draws: usize, samples: &Vec<T>, weights: &Vec
 
     else {
 
-        let mut local_samples: Vec<T> = samples.clone();
-        let mut local_weights: Vec<f64> = weights.clone();
-        let mut maximum_weight = local_weights.iter().max_by(|a,b| a.partial_cmp(&b).unwrap_or(Ordering::Greater)).map(|x| x.clone()).unwrap_or(0.);
+        let mut local_weights: Vec<(usize,f64)> = weights.iter().cloned().enumerate().collect();
+        let mut maximum_weight = local_weights.iter().max_by(|a,b| a.partial_cmp(&b).unwrap_or(Ordering::Greater)).map(|x| x.clone()).unwrap_or((0,0.));
 
         for i in 0..draws {
 
@@ -355,18 +354,21 @@ pub fn weighted_sampling<T: Clone>(draws: usize, samples: &Vec<T>, weights: &Vec
 
             let mut accumulator = 0.;
 
-            let mut current_draw = sample_indices(&mut rng, local_weights.len(), 1)[0];
+            let mut random_index = rng.gen_range::<usize>(0,local_weights.len());
+            let mut current_draw = local_weights.swap_remove(random_index);
 
-            while accumulator <= maximum_weight {
-                accumulator += local_weights[current_draw];
-                current_draw = sample_indices(&mut rng, local_weights.len(), 1)[0];
+            while accumulator <= maximum_weight.1 {
+                accumulator += current_draw.1;
+                if maximum_weight.0 == current_draw.0 {
+                    maximum_weight = local_weights.iter().max_by(|a,b| a.partial_cmp(&b).unwrap_or(Ordering::Greater)).map(|x| x.clone()).unwrap_or((0,0.));
+                }
+                let mut random_index = rng.gen_range::<usize>(0,local_weights.len());
+                let mut current_draw = local_weights.swap_remove(random_index);
             }
 
-            drawn_indecies.push(current_draw);
-            drawn_samples.push(local_samples.swap_remove(current_draw));
-            if maximum_weight == local_weights.swap_remove(current_draw) {
-                maximum_weight = local_weights.iter().max_by(|a,b| a.partial_cmp(&b).unwrap_or(Ordering::Greater)).map(|x| x.clone()).unwrap_or(0.);
-            }
+            drawn_indecies.push(current_draw.0);
+            drawn_samples.push(samples[current_draw.0].clone());
+
 
         }
 
