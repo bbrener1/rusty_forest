@@ -95,7 +95,7 @@ impl AdditiveBooster {
     }
 
 
-    pub fn additive_growth(&mut self) -> Result<(),Error> {
+    pub fn additive_growth(&mut self, input_features_per_tree: usize ,output_features_per_tree: usize, samples_per_tree: usize) -> Result<(),Error> {
 
         for i in 0..self.epochs {
 

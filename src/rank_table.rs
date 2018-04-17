@@ -291,7 +291,8 @@ impl RankTable {
         for (i,fr) in forward_receivers.iter().enumerate() {
             if let Ok((disp,feature)) = fr.recv() {
                 for (j,(m,d)) in disp.into_iter().enumerate() {
-                    forward_covs[j][i] = (d/m).abs();
+                    // forward_covs[j][i] = (d/m).abs();
+                    forward_covs[j][i] = d.abs();
                     if forward_covs[j][i].is_nan(){
                         forward_covs[j][i] = 0.;
                     }
@@ -313,7 +314,8 @@ impl RankTable {
         for (i,rr) in reverse_receivers.iter().enumerate() {
             if let Ok((disp,feature)) = rr.recv() {
                 for (j,(m,d)) in disp.into_iter().enumerate() {
-                    reverse_covs[reverse_draw.len() - j - 1][i] = (d/m).abs();
+                    // reverse_covs[reverse_draw.len() - j - 1][i] = (d/m).abs();
+                    reverse_covs[reverse_draw.len() - j - 1][i] = d.abs();
                     if reverse_covs[reverse_draw.len() - j - 1][i].is_nan(){
                         reverse_covs[reverse_draw.len() - j - 1][i] = 0.;
                     }

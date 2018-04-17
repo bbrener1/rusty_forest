@@ -933,6 +933,9 @@ fn gradient(args: GradientArguments) {
     let epoch_size = args.epoch_size.unwrap_or(100);
     let epochs = args.epochs.unwrap_or(3);
     let leaf_size_cutoff = args.leaf_size_cutoff.unwrap_or(auto_params.leaf_size_cutoff);
+    let input_features = args.input_features.unwrap_or(auto_params.input_features);
+    let output_features = args.output_features.unwrap_or(auto_params.output_features);
+    let sample_subsample = args.sample_subsample.unwrap_or(auto_params.sample_subsample);
     let processor_limit = args.processor_limit.unwrap_or(auto_params.processors);
     let dropout = args.dropout.unwrap_or(auto_params.dropout);
     let prediction_mode = args.mode.unwrap_or(auto_params.prediction_mode);
@@ -942,7 +945,7 @@ fn gradient(args: GradientArguments) {
         BoostMode::Additive => {
             let mut forest = AdditiveBooster::initialize(&counts, epoch_size, leaf_size_cutoff, epochs, processor_limit, feature_names, sample_names, dropout, prediction_mode, &report_address);
 
-            forest.additive_growth();
+            forest.additive_growth(input_features,output_features,sample_subsample);
             forest.compact_predict(&counts, &forest.feature_map(), &prediction_mode, &dropout, &report_address);
         },
         BoostMode::Subsampling => {
