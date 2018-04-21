@@ -27,6 +27,7 @@ The outer-most class is the Random Forest
 # Random Forests:
 
 Random Forest contains:
+
      - The matrix to be analyzed
      - Decision Trees
      - Decision Tree Thread Pool
