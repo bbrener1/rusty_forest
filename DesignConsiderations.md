@@ -26,21 +26,23 @@ The outer-most class is the Random Forest
 
 # Random Forests:
 
-Random Forest contains:
+Random Forest contains
 
-     - The matrix to be analyzed
-     - Decision Trees
-     - Decision Tree Thread Pool
+     * The matrix to be analyzed
+     * Decision Trees
+     * Decision Tree Thread Pool
 
-     - Important methods:
-         - Method that generates decision trees and calls on them to grow branches
-         - Method that generates predicted values for a matrix of samples
+Important methods
 
-
-
+     * Method that generates decision trees and calls on them to grow branches
+     * Method that generates predicted values for a matrix of samples
 
 
- Trees:
+Random Forests are initialized with knowledge of the dimensions of the trees that they will contain and the data to be analyzed. Upon initialization a random forest will initialize a Tree Thread Pool, and then request that Predictive Trees be generated from it. 
+
+
+
+# Trees:
 
  Trees contain:
      - Root Node
@@ -50,7 +52,7 @@ Random Forest contains:
  Each tree contains a subsampling of both rows and columns of the original matrix. The subsampled rows and columns are contained in a root node, which is the only node the tree has direct access to.
 
 
- Feature Thread Pool:
+# Feature Thread Pool:
 
  Feature Thread Pool contains:
      - Worker Threads
