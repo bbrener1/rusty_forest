@@ -139,4 +139,13 @@ Important methods
    * Parallel Best Split
    * Derive (Various flavors)
  
-When a Node is generated, it is passed an input and an output matrix. 
+When a Node is generated, it is passed an input and an output matrix. These two matrices generate two Rank Tables, the Input and Output Rank Tables. When a Node is told to perform a best split, it generates a draw order for each feature in the Input Rank Table. Each draw order represents "sorting" a table by that feature, eg it's similar to argsort(). 
+
+Important: default (and currently only possible) behavior is to ignore "dropped" values for the purposes of computing medians, dispersions, and not to include them in draw orders. Functionally, this means that for any feature, you are sorting ONLY by non-dropped values. For the purposes of calculating dispersion of the split samples, any samples for which a feature value is dropped are included in both branches of the tree. However when the child nodes are derive, all those samples are dropped. I am aware of the questionable nature of this minimization procedure and will update accordingly at a later date. 
+
+After this, the Node can ask the Output Rank Table to produce summary dispersion values for each possible split of the Rank Table along a given feature. 
+
+After finding the best possible split along each feature, the Node finds the best feature to split by.
+
+After finding the best feature and the best split for that feature, the Node identifies which samples should belong to each of two child Nodes when splitting the samples by the best feature, and derives two child Nodes with identical selections of input and output features, but a smaller selection of samples. 
+
