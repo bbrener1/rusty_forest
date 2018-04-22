@@ -1326,7 +1326,7 @@ impl Parameters {
 
         let mut output_features = (features as f64 / (features as f64).log10()) as usize;
 
-        let input_features: usize;
+        let mut input_features: usize;
 
         if features < 3 {
             input_features = features;
