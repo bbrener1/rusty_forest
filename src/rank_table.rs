@@ -1,10 +1,10 @@
 
 use std::collections::HashSet;
 use std::collections::HashMap;
+use std::cmp::Ordering;
 use std::sync::Arc;
 use std::mem::swap;
 use std::sync::mpsc;
-use node::mad_minimum;
 use feature_thread_pool::FeatureMessage;
 extern crate rand;
 
@@ -70,12 +70,12 @@ impl RankTable {
         self.dispersions().into_iter().zip(self.dispersions().into_iter()).map(|x| x.0/x.1).map(|y| if y.is_nan() {0.} else {y}).collect()
     }
 
-    pub fn sort_by_feature(& self, feature: &str) -> Vec<usize> {
+    pub fn sort_by_feature(& self, feature: &str) -> (&Vec<usize>,&HashSet<usize>) {
         //
         // println!("Dropped: {:?}", self.meta_vector[self.feature_dictionary[feature]].give_dropped_order());
         // println!("Full: {:?}", self.meta_vector[self.feature_dictionary[feature]].give_draw_order());
         //
-        self.meta_vector[self.feature_dictionary[feature]].give_dropped_order()
+        self.meta_vector[self.feature_dictionary[feature]].give_draw_order()
     }
 
     pub fn split_indecies_by_feature(&self, feature: &str, split: &f64) -> (Vec<usize>,Vec<usize>){
@@ -267,10 +267,14 @@ impl RankTable {
         }
     }
 
-    pub fn parallel_split_order(&mut self,draw_order:Vec<usize>,feature_weights:&Vec<f64>,pool:mpsc::Sender<FeatureMessage>) -> Option<(usize,f64)> {
 
-        let forward_draw = Arc::new(draw_order);
-        let mut reverse_draw: Arc<Vec<usize>> = Arc::new(forward_draw.iter().cloned().rev().collect());
+
+    pub fn parallel_split_order(&mut self,draw_order:&Vec<usize>, drop_set: &HashSet<usize>,feature_weights:&Vec<f64>,  pool:mpsc::Sender<FeatureMessage>) -> Option<(usize,f64)> {
+
+        let forward_draw = Arc::new(draw_order.clone());
+        let mut reverse_draw: Arc<Vec<usize>> = Arc::new(draw_order.iter().cloned().rev().collect());
+
+        let drop_arc = Arc::new(drop_set.clone());
 
         if forward_draw.len() < 2 {
             return None
@@ -284,7 +288,7 @@ impl RankTable {
 
         for feature in self.meta_vector.drain(..) {
             let (tx,rx) = mpsc::channel();
-            pool.send(FeatureMessage::Message((feature,forward_draw.clone()),tx));
+            pool.send(FeatureMessage::Message((feature,forward_draw.clone(),drop_arc.clone()),tx));
             forward_receivers.push(rx);
         }
 
@@ -307,7 +311,7 @@ impl RankTable {
 
         for feature in self.meta_vector.drain(..) {
             let (tx,rx) = mpsc::channel();
-            pool.send(FeatureMessage::Message((feature,reverse_draw.clone()),tx));
+            pool.send(FeatureMessage::Message((feature,reverse_draw.clone(),drop_arc.clone()),tx));
             reverse_receivers.push(rx);
         }
 
@@ -328,13 +332,12 @@ impl RankTable {
 
         }
 
-        Some(mad_minimum(forward_covs, reverse_covs, feature_weights))
+        Some(mad_minimum(forward_covs, reverse_covs, feature_weights, self.sample_names.len()))
 
     }
 
 
 }
-
 
 #[derive(Serialize,Deserialize,Debug,Clone)]
 pub struct RankTable {
@@ -349,6 +352,40 @@ pub struct RankTable {
     dropout: DropMode,
 }
 
+pub fn mad_minimum(forward:Vec<Vec<f64>>,reverse: Vec<Vec<f64>>, feature_weights: &Vec<f64>, total_samples: usize) -> (usize,f64) {
+
+    let mut dispersions: Vec<f64> = Vec::with_capacity(forward.len());
+
+    for i in 0..forward.len() {
+        let mut sample_dispersions = Vec::with_capacity(forward[i].len());
+
+        for j in 0..forward[i].len() {
+            let feature_dispersion = (forward[i][j] * ((total_samples - i) as f64 / total_samples as f64)) + (reverse[i][j] * ((i + 1) as f64/ total_samples as f64));
+
+            sample_dispersions.push(feature_dispersion.powi(2) * feature_weights[j])
+
+        }
+
+        dispersions.push(sample_dispersions.iter().sum::<f64>() / feature_weights.iter().sum::<f64>());
+
+    }
+
+    let mut truncated: Vec<(usize,f64)> = dispersions.into_iter().enumerate().collect();
+    if truncated.len() > 6 {
+        truncated = truncated[3..truncated.len()-3].to_vec();
+    }
+    else if truncated.len() > 3 {
+        truncated = truncated[1..truncated.len()-1].to_vec();
+    }
+    else if truncated.len() > 1 {
+        truncated = truncated[1..].to_vec();
+    }
+
+    // println!("{:?}", truncated.iter().min_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Greater)).unwrap_or(&(0,0.)));
+
+    truncated.into_iter().min_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Greater)).unwrap_or((0,0.))
+
+}
 
 
 #[cfg(test)]
@@ -405,220 +442,3 @@ mod rank_table_tests {
 
 
 }
-
-
-//
-// impl<'a> RankTableIter<'a> {
-//     pub fn new(rank_table: &mut RankTable,limit:usize) -> RankTableIter {
-//
-//         // println!("Starting new meta-iterator:");
-//
-//         let mut table = Vec::new();
-//
-//         for vector in rank_table.meta_vector.iter_mut() {
-//             table.push(vector.ordered_draw());
-//         }
-//
-//         // println!("Finished making iterators, yielding meta-iterator");
-//
-//         RankTableIter{table:table,index:0,limit:limit-1,current_sample:None}
-//     }
-//
-// }
-
-// impl<'a> Iterator for RankTableIter<'a> {
-//     type Item = Vec<(f64,f64)>;
-//
-//     fn next(&mut self) -> Option<Vec<(f64,f64)>> {
-//
-//         if self.index > self.limit {
-//             return None
-//         }
-//
-//         let mut output = Vec::new();
-//
-//         for draw in self.table.iter_mut() {
-//             let io = draw.next();
-//             // println!("{},{},{},{:?}",i,self.index,self.limit,io);
-//
-//             output.push(io.unwrap_or((0.,0.)));
-//         }
-//
-//         self.index += 1;
-//
-//
-//
-//         Some(output)
-//     }
-// }
-//
-// pub struct RankTableIter<'a> {
-//     table: Vec<OrderedDraw<'a>>,
-//     index: usize,
-//     current_sample: Option<String>,
-//     limit: usize,
-// }
-//
-// impl RankTableSplitter {
-//     pub fn new(rank_table: & RankTable,feature:&str) -> RankTableSplitter {
-//
-//         let draw_order = rank_table.sort_by_feature(feature);
-//
-//         let length = draw_order.len() as i32;
-//
-//         // println!("Starting new meta-iterator:");
-//
-//         let mut table = Vec::new();
-//
-//         for vector in rank_table.meta_vector.iter() {
-//             table.push(vector.clone().consumed_draw());
-//         }
-//
-//         // println!("Finished making iterators, yielding meta-iterator");
-//
-//         RankTableSplitter{table:table,index:0,draw_order:draw_order, length: length, current_sample:None}
-//     }
-//
-//     pub fn split(rank_table: & RankTable, feature:&str) -> (RankTableSplitter,RankTableSplitter,Vec<usize>) {
-//         let forward_splitter = RankTableSplitter::new(rank_table,feature);
-//         let draw_order = forward_splitter.draw_order.clone();
-//         let mut reverse_splitter = forward_splitter.clone();
-//         reverse_splitter.draw_order.reverse();
-//
-//         (forward_splitter,reverse_splitter,draw_order)
-//     }
-//
-// }
-
-//
-//
-// impl Iterator for RankTableSplitter {
-//     type Item = Vec<(f64,f64)>;
-//
-//     fn next(&mut self) -> Option<Vec<(f64,f64)>> {
-//
-//         // let start_time = time::PreciseTime::now();
-//
-//         if self.index as i32 > self.length - 1 {
-//             return None
-//         }
-//
-//         let mut output = Vec::with_capacity(self.table.len());
-//
-//         let target = self.draw_order[self.index];
-//
-//         for draw in self.table.iter_mut() {
-//             let io = draw.next(target);
-//             // println!("{},{},{},{:?}",i,self.index,self.limit,io);
-//
-//             output.push(io.unwrap_or((0.,0.)));
-//         }
-//
-//         self.index += 1;
-//
-//         // let end_time = time::PreciseTime::now();
-//
-//         // println!("Time to serve a single splitter iteration {}", start_time.to(end_time).num_nanoseconds().unwrap_or(-1));
-//
-//         Some(output)
-//     }
-// }
-//
-// #[derive(Clone)]
-// pub struct RankTableSplitter {
-//     table: Vec<ProceduralDraw>,
-//     pub draw_order: Vec<usize>,
-//     index: usize,
-//     current_sample: Option<String>,
-//     pub length: i32,
-// }
-
-// pub fn fuse_features(first: RankTable, second: RankTable) -> RankTable {
-//
-//     if first.dimensions.1 != second.dimensions.1 {
-//         panic!("Attempted to fuse an unequal number of samples!");
-//     }
-//
-//     if first.samples() != second.samples() {
-//         panic!("Attempted to fuse rank tables with different samples or sample orderings!")
-//     }
-//
-//     let mut new_meta_vector = Vec::with_capacity(first.dimensions.0 + second.dimensions.0);
-//     let mut new_feature_names: Vec<String> = Vec::with_capacity(first.dimensions.0 + second.dimensions.0);
-//     let mut new_sample_names: Vec<String> = Vec::with_capacity(first.dimensions.1);
-//     let mut new_feature_dictionary: HashMap<String,usize> = HashMap::with_capacity(first.dimensions.0 + second.dimensions.0);
-//
-//     for feature in HashSet::from_iter(first.features().iter().cloned()).intersection(&HashSet::from_iter(second.features().iter().cloned())) {
-//         let f1 = first.meta_vector[first.feature_index(feature)];
-//         let f2 = second.meta_vector[second.feature_index(feature)];
-//
-//         if f1.draw_ordered_values() != f2.draw_ordered_values() {
-//             panic!("Overlapping features have different vectors. Unfortunately you cannot currently name input and output features the same thing.")
-//         }
-//
-//         new_meta_vector.push(f1);
-//         new_feature_names.push(*feature);
-//         new_feature_dictionary.insert(*feature,new_meta_vector.len());
-//
-//     };
-//
-//     for (feature,table) in
-//
-//     HashSet::from_iter(
-//         first.features()
-//         .iter()
-//         .cloned()
-//         .zip(
-//             repeat(0)
-//         )
-//     )
-//     .symmetric_difference(
-//         &HashSet::from_iter(
-//             second.features()
-//             .iter()
-//             .cloned()
-//             .zip(
-//                 repeat(1)
-//             ))).cloned() {
-//
-//         new_meta_vector.push(
-//             match table {
-//                 0 => first.meta_vector[first.feature_index(&feature)],
-//                 1 => second.meta_vector[second.feature_index(&feature)],
-//             }
-//         );
-//         new_feature_names.push(feature);
-//         new_feature_dictionary.insert(feature,new_meta_vector.len());
-//
-//     }
-//
-//     let new_sample_names = first.samples().to_vec();
-//     let new_sample_dictionary = first.sample_dictionary.clone();
-//
-//     let new_draw_order: Vec<usize> = (0..new_sample_names.len()).collect();
-//
-//     let dimensions = (new_meta_vector.len(),new_meta_vector.get(0).unwrap_or(&RankVector::empty()).vector.vector.len());
-//
-//
-//     RankTable {
-//
-//         meta_vector: new_meta_vector,
-//         feature_names: new_feature_names,
-//         sample_names: new_sample_names,
-//         feature_dictionary: new_feature_dictionary,
-//         sample_dictionary: new_sample_dictionary,
-//         draw_order: new_draw_order,
-//         index: 0,
-//         dimensions: dimensions,
-//         dropout: first.dropout,
-//     }
-//
-// }
-// pub fn individual_splitters(&self, feature:&str) -> (Vec<ProceduralDraw>,Arc<Vec<usize>>) {
-//     let mut splitters = Vec::with_capacity(self.meta_vector.len());
-//     for vector in self.meta_vector.iter() {
-//         splitters.push(vector.clone().consumed_draw());
-//     }
-//     let draw_order = Arc::new(self.sort_by_feature(feature));
-//     (splitters, draw_order)
-// }

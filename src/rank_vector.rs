@@ -349,6 +349,7 @@ impl RankVector {
         self.vector.set_draw(order);
     }
 
+    #[inline]
     pub fn zone_shift(&mut self, old_median: f64, new_median: f64) {
         let change = new_median - old_median;
 
@@ -390,6 +391,7 @@ impl RankVector {
         }
     }
 
+    #[inline]
     pub fn zone_balance(&mut self) {
         while (((self.left_zone.size + self.right_zone.size) as i32) < (self.median_zone.size as i32 - 2) && self.vector.len()%2 == 0) ||
         (((self.left_zone.size + self.right_zone.size) as i32) < (self.median_zone.size as i32 - 1) && self.vector.len()%2 == 1)
@@ -407,17 +409,11 @@ impl RankVector {
         }
     }
 
-    fn expand_by_1(&mut self) -> Option<usize> {
-
-        // if self.vector.len() < 2 {
-        //     panic!("Asked to expand a singleton zone!");
-        // }
-
-        let mut moved_index = (Some(0),Some(0));
+    #[inline]
+    fn expand_by_1(&mut self) {
 
         if self.vector.len() < 1 {
             eprintln!("Asked to expand an empty zone!");
-            return None
         }
 
         let left = self.median_zone.left.unwrap();
@@ -430,48 +426,32 @@ impl RankVector {
 
         if let (Some(x),Some(y)) = (outer_left,outer_right) {
             if (y.3 - median).abs() < (x.3 - median).abs() {
-                moved_index.0 = self.median_zone.expand_right(&self.vector);
-                moved_index.1 = self.right_zone.contract(&self.vector);
+                self.median_zone.expand_right(&self.vector);
+                self.right_zone.contract(&self.vector);
             }
             else {
-                moved_index.0 = self.median_zone.expand_left(&self.vector);
-                moved_index.1 = self.left_zone.contract(&self.vector);
+                self.median_zone.expand_left(&self.vector);
+                self.left_zone.contract(&self.vector);
             }
         }
         else {
             if outer_left.is_none() {
-                moved_index.0 = self.median_zone.expand_right(&self.vector);
-                moved_index.1 = self.right_zone.contract(&self.vector);
+                self.median_zone.expand_right(&self.vector);
+                self.right_zone.contract(&self.vector);
             }
             if outer_right.is_none() {
-                moved_index.0 = self.median_zone.expand_left(&self.vector);
-                moved_index.1 = self.left_zone.contract(&self.vector);
+                self.median_zone.expand_left(&self.vector);
+                self.left_zone.contract(&self.vector);
             }
         }
 
-        // if let (Some(m1),Some(m2)) = moved_index {
-        //     if m1 == m2 {
-        //         return Some(m1)
-        //     }
-        //     else {
-        //         eprintln!("{},{}",m1,m2);
-        //         panic!{"Mismatch of moved indecies, zones are out of sync!"}
-        //     }
-        //
-        // }
-
-        None
-
-
     }
 
-    fn contract_by_1(&mut self) -> Option<usize> {
-
-        let mut moved_index = (Some(0),Some(0));
+    #[inline]
+    fn contract_by_1(&mut self) {
 
         if self.vector.len() < 1 {
             eprintln!("Asked to contract an empty zone!");
-            return None
         }
 
         if self.vector.len() == 1 {
@@ -490,12 +470,12 @@ impl RankVector {
         let median = self.median_zone.dead_center.median();
 
         if (left.3 - median).abs() < (right.3 - median).abs() {
-            moved_index.0 = self.median_zone.contract_right(&self.vector);
-            moved_index.1 = self.right_zone.expand(&self.vector);
+            self.median_zone.contract_right(&self.vector);
+            self.right_zone.expand(&self.vector);
         }
         else {
-            moved_index.0 = self.median_zone.contract_left(&self.vector);
-            moved_index.1 = self.left_zone.expand(&self.vector);
+            self.median_zone.contract_left(&self.vector);
+            self.left_zone.expand(&self.vector);
         }
 
         // if let (Some(m1),Some(m2)) = moved_index {
@@ -508,8 +488,6 @@ impl RankVector {
         //     }
         //
         // }
-
-        None
 
     }
 
@@ -537,7 +515,11 @@ impl RankVector {
         OrderedDraw::new(self)
     }
 
-    pub fn ordered_mad(&mut self,draw_order: &Vec<usize>) -> Vec<(f64,f64)> {
+    pub fn ordered_mad(&mut self,draw_order: &Vec<usize>,drop_set: &HashSet<usize>) -> Vec<(f64,f64)> {
+
+        for dropped_sample in drop_set {
+            self.pop(*dropped_sample);
+        }
 
         let mut meds_mads = Vec::with_capacity(draw_order.len());
         for draw in draw_order {
@@ -548,8 +530,8 @@ impl RankVector {
         meds_mads
     }
 
-    pub fn give_draw_order(&self) -> Vec<usize> {
-        self.vector.draw_order.clone()
+    pub fn give_draw_order(&self) -> (&Vec<usize>,&HashSet<usize>) {
+        (&self.vector.draw_order,&self.vector.drop_set)
     }
 
     pub fn give_dropped_order(&self) -> Vec<usize> {
@@ -687,6 +669,7 @@ pub struct RankVector {
 
 impl MedianZone {
 
+    #[inline]
     fn expand_left(&mut self, raw_vector: &RawVector) -> Option<usize> {
         if let Some(left) = self.left {
             if let Some(new_left) = raw_vector.left(left) {
@@ -699,6 +682,7 @@ impl MedianZone {
         return None
     }
 
+    #[inline]
     fn expand_right(&mut self, raw_vector: &RawVector) -> Option<usize> {
         if let Some(right) = self.right {
             if let Some(new_right) = raw_vector.right(right) {
@@ -711,6 +695,7 @@ impl MedianZone {
         return None
     }
 
+    #[inline]
     fn contract_left(&mut self, raw_vector: &RawVector) -> Option<usize> {
         if let Some(left) = self.left {
             if let Some(new_left) = raw_vector.right(left) {
@@ -724,6 +709,7 @@ impl MedianZone {
 
     }
 
+    #[inline]
     fn contract_right(&mut self, raw_vector: &RawVector) -> Option<usize> {
         if let Some(right) = self.right {
             if let Some(new_right) = raw_vector.left(right) {
@@ -833,6 +819,7 @@ impl DeadCenter {
         }
     }
 
+    #[inline]
     pub fn move_left(&mut self, raw_vector: &RawVector) {
         if self.left == self.right {
             if let Some(left) = self.left{
@@ -844,6 +831,7 @@ impl DeadCenter {
         }
     }
 
+    #[inline]
     pub fn move_right (&mut self, raw_vector: &RawVector) {
         if self.left == self.right {
             if let Some(right) = self.right {
@@ -855,6 +843,7 @@ impl DeadCenter {
         }
     }
 
+    #[inline]
     pub fn re_center(&mut self, target:&usize, raw_vector: &RawVector) -> (f64,f64) {
 
         // println!("Re-center debug 1: {},{}", self.left.unwrap_or((0,0,0,0.,0)).1,self.right.unwrap_or((0,0,0,0.,0)).1);
@@ -891,6 +880,7 @@ impl DeadCenter {
         (old_median,new_median)
     }
 
+    #[inline]
     pub fn median(&self) -> f64 {
         (self.left.unwrap_or((0,0,0,0.,0)).3 + self.right.unwrap_or((0,0,0,0.,0)).3)/2.
     }
@@ -909,6 +899,8 @@ pub struct DeadCenter {
 }
 
 impl LeftZone {
+
+    #[inline]
     fn expand(&mut self,raw_vector:&RawVector) -> Option<usize> {
         if let Some(right) = self.right {
             if let Some(new_right) = raw_vector.right_ind(right) {
@@ -934,6 +926,7 @@ impl LeftZone {
         }
     }
 
+    #[inline]
     fn contract(&mut self, raw_vector: &RawVector) -> Option<usize> {
         if let Some(right) = self.right{
             let new_right = raw_vector.left_ind(right);
@@ -966,6 +959,8 @@ pub struct LeftZone{
 }
 
 impl RightZone {
+
+    #[inline]
     fn expand(&mut self,raw_vector:&RawVector) -> Option<usize> {
         if let Some(left) = self.left {
             if let Some(new_left) = raw_vector.left_ind(left) {
@@ -991,6 +986,7 @@ impl RightZone {
         }
     }
 
+    #[inline]
     fn contract(&mut self, raw_vector: &RawVector) -> Option<usize> {
         if let Some(left) = self.left {
             let new_left = raw_vector.right_ind(left);

@@ -77,7 +77,7 @@ impl Node {
 
             minima.push( {
 
-                self.output_table.parallel_split_order(draw_order,&self.feature_weights,self.feature_pool.clone()).unwrap_or((0,f64::INFINITY))
+                self.output_table.parallel_split_order(draw_order.0,draw_order.1,&self.feature_weights,self.feature_pool.clone()).unwrap_or((0,f64::INFINITY))
 
             } );
 
@@ -93,7 +93,7 @@ impl Node {
 
         let split_order = self.input_table.sort_by_feature(&best_feature);
 
-        let split_sample_index = split_order[split_index];
+        let split_sample_index = split_order.0[split_index];
 
         let split_value = self.input_table.feature_fetch(&best_feature,split_sample_index);
 
@@ -102,7 +102,7 @@ impl Node {
 
         println!("Best split: {:?}", (best_feature.clone(),split_index, split_value,split_dispersion));
 
-        (best_feature.clone(),split_dispersion,split_value,split_order[..split_index].iter().cloned().collect(),split_order[split_index..].iter().cloned().collect())
+        (best_feature.clone(),split_dispersion,split_value,split_order.0[..split_index].iter().cloned().collect(),split_order.0[split_index..].iter().cloned().collect())
 
     }
 
@@ -471,6 +471,10 @@ impl Node {
         &self.local_gains
     }
 
+    pub fn covs(&self) -> Vec<f64> {
+        self.dispersions.iter().zip(self.mads().iter()).map(|(d,m)| d/m).map(|x| if x.is_normal() {x} else {0.}).collect()
+    }
+
     pub fn wrap_clone(&self) -> NodeWrapper {
         self.clone().wrap_consume()
     }
@@ -698,48 +702,6 @@ pub struct NodeWrapper {
 }
 
 
-pub fn mad_minimum(forward:Vec<Vec<f64>>,reverse: Vec<Vec<f64>>, feature_weights: &Vec<f64>) -> (usize,f64) {
-
-    let x = forward.len();
-    let y = forward.get(0).unwrap_or(&vec![]).len();
-
-    // feature_weights[exclusion] = 0.;
-
-    let mut dispersions: Vec<f64> = Vec::with_capacity(x);
-
-    // println!("Dispersion split:");
-
-    for i in 0..x {
-        let mut sample_dispersions = Vec::with_capacity(y);
-        for j in 0..y {
-            let feature_dispersion = (forward[i][j] * ((x - i) as f64 / x as f64)) + (reverse[i][j] * ((i + 1) as f64/ x as f64));
-            // sample_dispersions.push(feature_dispersion * feature_weights[j])
-            sample_dispersions.push(feature_dispersion)
-
-        }
-
-        // dispersions.push(sample_dispersions.iter().sum());
-        // dispersions.push(sample_dispersions.iter().map(|x| x.powi(2)).sum());
-        dispersions.push(sample_dispersions.iter().map(|x| x.powi(2)).zip(feature_weights.iter()).map(|(x,y)| x*y).sum::<f64>() / feature_weights.iter().sum::<f64>());
-
-    }
-
-    let mut truncated: Vec<(usize,f64)> = dispersions.into_iter().enumerate().collect();
-    if truncated.len() > 6 {
-        truncated = truncated[3..truncated.len()-3].to_vec();
-    }
-    else if truncated.len() > 3 {
-        truncated = truncated[1..truncated.len()-1].to_vec();
-    }
-    else if truncated.len() > 1 {
-        truncated = truncated[1..].to_vec();
-    }
-
-    // println!("{:?}", truncated.iter().min_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Greater)).unwrap_or(&(0,0.)));
-
-    truncated.into_iter().min_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Greater)).unwrap_or((0,0.))
-
-}
 
 #[derive(Serialize,Deserialize,Clone)]
 pub struct StrippedNode {
@@ -789,6 +751,10 @@ impl StrippedNode {
 
     pub fn mads(&self) -> &Vec<f64> {
         &self.dispersions
+    }
+
+    pub fn covs(&self) -> Vec<f64> {
+        self.mads().iter().zip(self.medians().iter()).map(|(d,m)| d/m).map(|x| if x.is_normal() {x} else {0.}).collect()
     }
 
     pub fn absolute_gains(&self) -> &Option<Vec<f64>> {

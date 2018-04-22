@@ -1,4 +1,5 @@
 use std;
+use std::collections::HashSet;
 use std::sync::Arc;
 
 use std::sync::mpsc;
@@ -59,8 +60,8 @@ impl Worker{
                     let message_option = channel.lock().unwrap().recv().ok();
                     if let Some(message) = message_option {
                         match message {
-                            FeatureMessage::Message((vector,draw_order),sender) => {
-                                sender.send(compute(vector,draw_order)).expect("Failed to send feature result");
+                            FeatureMessage::Message((vector,draw_order,drop_set),sender) => {
+                                sender.send(compute(vector,draw_order,drop_set)).expect("Failed to send feature result");
                             },
                             FeatureMessage::Terminate => break
                         }
@@ -79,13 +80,13 @@ struct Worker {
 
 
 pub enum FeatureMessage {
-    Message((RankVector,Arc<Vec<usize>>), mpsc::Sender<(Vec<(f64,f64)>,RankVector)>),
+    Message((RankVector,Arc<Vec<usize>>,Arc<HashSet<usize>>), mpsc::Sender<(Vec<(f64,f64)>,RankVector)>),
     Terminate
 }
 
-fn compute (mut vector: RankVector , draw_order: Arc<Vec<usize>>) -> (Vec<(f64,f64)>,RankVector) {
+fn compute (mut vector: RankVector , draw_order: Arc<Vec<usize>> , drop_set: Arc<HashSet<usize>>) -> (Vec<(f64,f64)>,RankVector) {
 
-    let result = vector.ordered_mad(&*draw_order);
+    let result = vector.ordered_mad(&*draw_order,&*drop_set);
     vector.manual_reset();
     (result,vector)
 

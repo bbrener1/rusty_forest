@@ -31,7 +31,7 @@ pub fn compact_predict(trees: &Vec<PredictiveTree>, counts: &Vec<Vec<f64>>, feat
         for tree in trees {
             leaves.push(node_predict_leaves(&tree.root,sample,features,prediction_mode,drop_mode));
         }
-        println!("Leaves: {}", leaves.len());
+        println!("Leaves: {}", leaves.iter().flat_map(|x| x).collect::<Vec<&&StrippedNode>>().len());
 
         let sample_prediction: Vec<f64>;
 
@@ -42,7 +42,7 @@ pub fn compact_predict(trees: &Vec<PredictiveTree>, counts: &Vec<Vec<f64>>, feat
                 let sample_intervals = intervals(leaves);
                 sample_prediction = aggregate_predictions(sample_intervals, features, prediction_pool.clone());
             },
-            _ => sample_prediction = average_leaves(leaves, features),
+            _ => sample_prediction = average_leaves_squared_gain(leaves, features),
         }
         // println!("Intervals: {:?}", sample_intervals);
         predictions.push(sample_prediction);
@@ -51,6 +51,30 @@ pub fn compact_predict(trees: &Vec<PredictiveTree>, counts: &Vec<Vec<f64>>, feat
     }
 
     PredictThreadPool::terminate(&mut prediction_pool);
+
+    predictions
+}
+
+pub fn average_compact(trees: &Vec<PredictiveTree>, counts: &Vec<Vec<f64>>, features: &HashMap<String,usize>, prediction_mode: &PredictionMode,drop_mode: &DropMode) -> Vec<Vec<f64>> {
+    let mut predictions: Vec<Vec<f64>> = Vec::with_capacity(counts.len());
+    let feature_intervals: Vec<Vec<(f64,f64,f64)>> = Vec::with_capacity(features.len());
+
+
+    for sample in counts {
+
+        let mut leaves = Vec::with_capacity(trees.len()*4);
+        println!("Trees: {}",trees.len());
+        for tree in trees {
+            leaves.push(node_predict_leaves(&tree.root,sample,features,prediction_mode,drop_mode));
+        }
+        println!("Leaves: {}", leaves.iter().flat_map(|x| x).collect::<Vec<&&StrippedNode>>().len());
+
+        let sample_prediction = average_leaves_squared_gain(leaves, features);
+
+        predictions.push(sample_prediction);
+
+
+    }
 
     predictions
 }
@@ -74,11 +98,15 @@ pub fn node_predict_leaves<'a>(node: &'a StrippedNode, vector: &Vec<f64>, header
             }
         }
         else {
-            // println!("Branching");
+            // println!("Split");
+            // println!("Observing: {}", vector[header[feature]]);
+
             match prediction_mode {
                 &PredictionMode::Branch => {
+                    // println!("Mode is branching");
                     leaves.append(&mut node_predict_leaves(&node.children[0], vector, header, prediction_mode, drop_mode));
                     leaves.append(&mut node_predict_leaves(&node.children[1], vector, header, prediction_mode, drop_mode));
+                    // println!("{}", leaves.len());
                 },
                 &PredictionMode::Truncate => {
                     leaves.push(&node)
@@ -99,7 +127,7 @@ pub fn node_predict_leaves<'a>(node: &'a StrippedNode, vector: &Vec<f64>, header
 
 }
 
-pub fn average_leaves(nodes: Vec<Vec<&StrippedNode>>,features:&HashMap<String,usize>) -> Vec<f64> {
+pub fn average_leaves_squared_gain(nodes: Vec<Vec<&StrippedNode>>,features:&HashMap<String,usize>) -> Vec<f64> {
 
     let flat_nodes: Vec<&StrippedNode> = nodes.into_iter().flat_map(|x| x).collect();
 
@@ -125,6 +153,34 @@ pub fn average_leaves(nodes: Vec<Vec<&StrippedNode>>,features:&HashMap<String,us
     agg_predictions
 
 }
+
+pub fn average_leaves_cov(nodes: Vec<Vec<&StrippedNode>>,features:&HashMap<String,usize>) -> Vec<f64> {
+
+    let flat_nodes: Vec<&StrippedNode> = nodes.into_iter().flat_map(|x| x).collect();
+
+    let mut predictions: HashMap<&String,Vec<(f64,f64)>> = HashMap::new();
+
+    for node in flat_nodes {
+        for (feature,(median,cov)) in node.features().iter().zip(node.medians().iter().zip(node.covs())) {
+            predictions.entry(feature).or_insert(Vec::new()).push((*median,cov));
+        }
+    }
+
+    let mut agg_predictions = vec![0.;features.len()];
+
+    for (feature,values) in predictions {
+        let sum = values.iter().fold((0.,0.),|acc,x| (acc.0 + (x.0 * (1./x.1.max(0.))).powi(2), acc.1 + (1./x.1.max(0.)).powi(2)));
+        let mut mean = sum.0 / sum.1;
+        if mean.is_nan() {
+            mean = 0.;
+        }
+        agg_predictions[features[feature]] = mean;
+    }
+
+    agg_predictions
+
+}
+
 
 pub fn intervals<'a>(nodes: Vec<Vec<&'a StrippedNode>>) -> HashMap<&String,Vec<(f64,f64,f64)>> {
 
