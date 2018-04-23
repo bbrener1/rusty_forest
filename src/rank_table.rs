@@ -335,7 +335,7 @@ impl RankTable {
 
         }
 
-        Some(gain_maximum(forward_covs, reverse_covs, feature_weights, self.sample_names.len()))
+        Some(gain_maximum(forward_covs, reverse_covs, feature_weights))
 
     }
 
@@ -392,7 +392,7 @@ pub fn mad_minimum(forward:Vec<Vec<f64>>,reverse: Vec<Vec<f64>>, feature_weights
 
 }
 
-pub fn gain_maximum(forward:Vec<Vec<f64>>,reverse: Vec<Vec<f64>>, feature_weights: &Vec<f64>, total_samples: usize) -> (usize,f64) {
+pub fn gain_maximum(forward:Vec<Vec<f64>>,reverse: Vec<Vec<f64>>, feature_weights: &Vec<f64>) -> (usize,f64) {
 
     let mut gains: Vec<f64> = Vec::with_capacity(forward.len());
 
@@ -400,7 +400,7 @@ pub fn gain_maximum(forward:Vec<Vec<f64>>,reverse: Vec<Vec<f64>>, feature_weight
         let mut sample_gains = Vec::with_capacity(forward[i].len());
 
         for j in 0..forward[i].len() {
-            let feature_gain = (forward[i][j] * ((total_samples - i) as f64 / total_samples as f64)) + (reverse[i][j] * ((i + 1) as f64/ total_samples as f64));
+            let feature_gain = (forward[i][j] * ((forward.len() - i) as f64 / forward.len() as f64)) + (reverse[i][j] * ((i + 1) as f64/ forward.len() as f64));
 
             sample_gains.push(feature_gain.powi(2) * feature_weights[j])
 
