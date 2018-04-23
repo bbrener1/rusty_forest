@@ -83,6 +83,7 @@ impl RawVector {
 
     }
 
+    #[inline]
     pub fn pop(&mut self, i:usize) -> (usize,usize,usize,f64,usize) {
 
         let left = self.left_ind(i);
@@ -206,15 +207,18 @@ impl RawVector {
         self.drop_none()
     }
 
+    #[inline]
     pub fn crawl_right(&self,first:usize) -> RightVectCrawler {
         // println!("{:?}",self.first);
         RightVectCrawler{index : Some(first), vector : &self.vector}
     }
 
+    #[inline]
     pub fn crawl_left(&self, first:usize) -> LeftVectCrawler {
         LeftVectCrawler{index : Some(first), vector : &self.vector}
     }
 
+    #[inline]
     pub fn left_to_right(&self) -> RightVectCrawler {
         if let Some(first) = self.first {
             return self.crawl_right(first)
@@ -223,6 +227,7 @@ impl RawVector {
 
     }
 
+    #[inline]
     pub fn right_to_left(&self) -> LeftVectCrawler {
         if let Some(last) = self.last {
             return self.crawl_left(last)
@@ -517,6 +522,8 @@ pub struct RawVectDropNone<'a> {
 // Crawls right from a given node
 
 impl<'a> RightVectCrawler<'a> {
+
+    #[inline]
     fn new(input: &'a Vec<(usize,usize,usize,f64,usize)>, first: usize) -> RightVectCrawler {
         RightVectCrawler{vector: input, index: Some(first)}
     }
@@ -528,6 +535,7 @@ impl<'a> RightVectCrawler<'a> {
 impl<'a> Iterator for RightVectCrawler<'a> {
     type Item = &'a (usize,usize,usize,f64,usize);
 
+    #[inline]
     fn next(&mut self) -> Option<&'a (usize,usize,usize,f64,usize)> {
 
         if let Some(index) = self.index {
@@ -554,6 +562,8 @@ pub struct RightVectCrawler<'a> {
 // Crawls left from a given node
 
 impl<'a> LeftVectCrawler<'a> {
+
+    #[inline]
     fn new(input: &'a Vec<(usize,usize,usize,f64,usize)>, first: usize) -> LeftVectCrawler {
         LeftVectCrawler{vector: input, index: Some(first)}
     }
@@ -565,6 +575,7 @@ impl<'a> LeftVectCrawler<'a> {
 impl<'a> Iterator for LeftVectCrawler<'a> {
     type Item = &'a (usize,usize,usize,f64,usize);
 
+    #[inline]
     fn next(&mut self) -> Option<&'a (usize,usize,usize,f64,usize)> {
 
         if let Some(index) = self.index {

@@ -238,12 +238,14 @@ impl RankVector {
 
     pub fn pop(&mut self, target: usize) -> (usize,usize,usize,f64,usize) {
 
-        // let start_time = time::PreciseTime::now();
-
+        // println!("target:{}", target);
+        // println!("median:{:?}", self.median_zone.dead_center);
+        // println!("indecies:{:?}", self.vector.left_to_right().collect::<Vec<&(usize,usize,usize,f64,usize)>>());
 
         if self.vector.drop_set.contains(&target) {
             return self.vector[target]
         }
+
         if self.median_zone.index_set.contains(&target) {
             if self.vector.len() < 2 {
                 self.median_zone.dead_center.left = Some((0,0,0,0.,0));
@@ -283,20 +285,11 @@ impl RankVector {
         let medians = self.median_zone.dead_center.re_center(&target, &self.vector);
         let removed = self.vector.pop(target);
 
-        // let start_time = time::PreciseTime::now();
         self.zone_balance();
-        // let end_time = time::PreciseTime::now();
-        // if target == 300 {
-        //     println!("Time for a zone balance: {}ns", start_time.to(end_time).num_nanoseconds().unwrap_or(-1));
-        // }
 
-        // let start_time = time::PreciseTime::now();
         self.zone_shift(medians.0,medians.1);
-        // let end_time = time::PreciseTime::now();
-        // if target == 300 {
-        //     println!("Time for a zone shift: {}ns", start_time.to(end_time).num_nanoseconds().unwrap_or(-1));
-        // }
 
+        // println!("median:{:?}", self.median_zone.dead_center);
 
         if (self.vector.len() != (self.median_zone.size+self.left_zone.size+self.right_zone.size)) ||
             (self.vector.len() > 0 && (self.median_zone.dead_center.left.is_none() || self.median_zone.dead_center.right.is_none())) ||
@@ -308,6 +301,9 @@ impl RankVector {
                 println!("{:?}", self);
                 panic!("State de-sync");
             }
+
+
+
 
         // let end_time = time::PreciseTime::now();
         //
@@ -530,8 +526,8 @@ impl RankVector {
         meds_mads
     }
 
-    pub fn give_draw_order(&self) -> (&Vec<usize>,&HashSet<usize>) {
-        (&self.vector.draw_order,&self.vector.drop_set)
+    pub fn give_draw_order(&self) -> (Vec<usize>,&HashSet<usize>) {
+        (self.vector.dropped_draw_order(),&self.vector.drop_set)
     }
 
     pub fn give_dropped_order(&self) -> Vec<usize> {
@@ -786,7 +782,7 @@ impl DeadCenter {
             return DeadCenter{left:None,right:None}
         }
 
-        let mut left_zone= -1i32;
+        let mut left_zone = -1i32;
         let mut right_zone = (length) as i32;
 
         let mut left = None;
@@ -846,9 +842,11 @@ impl DeadCenter {
     #[inline]
     pub fn re_center(&mut self, target:&usize, raw_vector: &RawVector) -> (f64,f64) {
 
-        // println!("Re-center debug 1: {},{}", self.left.unwrap_or((0,0,0,0.,0)).1,self.right.unwrap_or((0,0,0,0.,0)).1);
+        // println!("Re-center debug 1: {:?},{:?}", self.left,self.right);
 
         let removed = raw_vector[*target];
+
+        // println!("Removed:{:?}", removed);
 
         if raw_vector.len() < 1 {
             return (0.,0.)
@@ -873,7 +871,7 @@ impl DeadCenter {
             panic!("Dead center de-synced");
         }
 
-        // println!("Re-center debug 2: {},{}", self.left.unwrap_or((0,0,0,0.,0)).1,self.right.unwrap_or((0,0,0,0.,0)).1);
+        // println!("Re-center debug 2: {:?},{:?}", self.left,self.right);
 
         let new_median = self.median();
 

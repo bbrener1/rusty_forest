@@ -70,12 +70,10 @@ impl RankTable {
         self.dispersions().into_iter().zip(self.dispersions().into_iter()).map(|x| x.0/x.1).map(|y| if y.is_nan() {0.} else {y}).collect()
     }
 
-    pub fn sort_by_feature(& self, feature: &str) -> (&Vec<usize>,&HashSet<usize>) {
-        //
-        // println!("Dropped: {:?}", self.meta_vector[self.feature_dictionary[feature]].give_dropped_order());
-        // println!("Full: {:?}", self.meta_vector[self.feature_dictionary[feature]].give_draw_order());
-        //
+    pub fn sort_by_feature(& self, feature: &str) -> (Vec<usize>,&HashSet<usize>) {
+
         self.meta_vector[self.feature_dictionary[feature]].give_draw_order()
+
     }
 
     pub fn split_indecies_by_feature(&self, feature: &str, split: &f64) -> (Vec<usize>,Vec<usize>){
@@ -269,10 +267,10 @@ impl RankTable {
 
 
 
-    pub fn parallel_split_order(&mut self,draw_order:&Vec<usize>, drop_set: &HashSet<usize>,feature_weights:&Vec<f64>,  pool:mpsc::Sender<FeatureMessage>) -> Option<(usize,f64)> {
+    pub fn parallel_split_order(&mut self,draw_order:Vec<usize>, drop_set: &HashSet<usize>,feature_weights:&Vec<f64>,  pool:mpsc::Sender<FeatureMessage>) -> Option<(usize,f64)> {
 
         let forward_draw = Arc::new(draw_order.clone());
-        let mut reverse_draw: Arc<Vec<usize>> = Arc::new(draw_order.iter().cloned().rev().collect());
+        let mut reverse_draw: Arc<Vec<usize>> = Arc::new(draw_order.into_iter().rev().collect());
 
         let drop_arc = Arc::new(drop_set.clone());
 
@@ -364,6 +362,8 @@ pub fn mad_minimum(forward:Vec<Vec<f64>>,reverse: Vec<Vec<f64>>, feature_weights
 
             sample_dispersions.push(feature_dispersion.powi(2) * feature_weights[j])
 
+            // sample_dispersions.push(feature_dispersion * feature_weights[j])
+
         }
 
         dispersions.push(sample_dispersions.iter().sum::<f64>() / feature_weights.iter().sum::<f64>());
@@ -414,7 +414,7 @@ mod rank_table_tests {
     pub fn rank_table_simple_test() {
         let table = RankTable::new(&vec![vec![10.,-3.,0.,5.,-2.,-1.,15.,20.]], &vec!["one".to_string()], &(0..8).map(|x| x.to_string()).collect::<Vec<String>>()[..],DropMode::Zeros);
         let draw_order = table.sort_by_feature("one");
-        let mad_order = table.meta_vector[*table.feature_index("one").unwrap()].clone().ordered_mad(&draw_order);
+        let mad_order = table.meta_vector[*table.feature_index("one").unwrap()].clone().ordered_mad(&draw_order.0,draw_order.1);
         assert_eq!(mad_order, vec![(7.5,8.),(10.,5.),(12.5,5.),(15.,5.),(17.5,2.5),(20.,0.),(0.,0.)]);
     }
 
@@ -422,8 +422,9 @@ mod rank_table_tests {
     pub fn split() {
         let mut table = RankTable::new(&vec![vec![10.,-3.,0.,5.,-2.,-1.,15.,20.]], &vec!["one".to_string()], &(0..8).map(|x| x.to_string()).collect::<Vec<String>>()[..],DropMode::Zeros);
         let pool = FeatureThreadPool::new(1);
-        let draw_order = table.sort_by_feature("one");
-        println!("{:?}", table.parallel_split_order(draw_order, &vec![1.], pool));
+        let mut draw_order = {(table.sort_by_feature("one").0.iter().cloned().collect(),table.sort_by_feature("one").1.iter().cloned().collect())};
+        assert_eq!(table.parallel_split_order(draw_order.0, &draw_order.1, &vec![1.], pool).unwrap(), (1,-3.0))
+
     }
 
     #[test]
