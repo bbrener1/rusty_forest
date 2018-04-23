@@ -284,8 +284,8 @@ impl RankTable {
         let mut forward_receivers = Vec::with_capacity(self.dimensions.0);
         let mut reverse_receivers = Vec::with_capacity(self.dimensions.0);
 
-        let cd = self.dispersions();
-        let cm = self.medians();
+        // let cd = self.dispersions();
+        // let cm = self.medians();
 
         for feature in self.meta_vector.drain(..) {
             let (tx,rx) = mpsc::channel();
@@ -296,8 +296,8 @@ impl RankTable {
         for (i,fr) in forward_receivers.iter().enumerate() {
             if let Ok((disp,feature)) = fr.recv() {
                 for (j,(m,d)) in disp.into_iter().enumerate() {
-                    forward_covs[j][i] = (cd[i]/cm[i])-(d/m);
-                    // forward_covs[j][i] = (d/m).abs();
+                    // forward_covs[j][i] = (cd[i]/cm[i])-(d/m);
+                    forward_covs[j][i] = (d/m).abs();
                     // forward_covs[j][i] = d.abs();
                     if forward_covs[j][i].is_nan(){
                         forward_covs[j][i] = 0.;
@@ -320,8 +320,8 @@ impl RankTable {
         for (i,rr) in reverse_receivers.iter().enumerate() {
             if let Ok((disp,feature)) = rr.recv() {
                 for (j,(m,d)) in disp.into_iter().enumerate() {
-                    reverse_covs[reverse_draw.len() - j - 1][i] = (cd[i]/cm[i])-(d/m);
-                    // reverse_covs[reverse_draw.len() - j - 1][i] = (d/m).abs();
+                    // reverse_covs[reverse_draw.len() - j - 1][i] = (cd[i]/cm[i])-(d/m);
+                    reverse_covs[reverse_draw.len() - j - 1][i] = (d/m).abs();
                     // reverse_covs[reverse_draw.len() - j - 1][i] = d.abs();
                     if reverse_covs[reverse_draw.len() - j - 1][i].is_nan(){
                         reverse_covs[reverse_draw.len() - j - 1][i] = 0.;
@@ -335,7 +335,7 @@ impl RankTable {
 
         }
 
-        Some(gain_maximum(forward_covs, reverse_covs, feature_weights))
+        Some(mad_minimum(forward_covs, reverse_covs, feature_weights))
 
     }
 
@@ -355,7 +355,7 @@ pub struct RankTable {
     dropout: DropMode,
 }
 
-pub fn mad_minimum(forward:Vec<Vec<f64>>,reverse: Vec<Vec<f64>>, feature_weights: &Vec<f64>, total_samples: usize) -> (usize,f64) {
+pub fn mad_minimum(forward:Vec<Vec<f64>>,reverse: Vec<Vec<f64>>, feature_weights: &Vec<f64>) -> (usize,f64) {
 
     let mut dispersions: Vec<f64> = Vec::with_capacity(forward.len());
 
@@ -363,7 +363,7 @@ pub fn mad_minimum(forward:Vec<Vec<f64>>,reverse: Vec<Vec<f64>>, feature_weights
         let mut sample_dispersions = Vec::with_capacity(forward[i].len());
 
         for j in 0..forward[i].len() {
-            let feature_dispersion = (forward[i][j] * ((total_samples - i) as f64 / total_samples as f64)) + (reverse[i][j] * ((i + 1) as f64/ total_samples as f64));
+            let feature_dispersion = (forward[i][j] * ((forward.len() - i) as f64 / forward.len() as f64)) + (reverse[i][j] * ((i + 1) as f64/ forward.len() as f64));
 
             sample_dispersions.push(feature_dispersion.powi(2) * feature_weights[j])
 
