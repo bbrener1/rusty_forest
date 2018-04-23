@@ -284,6 +284,9 @@ impl RankTable {
         let mut forward_receivers = Vec::with_capacity(self.dimensions.0);
         let mut reverse_receivers = Vec::with_capacity(self.dimensions.0);
 
+        let cd = self.dispersions();
+        let cm = self.medians();
+
         for feature in self.meta_vector.drain(..) {
             let (tx,rx) = mpsc::channel();
             pool.send(FeatureMessage::Message((feature,forward_draw.clone(),drop_arc.clone()),tx));
@@ -293,8 +296,9 @@ impl RankTable {
         for (i,fr) in forward_receivers.iter().enumerate() {
             if let Ok((disp,feature)) = fr.recv() {
                 for (j,(m,d)) in disp.into_iter().enumerate() {
+                    forward_covs[j][i] = (cd[i]/cm[i])-(d/m);
                     // forward_covs[j][i] = (d/m).abs();
-                    forward_covs[j][i] = d.abs();
+                    // forward_covs[j][i] = d.abs();
                     if forward_covs[j][i].is_nan(){
                         forward_covs[j][i] = 0.;
                     }
@@ -316,8 +320,9 @@ impl RankTable {
         for (i,rr) in reverse_receivers.iter().enumerate() {
             if let Ok((disp,feature)) = rr.recv() {
                 for (j,(m,d)) in disp.into_iter().enumerate() {
+                    reverse_covs[reverse_draw.len() - j - 1][i] = (cd[i]/cm[i])-(d/m);
                     // reverse_covs[reverse_draw.len() - j - 1][i] = (d/m).abs();
-                    reverse_covs[reverse_draw.len() - j - 1][i] = d.abs();
+                    // reverse_covs[reverse_draw.len() - j - 1][i] = d.abs();
                     if reverse_covs[reverse_draw.len() - j - 1][i].is_nan(){
                         reverse_covs[reverse_draw.len() - j - 1][i] = 0.;
                     }
@@ -330,7 +335,7 @@ impl RankTable {
 
         }
 
-        Some(mad_minimum(forward_covs, reverse_covs, feature_weights, self.sample_names.len()))
+        Some(gain_maximum(forward_covs, reverse_covs, feature_weights, self.sample_names.len()))
 
     }
 
@@ -386,6 +391,44 @@ pub fn mad_minimum(forward:Vec<Vec<f64>>,reverse: Vec<Vec<f64>>, feature_weights
     truncated.into_iter().min_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Greater)).unwrap_or((0,0.))
 
 }
+
+pub fn gain_maximum(forward:Vec<Vec<f64>>,reverse: Vec<Vec<f64>>, feature_weights: &Vec<f64>, total_samples: usize) -> (usize,f64) {
+
+    let mut gains: Vec<f64> = Vec::with_capacity(forward.len());
+
+    for i in 0..forward.len() {
+        let mut sample_gains = Vec::with_capacity(forward[i].len());
+
+        for j in 0..forward[i].len() {
+            let feature_gain = (forward[i][j] * ((total_samples - i) as f64 / total_samples as f64)) + (reverse[i][j] * ((i + 1) as f64/ total_samples as f64));
+
+            sample_gains.push(feature_gain.powi(2) * feature_weights[j])
+
+            // sample_gains.push(feature_gain * feature_weights[j])
+
+        }
+
+        gains.push(sample_gains.iter().sum::<f64>() / feature_weights.iter().sum::<f64>());
+
+    }
+
+    let mut truncated: Vec<(usize,f64)> = gains.into_iter().enumerate().collect();
+    if truncated.len() > 6 {
+        truncated = truncated[3..truncated.len()-3].to_vec();
+    }
+    else if truncated.len() > 3 {
+        truncated = truncated[1..truncated.len()-1].to_vec();
+    }
+    else if truncated.len() > 1 {
+        truncated = truncated[1..].to_vec();
+    }
+
+    // println!("{:?}", truncated.iter().min_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Greater)).unwrap_or(&(0,0.)));
+
+    truncated.into_iter().max_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Greater)).unwrap_or((0,0.))
+
+}
+
 
 
 #[cfg(test)]
