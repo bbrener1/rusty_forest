@@ -7,14 +7,32 @@ use std::mem::swap;
 use std::sync::mpsc;
 use feature_thread_pool::FeatureMessage;
 extern crate rand;
+use square_mtx_ip;
+use std::f64;
 
 
 use rank_vector::RankVector;
 use DropMode;
+use Parameters;
+
+
+#[derive(Serialize,Deserialize,Debug,Clone)]
+pub struct RankTable {
+    meta_vector: Vec<RankVector>,
+    pub feature_names: Vec<String>,
+    pub sample_names: Vec<String>,
+    feature_dictionary: HashMap<String,usize>,
+    sample_dictionary: HashMap<String,usize>,
+    draw_order: Vec<usize>,
+    index: usize,
+    pub dimensions: (usize,usize),
+    dropout: DropMode,
+}
+
 
 impl RankTable {
 
-    pub fn new<'a> (counts: &Vec<Vec<f64>>,feature_names:&'a [String],sample_names:&'a [String],dropout:DropMode) -> RankTable {
+    pub fn new<'a> (counts: &Vec<Vec<f64>>,feature_names:&'a [String],sample_names:&'a [String], parameters:Arc<Parameters>) -> RankTable {
 
         let mut meta_vector = Vec::new();
 
@@ -29,7 +47,7 @@ impl RankTable {
             // println!("Starting to iterate");
             feature_dictionary.insert(name.clone(),i);
             // println!("Updated feature dict");
-            let mut construct = RankVector::new(loc_counts,name,dropout);
+            let mut construct = RankVector::new(loc_counts,name,parameters.clone());
             // println!("Made a rank vector");
             construct.drop();
             construct.initialize();
@@ -40,7 +58,7 @@ impl RankTable {
 
         let draw_order = (0..counts.get(0).unwrap_or(&vec![]).len()).collect::<Vec<usize>>();
 
-        let dim = (meta_vector.len(),meta_vector.get(0).unwrap_or(&RankVector::new(&vec![],"".to_string(),DropMode::No)).vector.vector.len());
+        let dim = (meta_vector.len(),meta_vector.get(0).unwrap_or(&RankVector::new(&vec![],"".to_string(),Arc::new(Parameters::empty()))).vector.vector.len());
 
         println!("Made rank table with {} features, {} samples:", dim.0,dim.1);
 
@@ -53,7 +71,7 @@ impl RankTable {
             dimensions:dim,
             feature_dictionary: feature_dictionary,
             sample_dictionary: sample_dictionary,
-            dropout:dropout,
+            dropout:parameters.dropout.unwrap_or(DropMode::Zeros),
         }
 
     }
@@ -265,12 +283,68 @@ impl RankTable {
         }
     }
 
+    pub fn parallel_split_order(&mut self,draw_order:Vec<usize>, drop_set: &HashSet<usize>,feature_weights:Option<&Vec<f64>>,  pool:mpsc::Sender<FeatureMessage>) -> Option<(usize,f64)> {
 
+        let (x,y) = (draw_order.len()+1,self.features().len());
 
-    pub fn parallel_split_order(&mut self,draw_order:Vec<usize>, drop_set: &HashSet<usize>,feature_weights:&Vec<f64>,  pool:mpsc::Sender<FeatureMessage>) -> Option<(usize,f64)> {
+        let cov_opt = self.parallel_covs(draw_order, drop_set, pool);
+
+        if let Some(covs) = cov_opt {
+            let mut minimum = l1_minimum(&square_mtx_ip(covs),feature_weights.unwrap_or(&vec![1.;y]));
+            minimum.0 += 1;
+            minimum.1 *= (self.dimensions.1 + 1 - x) as f64;
+
+            Some(minimum)
+        }
+        else { None }
+    }
+
+    pub fn parallel_mads(&mut self,draw_order:Vec<usize>, drop_set: &HashSet<usize>, pool:mpsc::Sender<FeatureMessage>) -> Option<Vec<Vec<f64>>> {
+
+        let len = draw_order.len()+1;
+
+        if let Some((forward_md,reverse_md)) = self.parallel_med_mads(draw_order, drop_set, pool) {
+
+            let mut w_mads: Vec<Vec<f64>> = vec![vec![0.;self.dimensions.0];len];
+
+            for (i,(f_s,r_s)) in forward_md.into_iter().zip(reverse_md.into_iter()).enumerate() {
+                for (j,((_fm,fd),(_rm,rd))) in f_s.into_iter().zip(r_s.into_iter()).enumerate() {
+                    w_mads[i][j] = (fd.abs() * ((len - i) as f64 / len as f64)) + (rd.abs() * ((i + 1) as f64/ len as f64));
+                }
+            }
+
+            Some(w_mads)
+        }
+        else { None }
+    }
+
+    pub fn parallel_covs(&mut self,draw_order:Vec<usize>, drop_set: &HashSet<usize>, pool:mpsc::Sender<FeatureMessage>) -> Option<Vec<Vec<f64>>> {
+
+        let len = draw_order.len()+1;
+
+        if let Some((forward_md,reverse_md)) = self.parallel_med_mads(draw_order, drop_set, pool) {
+
+            let mut covs: Vec<Vec<f64>> = vec![vec![0.;self.dimensions.0];len];
+
+            for (i,(f_s,r_s)) in forward_md.into_iter().zip(reverse_md.into_iter()).enumerate() {
+                for (j,((fm,fd),(rm,rd))) in f_s.into_iter().zip(r_s.into_iter()).enumerate() {
+                    let mut fw = (fd/fm);
+                    let mut rv = (rd/rm).abs();
+                    if !fw.is_normal() { fw = 0.;}
+                    if !rv.is_normal() { rv = 0.;}
+                    covs[i][j] = (fw * ((len - i) as f64 / len as f64)) + (rv * ((i + 1) as f64/ len as f64));
+                }
+            }
+
+            Some(covs)
+        }
+        else { None }
+    }
+
+    pub fn parallel_med_mads(&mut self,draw_order:Vec<usize>, drop_set: &HashSet<usize>, pool:mpsc::Sender<FeatureMessage>) -> Option<((Vec<Vec<(f64,f64)>>,Vec<Vec<(f64,f64)>>))> {
 
         let forward_draw = Arc::new(draw_order.clone());
-        let mut reverse_draw: Arc<Vec<usize>> = Arc::new(draw_order.into_iter().rev().collect());
+        let reverse_draw: Arc<Vec<usize>> = Arc::new(draw_order.into_iter().rev().collect());
 
         let drop_arc = Arc::new(drop_set.clone());
 
@@ -278,8 +352,8 @@ impl RankTable {
             return None
         }
 
-        let mut forward_covs: Vec<Vec<f64>> = vec![vec![0.;self.dimensions.0];forward_draw.len()];
-        let mut reverse_covs: Vec<Vec<f64>> = vec![vec![0.;self.dimensions.0];reverse_draw.len()];
+        let mut forward_covs: Vec<Vec<(f64,f64)>> = vec![vec![(0.,0.);self.dimensions.0];forward_draw.len()+1];
+        let mut reverse_covs: Vec<Vec<(f64,f64)>> = vec![vec![(0.,0.);self.dimensions.0];reverse_draw.len()+1];
 
         let mut forward_receivers = Vec::with_capacity(self.dimensions.0);
         let mut reverse_receivers = Vec::with_capacity(self.dimensions.0);
@@ -296,12 +370,7 @@ impl RankTable {
         for (i,fr) in forward_receivers.iter().enumerate() {
             if let Ok((disp,feature)) = fr.recv() {
                 for (j,(m,d)) in disp.into_iter().enumerate() {
-                    // forward_covs[j][i] = (cd[i]/cm[i])-(d/m);
-                    forward_covs[j][i] = (d/m).abs();
-                    // forward_covs[j][i] = d.abs();
-                    if forward_covs[j][i].is_nan(){
-                        forward_covs[j][i] = 0.;
-                    }
+                    forward_covs[j][i] = (m,d);
                 }
                 self.meta_vector.push(feature);
             }
@@ -320,12 +389,7 @@ impl RankTable {
         for (i,rr) in reverse_receivers.iter().enumerate() {
             if let Ok((disp,feature)) = rr.recv() {
                 for (j,(m,d)) in disp.into_iter().enumerate() {
-                    // reverse_covs[reverse_draw.len() - j - 1][i] = (cd[i]/cm[i])-(d/m);
-                    reverse_covs[reverse_draw.len() - j - 1][i] = (d/m).abs();
-                    // reverse_covs[reverse_draw.len() - j - 1][i] = d.abs();
-                    if reverse_covs[reverse_draw.len() - j - 1][i].is_nan(){
-                        reverse_covs[reverse_draw.len() - j - 1][i] = 0.;
-                    }
+                    reverse_covs[reverse_draw.len() - j][i] = (m,d);
                 }
                 self.meta_vector.push(feature);
             }
@@ -335,101 +399,32 @@ impl RankTable {
 
         }
 
-        Some(mad_minimum(forward_covs, reverse_covs, feature_weights))
+        Some((forward_covs, reverse_covs))
 
     }
 
 
 }
 
-#[derive(Serialize,Deserialize,Debug,Clone)]
-pub struct RankTable {
-    meta_vector: Vec<RankVector>,
-    pub feature_names: Vec<String>,
-    pub sample_names: Vec<String>,
-    feature_dictionary: HashMap<String,usize>,
-    sample_dictionary: HashMap<String,usize>,
-    draw_order: Vec<usize>,
-    index: usize,
-    pub dimensions: (usize,usize),
-    dropout: DropMode,
-}
+pub fn l2_minimum(mtx_in:&Vec<Vec<f64>>, weights: &Vec<f64>) -> (usize,f64) {
 
-pub fn mad_minimum(forward:Vec<Vec<f64>>,reverse: Vec<Vec<f64>>, feature_weights: &Vec<f64>) -> (usize,f64) {
+    let sample_sums = mtx_in.iter().map(|sample| {
+        sample.iter().enumerate().map(|(i,feature)| feature.powi(2) * weights[i]).sum::<f64>() / weights.iter().sum::<f64>()
+    }).map(|sum| if sum.is_normal() {sum} else {0.});
 
-    let mut dispersions: Vec<f64> = Vec::with_capacity(forward.len());
-
-    for i in 0..forward.len() {
-        let mut sample_dispersions = Vec::with_capacity(forward[i].len());
-
-        for j in 0..forward[i].len() {
-            let feature_dispersion = (forward[i][j] * ((forward.len() - i) as f64 / forward.len() as f64)) + (reverse[i][j] * ((i + 1) as f64/ forward.len() as f64));
-
-            sample_dispersions.push(feature_dispersion.powi(2) * feature_weights[j])
-
-            // sample_dispersions.push(feature_dispersion * feature_weights[j])
-
-        }
-
-        dispersions.push(sample_dispersions.iter().sum::<f64>() / feature_weights.iter().sum::<f64>());
-
-    }
-
-    let mut truncated: Vec<(usize,f64)> = dispersions.into_iter().enumerate().collect();
-    if truncated.len() > 6 {
-        truncated = truncated[3..truncated.len()-3].to_vec();
-    }
-    else if truncated.len() > 3 {
-        truncated = truncated[1..truncated.len()-1].to_vec();
-    }
-    else if truncated.len() > 1 {
-        truncated = truncated[1..].to_vec();
-    }
-
-    // println!("{:?}", truncated.iter().min_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Greater)).unwrap_or(&(0,0.)));
-
-    truncated.into_iter().min_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Greater)).unwrap_or((0,0.))
+    sample_sums.enumerate().skip(1).rev().skip(2).min_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Greater)).unwrap_or((0,f64::INFINITY))
 
 }
 
-pub fn gain_maximum(forward:Vec<Vec<f64>>,reverse: Vec<Vec<f64>>, feature_weights: &Vec<f64>) -> (usize,f64) {
+pub fn l1_minimum(mtx_in:&Vec<Vec<f64>>, weights: &Vec<f64>) -> (usize,f64) {
 
-    let mut gains: Vec<f64> = Vec::with_capacity(forward.len());
+    let sample_sums = mtx_in.iter().map(|sample| {
+        sample.iter().enumerate().map(|(i,feature)| feature * weights[i] ).sum::<f64>() / weights.iter().sum::<f64>()
+    }).map(|sum| if sum.is_normal() {sum} else {0.});
 
-    for i in 0..forward.len() {
-        let mut sample_gains = Vec::with_capacity(forward[i].len());
-
-        for j in 0..forward[i].len() {
-            let feature_gain = (forward[i][j] * ((forward.len() - i) as f64 / forward.len() as f64)) + (reverse[i][j] * ((i + 1) as f64/ forward.len() as f64));
-
-            sample_gains.push(feature_gain.powi(2) * feature_weights[j])
-
-            // sample_gains.push(feature_gain * feature_weights[j])
-
-        }
-
-        gains.push(sample_gains.iter().sum::<f64>() / feature_weights.iter().sum::<f64>());
-
-    }
-
-    let mut truncated: Vec<(usize,f64)> = gains.into_iter().enumerate().collect();
-    if truncated.len() > 6 {
-        truncated = truncated[3..truncated.len()-3].to_vec();
-    }
-    else if truncated.len() > 3 {
-        truncated = truncated[1..truncated.len()-1].to_vec();
-    }
-    else if truncated.len() > 1 {
-        truncated = truncated[1..].to_vec();
-    }
-
-    // println!("{:?}", truncated.iter().min_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Greater)).unwrap_or(&(0,0.)));
-
-    truncated.into_iter().max_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Greater)).unwrap_or((0,0.))
+    sample_sums.enumerate().skip(1).rev().skip(2).min_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Greater)).unwrap_or((0,f64::INFINITY))
 
 }
-
-
 
 #[cfg(test)]
 mod rank_table_tests {
@@ -458,7 +453,7 @@ mod rank_table_tests {
         let table = RankTable::new(&vec![vec![10.,-3.,0.,5.,-2.,-1.,15.,20.]], &vec!["one".to_string()], &(0..8).map(|x| x.to_string()).collect::<Vec<String>>()[..],DropMode::Zeros);
         let draw_order = table.sort_by_feature("one");
         let mad_order = table.meta_vector[*table.feature_index("one").unwrap()].clone().ordered_mad(&draw_order.0,draw_order.1);
-        assert_eq!(mad_order, vec![(7.5,8.),(10.,5.),(12.5,5.),(15.,5.),(17.5,2.5),(20.,0.),(0.,0.)]);
+        assert_eq!(mad_order, vec![(5.0,7.0),(7.5,8.),(10.,5.),(12.5,5.),(15.,5.),(17.5,2.5),(20.,0.),(0.,0.)]);
     }
 
     #[test]
@@ -466,7 +461,11 @@ mod rank_table_tests {
         let mut table = RankTable::new(&vec![vec![10.,-3.,0.,5.,-2.,-1.,15.,20.]], &vec!["one".to_string()], &(0..8).map(|x| x.to_string()).collect::<Vec<String>>()[..],DropMode::Zeros);
         let pool = FeatureThreadPool::new(1);
         let mut draw_order = {(table.sort_by_feature("one").0.iter().cloned().collect(),table.sort_by_feature("one").1.iter().cloned().collect())};
-        assert_eq!(table.parallel_split_order(draw_order.0, &draw_order.1, &vec![1.], pool).unwrap(), (1,-3.0))
+
+        println!("{:?}", table.sort_by_feature("one"));
+        println!("{:?}", table.clone().parallel_med_mads(table.sort_by_feature("one").0,table.sort_by_feature("one").1,FeatureThreadPool::new(1)));
+        println!("{:?}", table.clone().parallel_covs(table.sort_by_feature("one").0,table.sort_by_feature("one").1,FeatureThreadPool::new(1)));
+        assert_eq!(table.parallel_split_order(draw_order.0, &draw_order.1, Some(&vec![1.]), pool).unwrap().0,3)
 
     }
 

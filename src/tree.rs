@@ -20,23 +20,24 @@ use feature_thread_pool::FeatureThreadPool;
 use feature_thread_pool::FeatureMessage;
 use rank_vector::RankVector;
 use DropMode;
+use Parameters;
 
 impl<'a> Tree {
 
-    pub fn prototype_tree(inputs:&Vec<Vec<f64>>,outputs:&Vec<Vec<f64>>,sample_names:&[String],input_features: &[String],output_features:&[String], feature_weight_option: Option<Vec<f64>>,size_limit:usize, dropout: DropMode ,processor_limit:usize,report_address: String) -> Tree {
+    pub fn prototype_tree(inputs:&Vec<Vec<f64>>,outputs:&Vec<Vec<f64>>,sample_names:&[String],input_features: &[String],output_features:&[String], feature_weight_option: Option<Vec<f64>>, parameters: Arc<Parameters> ,report_address: String) -> Tree {
         // let pool = ThreadPool::new(processor_limit);
-        let feature_pool = FeatureThreadPool::new(processor_limit);
+        let feature_pool = FeatureThreadPool::new(parameters.processor_limit.unwrap_or(1));
         // let mut root = Node::root(counts,feature_names,sample_names,input_features,output_features,pool.clone());
-        let root = Node::feature_root(inputs,outputs,input_features,output_features,sample_names,dropout, feature_weight_option.clone() ,feature_pool.clone());
+        let root = Node::feature_root(inputs,outputs,input_features,output_features,sample_names, parameters.clone() , feature_weight_option.clone() ,feature_pool.clone());
         let weights = feature_weight_option;
 
         Tree{
             // pool: pool,
             feature_pool: feature_pool,
             root: root,
-            dropout: dropout,
+            dropout: parameters.dropout.clone().unwrap_or(DropMode::Zeros),
             weights: weights,
-            size_limit: size_limit,
+            size_limit: parameters.leaf_size_cutoff.clone().unwrap_or(1),
             report_address: report_address
         }
     }
@@ -158,9 +159,9 @@ impl<'a> Tree {
 
     }
 
-    pub fn derive_from_prototype(&self, features:usize,samples:usize,input_features:usize,output_features:usize,iteration: usize) -> Tree {
+    pub fn derive_from_prototype(&self, samples:usize,input_features:usize,output_features:usize,iteration: usize) -> Tree {
 
-        println!("Deriving from prototype: {},{},{},{}",features,samples,input_features,output_features);
+        println!("Deriving from prototype: {},{},{}",samples,input_features,output_features);
 
         let new_root = self.root.derive_random(samples,input_features,output_features,"RT");
 
@@ -286,7 +287,7 @@ pub fn grow_branches(target:&mut Node, size_limit:usize,report_address:&str,leve
     // report_node_structure(target,report_address);
 }
 
-
+#[derive(Clone,Debug)]
 pub struct PredictiveTree {
     pub root: StrippedNode,
     dropout: DropMode,

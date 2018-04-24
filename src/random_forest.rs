@@ -15,54 +15,48 @@ use rand::seq;
 
 use PredictionMode;
 use DropMode;
+use Parameters;
 use TreeBackups;
 use feature_thread_pool::FeatureThreadPool;
 use tree_thread_pool::TreeThreadPool;
 use std::sync::mpsc::sync_channel;
+use std::sync::Arc;
 // use predictor::predict;
 use compact_predictor::compact_predict;
 use matrix_flip;
 use tsv_format;
 
 impl Forest {
-    pub fn initialize(counts:&Vec<Vec<f64>>,trees:usize,leaf_size:usize,processor_limit:usize, feature_option: Option<Vec<String>>, sample_option: Option<Vec<String>>, dropout: DropMode, report_address:&str) -> Forest {
+    pub fn initialize(counts: &Vec<Vec<f64>>, parameters: Arc<Parameters>, report_address:&str) -> Forest {
 
         let dimensions = (counts.len(),counts.first().unwrap_or(&vec![]).len());
 
-        let feature_names = feature_option.unwrap_or((0..dimensions.0).map(|x| x.to_string()).collect());
-
-        let sample_names = sample_option.unwrap_or((0..dimensions.1).map(|x| x.to_string()).collect());
-
         let report_string = format!("{}.0",report_address).to_string();
 
-        let prototype_tree = Tree::prototype_tree(&counts,&counts,&sample_names,&feature_names,&feature_names,None,leaf_size, dropout ,1,report_string);
-
-        println!("Name dimensions");
-        println!("{}",feature_names.len());
-        println!("{}",sample_names.len());
+        let prototype_tree = Tree::prototype_tree(&counts,&counts,&parameters.sample_names.as_ref().unwrap_or(&(0..dimensions.1).map(|x| x.to_string()).collect()),&parameters.feature_names.as_ref().unwrap_or(&(0..dimensions.0).map(|x| x.to_string()).collect()),&parameters.feature_names.as_ref().unwrap_or(&(0..dimensions.0).map(|x| x.to_string()).collect()),None, parameters.clone() ,report_string);
 
         prototype_tree.serialize_compact();
 
+        let tree_limit = parameters.tree_limit.unwrap_or(1);
+        let processor_limit = parameters.processor_limit.unwrap_or(1);
+
         Forest {
-            feature_names: feature_names,
-            sample_names: sample_names,
             trees: Vec::new(),
             predictive_trees: Vec::new(),
-            size: trees,
+            size: tree_limit,
             counts: counts.clone(),
             prototype_tree: Some(prototype_tree),
             processor_limit: processor_limit,
-            dropout:dropout
         }
     }
 
-    pub fn generate(&mut self, features_per_tree:usize, samples_per_tree:usize,input_features:usize,output_features:usize, remember: bool) {
+    pub fn generate(&mut self, parameters:Arc<Parameters>, remember: bool) {
 
         if let Some(ref prototype) = self.prototype_tree {
 
             let mut tree_receivers = Vec::with_capacity(self.size);
 
-            let mut tree_pool = TreeThreadPool::new(self.prototype_tree.as_ref().unwrap(),features_per_tree,samples_per_tree,input_features,output_features, self.processor_limit);
+            let mut tree_pool = TreeThreadPool::new(self.prototype_tree.as_ref().unwrap(), parameters );
 
             for tree in 1..self.size+1 {
 
@@ -116,7 +110,7 @@ impl Forest {
                 }
             }
             TreeBackups::Trees(backup_trees) => {
-                predictive_trees = backup_trees.iter().map(|tree| tree.strip()).collect();
+                predictive_trees = backup_trees;
             }
         }
 
@@ -132,10 +126,7 @@ impl Forest {
         let report_string = format!("{}.reconstituted.0",report_address).to_string();
 
         Ok (Forest {
-            feature_names: feature_names,
-            sample_names: sample_names,
             size: predictive_trees.len(),
-            dropout: prototype_tree.root.dropout(),
             prototype_tree: None,
             processor_limit: processor_option.unwrap_or(1),
             trees: Vec::new(),
@@ -167,7 +158,8 @@ impl Forest {
                 }
             }
             TreeBackups::Trees(backup_trees) => {
-                trees = backup_trees;
+                trees = vec![];
+                unimplemented!("Tree vectors for reconsitition are coming later")
             }
         }
 
@@ -183,10 +175,7 @@ impl Forest {
 
 
         Ok (Forest {
-            feature_names: feature_names,
-            sample_names: sample_names,
             size: trees.len(),
-            dropout: prototype_tree.dropout(),
             prototype_tree: Some(prototype_tree),
             processor_limit: processor_option.unwrap_or(1),
             trees: trees,
@@ -195,11 +184,11 @@ impl Forest {
         })
     }
 
-    pub fn compact_predict(&self,counts:&Vec<Vec<f64>>,feature_map: &HashMap<String,usize>,prediction_mode:&PredictionMode, drop_mode: &DropMode,report_address: &str) -> Result<Vec<Vec<f64>>,Error> {
+    pub fn compact_predict(&self,counts:&Vec<Vec<f64>>,feature_map: &HashMap<String,usize>,parameters: Arc<Parameters> ,report_address: &str) -> Result<Vec<Vec<f64>>,Error> {
 
         println!("Predicting:");
 
-        let predictions = compact_predict(&self.predictive_trees,&matrix_flip(counts),feature_map,prediction_mode,drop_mode,self.processor_limit);
+        let predictions = compact_predict(&self.predictive_trees,&matrix_flip(counts),feature_map, parameters);
 
         let mut prediction_dump = OpenOptions::new().create(true).append(true).open([report_address,".prediction"].join("")).unwrap();
         prediction_dump.write(&tsv_format(&predictions).as_bytes())?;
@@ -232,8 +221,16 @@ impl Forest {
         self.prototype_tree.as_ref().unwrap().dimensions()
     }
 
-    pub fn feature_map(&self) -> HashMap<String,usize> {
-        self.feature_names.clone().into_iter().enumerate().map(|x| (x.1,x.0)).collect()
+    pub fn input_features(&self) -> Option<&Vec<String>>  {
+        self.prototype_tree.as_ref().map(|x| x.input_features())
+    }
+
+    pub fn output_features(&self) -> Option<&Vec<String>> {
+        self.prototype_tree.as_ref().map(|x| x.output_features())
+    }
+
+    pub fn feature_map(&self) -> Option<HashMap<String,usize>> {
+        self.output_features().map(|x| x.clone().into_iter().enumerate().map(|x| (x.1,x.0)).collect())
     }
 
 }
@@ -244,15 +241,12 @@ pub enum SampleMode {
 }
 
 pub struct Forest {
-    feature_names: Vec<String>,
-    sample_names: Vec<String>,
     trees: Vec<Tree>,
     predictive_trees: Vec<PredictiveTree>,
     size: usize,
     counts: Vec<Vec<f64>>,
     prototype_tree: Option<Tree>,
     processor_limit: usize,
-    dropout: DropMode
 }
 
 fn split_shuffle<T>(source_vector: Vec<T>, pieces: usize) -> Vec<Vec<T>> {

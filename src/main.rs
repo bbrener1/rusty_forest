@@ -13,6 +13,7 @@ use std::io::stdin;
 use std::cmp::PartialOrd;
 use std::cmp::Ordering;
 use std::fmt::Debug;
+use std::sync::Arc;
 
 extern crate serde;
 extern crate serde_json;
@@ -36,7 +37,7 @@ mod boosted_forest;
 mod boosted_tree_thread_pool;
 mod additive_booster;
 
-use tree::Tree;
+use tree::PredictiveTree;
 use random_forest::Forest;
 use boosted_forest::BoostedForest;
 use additive_booster::AdditiveBooster;
@@ -100,280 +101,75 @@ fn main() {
 
     // manual_testing::test_command_predict_full();
 
+
     let mut arg_iter = env::args();
 
-    let _call_signature = arg_iter.next();
+    let command_literal = arg_iter.next();
 
-    match Command::parse(&mut arg_iter) {
-        Command::Construct(args) => construct(args),
-        Command::Predict(args) => predict(args),
-        Command::ConstructPredict(args) => combined(args),
-        Command::Gradient(args) => gradient(args)
+    let command = Command::parse(&arg_iter.next().unwrap());
+
+    let mut parameters = Parameters::read(&mut arg_iter);
+
+    parameters.command = command;
+
+    match parameters.command {
+        Command::Construct => construct(parameters),
+        Command::Predict => predict(parameters),
+        Command::Combined => combined(parameters),
+        Command::Gradient => gradient(parameters)
     }
 
 }
 
-#[derive(Debug)]
-pub enum Command {
-    Construct(ConstructionArguments),
-    Predict(PredictionArguments),
-    ConstructPredict(CombinedArguments),
-    Gradient(GradientArguments),
-}
+pub fn construct(args: Parameters) {
 
-impl Command {
+    let arc_params = Arc::new(args);
 
-    pub fn parse<T: Iterator<Item = String>> (args: &mut T) -> Command {
-
-        let command = args.next().unwrap_or("".to_string());
-
-        match &command[..] {
-            "construct" => {
-                Command::Construct(ConstructionArguments::new(args))
-            },
-            "predict" => {
-                Command::Predict(PredictionArguments::new(args))
-            },
-            "construct_predict" | "conpred" | "combined" => {
-                Command::ConstructPredict(CombinedArguments::new(args))
-            }
-            "gradient" => {
-                Command::Gradient(GradientArguments::new(args))
-            }
-            _ =>{
-                println!("Not a valid top-level command, please choose from \"construct\",\"predict\", or \"construct_predict\". Exiting");
-                panic!()
-            }
-        }
-
-    }
-
-}
-
-pub fn construct(args: ConstructionArguments) {
-
-    let mut feature_names = None;
-    let mut sample_names = None;
-
-    if let Some(ref feature_header_file) = args.feature_header_file {
-        feature_names = Some(read_header(feature_header_file));
-    }
-
-    if let Some(ref sample_header_file) = args.sample_header_file {
-        sample_names = Some(read_sample_names(sample_header_file));
-    }
-
-    println!("Argumnets parsed: {:?}", args);
+    println!("Argumnets parsed: {:?}", arc_params);
 
     println!("Reading data");
 
-    let counts: Vec<Vec<f64>> = read_counts(&args.count_array_file);
+    let counts = arc_params.counts.as_ref().unwrap();
 
-    let report_address = &args.report_address;
+    let report_address = &arc_params.report_address;
 
     println!("##############################################################################################################");
     println!("##############################################################################################################");
     println!("##############################################################################################################");
 
-    let auto_params = AutoParameters::read(&counts);
 
-    println!("Automatic parameters: {:?}", auto_params);
+    let mut rnd_forest = random_forest::Forest::initialize(counts, arc_params.clone(), report_address);
 
-    let tree_limit = args.tree_limit.unwrap_or(auto_params.trees);
-    let leaf_size_cutoff = args.leaf_size_cutoff.unwrap_or(auto_params.leaf_size_cutoff);
-    let processor_limit =  args.processor_limit.unwrap_or(auto_params.processors);
-    let dropout = args.dropout.unwrap_or(auto_params.dropout);
-
-    let mut rnd_forest = random_forest::Forest::initialize(&counts, tree_limit, leaf_size_cutoff,processor_limit, feature_names.clone(), sample_names.clone(), dropout, report_address);
-
-    let feature_subsample = args.feature_subsample.unwrap_or(auto_params.feature_subsample);
-    let sample_subsample = args.sample_subsample.unwrap_or(auto_params.sample_subsample);
-    let input_features = args.input_features.unwrap_or(auto_params.input_features);
-    let output_features = args.output_features.unwrap_or(auto_params.output_features);
-
-    let mut rnd_forest = random_forest::Forest::initialize(&counts, tree_limit, leaf_size_cutoff, processor_limit, feature_names, sample_names, dropout , report_address);
-
-    rnd_forest.generate(feature_subsample,sample_subsample,input_features,output_features,false);
+    rnd_forest.generate(arc_params.clone(),false);
 
 }
 
+pub fn predict(args: Parameters) {
 
-
-#[derive(Debug)]
-pub struct ConstructionArguments {
-
-    count_array_file: String,
-    feature_header_file: Option<String>,
-    sample_header_file: Option<String>,
-    report_address: String,
-
-    processor_limit: Option<usize>,
-    tree_limit: Option<usize>,
-    leaf_size_cutoff: Option<usize>,
-    dropout: Option<DropMode>,
-
-    feature_subsample: Option<usize>,
-    sample_subsample: Option<usize>,
-    input_features: Option<usize>,
-    output_features: Option<usize>,
-
-}
-
-impl ConstructionArguments {
-    fn new<T: Iterator<Item = String>>(args: &mut T) -> ConstructionArguments {
-
-        let mut arg_struct = ConstructionArguments {
-                    count_array_file: "".to_string(),
-                    feature_header_file: None,
-                    sample_header_file: None,
-                    report_address: "./".to_string(),
-
-                    processor_limit: None,
-                    tree_limit: None,
-                    leaf_size_cutoff: None,
-                    dropout: None,
-
-                    feature_subsample: None,
-                    sample_subsample: None,
-                    input_features: None,
-                    output_features:None,
-
-        };
-
-
-        // let mut current_arg = "";
-        // let mut current_arg_vec = Vec::new();
-        let mut supress_warnings = false;
-        while let Some((i,arg)) = args.enumerate().next() {
-            match &arg[..] {
-                "-sw" | "-suppress_warnings" => {
-                    if i!=1 {
-                        println!("If the supress warnings flag is not given first it may not function correctly!");
-                    }
-                    supress_warnings = true;
-                },
-                "-default" => {
-                    if i == 1 {
-                        arg_struct = ConstructionArguments::default_vision()
-                    }
-                    else if !supress_warnings {
-                        eprintln!("WARNING, THE DEFAULT ARGUMENT MUST BE FIRST, IT OVERRIDES ALL ARGUMENTS GIVEN BEFORE IT, PRESS ENTER TO OVERRIDE OR CTRL-C TO STOP");
-                        stdin().read_line(&mut String::new());
-                    }
-                },
-
-                "-c" | "-counts" => {
-                    arg_struct.count_array_file = args.next().expect("Error parsing count location!");
-                },
-                "-p" | "-processors" | "-threads" => {
-                    arg_struct.processor_limit = Some(args.next().expect("Error processing processor limit").parse::<usize>().expect("Error parsing processor limit"));
-                },
-                "-o" | "-output" => {
-                    arg_struct.report_address = args.next().expect("Error processing output destination")
-                },
-                "-t" | "-trees" => {
-                    arg_struct.tree_limit = Some(args.next().expect("Error processing tree count").parse::<usize>().expect("Error parsing tree count"));
-                },
-                "-l" | "-leaves" => {
-                    arg_struct.leaf_size_cutoff = Some(args.next().expect("Error processing leaf limit").parse::<usize>().expect("Error parsing leaf limit"));
-                },
-                "-d" | "-drop_mode" => {
-                    arg_struct.dropout = Some(DropMode::read(&args.next().expect("Error processing drop mode")));
-                },
-                "-f" | "-h" | "-features" | "-header" => {
-                    arg_struct.feature_header_file = Some(args.next().expect("Error processing feature file"));
-                },
-                "-s" | "-samples" => {
-                    arg_struct.sample_header_file = Some(args.next().expect("Error processing sample file"));
-                }
-                "-if" | "-in_features" => {
-                    arg_struct.input_features = Some(args.next().expect("Error processing in feature arg").parse::<usize>().expect("Error in feature  arg"));
-                },
-                "-of" | "-out_features" => {
-                    arg_struct.output_features = Some(args.next().expect("Error processing out feature arg").parse::<usize>().expect("Error out feature arg"));
-                },
-                "-fs" | "-feature_sub" => {
-                    arg_struct.feature_subsample = Some(args.next().expect("Error processing feature subsample arg").parse::<usize>().expect("Error feature subsample arg"));
-                },
-                "-ss" | "-sample_sub" => {
-                    arg_struct.sample_subsample = Some(args.next().expect("Error processing sample subsample arg").parse::<usize>().expect("Error sample subsample arg"));
-                },
-                &_ => {
-                    if !supress_warnings {
-                        eprintln!("Warning, detected unexpected argument:{}, press enter to continue",arg);
-                        stdin().read_line(&mut String::new());
-                    }
-                }
-
-            }
-        }
-
-        arg_struct
-
-    }
-
-    fn default_vision() -> ConstructionArguments {
-        ConstructionArguments {
-            count_array_file: "./counts.txt".to_string(),
-            feature_header_file: Some("./header.txt".to_string()),
-            sample_header_file: None,
-            report_address: "./test.tree.".to_string(),
-
-            processor_limit: Some(20),
-            tree_limit: Some(100),
-            leaf_size_cutoff: Some(100),
-            dropout: Some(DropMode::Zeros),
-
-            feature_subsample: Some(4773),
-            sample_subsample: Some(800),
-            input_features: Some(400),
-            output_features:Some(4773),
-        }
-
-    }
-}
-
-pub fn predict(args:PredictionArguments) {
-
+    let arc_params = Arc::new(args.clone());
     let tree_backups: TreeBackups;
 
-    if args.backup_vec.len() > 0 {
-        tree_backups = TreeBackups::Vector(args.backup_vec);
+    if args.backup_vec.as_ref().unwrap_or(&vec![]).len() > 0 {
+        tree_backups = TreeBackups::Vector(args.backup_vec.unwrap());
     }
     else {
-        tree_backups = TreeBackups::File(args.backups);
+        tree_backups = TreeBackups::File(args.backups.expect("Backup trees not provided"));
     }
 
-    let counts = read_counts(&args.count_array_file);
+    let counts = args.counts.as_ref().expect("Problem opening the matrix file (eg counts)");
+
 
     let dimensions = (counts.get(0).unwrap_or(&vec![]).len(),counts.len());
 
     let features: Vec<String>;
     let feature_map: HashMap<String,usize>;
 
-    if let Some(feature_header_file) = args.feature_header_file {
-        features = read_header(&feature_header_file);
-        feature_map = read_header(&feature_header_file).into_iter().enumerate().map(|x| (x.1,x.0)).collect();
-    }
-    else {
-        features = (0..dimensions.1).map(|x| x.to_string()).collect();
-        feature_map = (0..dimensions.1).map(|x| x.to_string()).enumerate().map(|x| (x.1,x.0)).collect();
-    }
-
-    let samples: Vec<String>;
-
-
-    // if let Some(sample_header_file)  = args.sample_header_file {
-    //     samples = read_header(sample_header_file);
-    // }
-    // else {
-    //     samples = (0..dimensions.0).map(|x| x.to_string()).collect();
-    // }
-
+    features = args.feature_names.unwrap_or((0..dimensions.1).map(|x| x.to_string()).collect());
+    feature_map = features.iter().cloned().enumerate().map(|x| (x.1,x.0)).collect();
 
     let forest = Forest::compact_reconstitute(tree_backups, Some(features), None ,None, "./").expect("Forest reconstitution failed");
 
-    let predictions = forest.compact_predict(&counts,&feature_map,&args.prediction_mode,&args.dropout_mode, &args.report_address);
+    let predictions = forest.compact_predict(&counts,&feature_map,arc_params, &args.report_address);
 
 
 }
@@ -390,7 +186,7 @@ impl PredictionMode {
     }
 }
 
-#[derive(Debug,Clone,Copy)]
+#[derive(Serialize,Deserialize,Debug,Clone,Copy)]
 pub enum PredictionMode {
     Branch,
     Truncate,
@@ -398,7 +194,7 @@ pub enum PredictionMode {
     Auto
 }
 
-#[derive(Debug,Clone,Copy)]
+#[derive(Serialize,Deserialize,Debug,Clone,Copy)]
 pub enum AveragingMode {
     Arithmetic,
     Stacking
@@ -410,6 +206,22 @@ impl AveragingMode {
             "a" | "arithmetic" | "average" => AveragingMode::Arithmetic,
             "s" | "stacking" => AveragingMode::Stacking,
             _ => panic!("Not a valid averaging mode, choose arithmetic or stacking.")
+        }
+    }
+}
+
+#[derive(Serialize,Deserialize,Debug,Clone,Copy)]
+pub enum NormMode {
+    L1,
+    L2,
+}
+
+impl NormMode {
+    pub fn read(input: &str) -> NormMode {
+        match input {
+            "1" | "L1" | "l1" => NormMode::L1,
+            "2" | "L2" | "l2" => NormMode::L2,
+            _ => panic!("Not a valid norm, choose l1 or l2")
         }
     }
 }
@@ -448,347 +260,38 @@ pub enum DropMode {
     No,
 }
 
+#[derive(Clone,Debug)]
 pub enum TreeBackups {
     File(String),
     Vector(Vec<String>),
-    Trees(Vec<Tree>)
+    Trees(Vec<PredictiveTree>)
 }
 
-#[derive(Debug)]
-pub struct PredictionArguments {
+pub fn combined(mut args:Parameters) {
 
-    prediction_mode: PredictionMode,
-    dropout_mode: DropMode,
-    backups: String,
-    backup_vec: Vec<String>,
+    let arc_params = Arc::new(args);
 
-    count_array_file: String,
-    feature_header_file: Option<String>,
-    sample_header_file: Option<String>,
-    report_address: String,
+    println!("Argumnets parsed: {:?}", arc_params);
 
-    processor_limit: usize,
+    let counts = arc_params.counts.as_ref().unwrap();
 
-}
-
-impl PredictionArguments {
-    fn new<T: Iterator<Item = String>>(args: &mut T) -> PredictionArguments {
-
-        let mut arg_struct = PredictionArguments {
-
-                    prediction_mode : PredictionMode::Branch,
-                    dropout_mode: DropMode::Zeros,
-                    backup_vec : Vec::new(),
-                    backups : "".to_string(),
-
-                    count_array_file: "".to_string(),
-                    feature_header_file: None,
-                    sample_header_file: None,
-                    report_address: "./".to_string(),
-
-                    processor_limit: 1,
-
-
-        };
-
-        let mut supress_warnings = false;
-        let mut continuation_flag = false;
-        let mut continuation_argument: String = "".to_string();
-        while let Some((i,arg)) = args.enumerate().next() {
-            if arg.clone().chars().next().unwrap_or('_') == '-' {
-                continuation_flag = false;
-
-            }
-            match &arg[..] {
-                "-sw" | "-suppress_warnings" => {
-                    if i!=1 {
-                        println!("If the supress warnings flag is not given first it may not function correctly.");
-                    }
-                    supress_warnings = true;
-                },
-                // "-default" => {
-                //     if i == 1 {
-                //     }
-                //     else if !supress_warnings {
-                //         eprintln!("WARNING, THE DEFAULT ARGUMENT OVERRIDES ALL ARGUMENTS GIVEN BEFORE IT, PRESS ENTER TO OVERRIDE OR CTRL-C TO STOP");
-                //         stdin().read_line(&mut String::new());
-                //     }
-                // },
-                "-m" | "-mode" | "-pm" | "-prediction_mode" | "-prediction" => {
-                    arg_struct.prediction_mode = PredictionMode::read(&args.next().expect("Error reading prediction mode"));
-                },
-                "-d" | "-drop" | "-dropout_mode" => {
-                    arg_struct.dropout_mode = DropMode::read(&args.next().expect("Error reading dropout mode"));
-                },
-                "-backups" | "-trees" | "-b" | "-t" => {
-                    arg_struct.backups = args.next().expect("Error parsing tree locations");
-                },
-                "-tg" | "-tree_glob" => {
-                    continuation_flag = true;
-                    continuation_argument = arg.clone();
-                }
-                "-c" | "-counts" => {
-                    arg_struct.count_array_file = args.next().expect("Error parsing count location!");
-                },
-                "-p" | "-processors" | "-threads" => {
-                    arg_struct.processor_limit = args.next().expect("Error processing processor limit").parse::<usize>().expect("Error parsing processor limit");
-                },
-                "-o" | "-output" => {
-                    arg_struct.report_address = args.next().expect("Error processing output destination")
-                },
-                "-f" | "-h" | "-features" | "-header" => {
-                    arg_struct.feature_header_file = Some(args.next().expect("Error processing feature file"));
-                },
-                "-s" | "-samples" => {
-                    arg_struct.sample_header_file = Some(args.next().expect("Error processing feature file"));
-                }
-                &_ => {
-                    if continuation_flag {
-                        match &continuation_argument[..] {
-                            "-tg" | "-tree_glob" => {
-                                arg_struct.backup_vec.push(arg);
-                            }
-                            &_ => {
-                                panic!("Continuation flag set but invalid continuation argument, debug prediction arg parse!");
-                            }
-                        }
-                    }
-                    else if !supress_warnings {
-                        eprintln!("Warning, detected unexpected argument:{}. Ignoring, press enter to continue, or CTRL-C to stop. Were you trying to input multiple arguments? Only some options take multiple arguments. Watch out for globs(*, also known as wild cards), these count as multiple arguments!",arg);
-                        stdin().read_line(&mut String::new());
-                    }
-                }
-
-            }
-        }
-
-        arg_struct
-
-    }
-}
-
-
-pub fn combined(mut args:CombinedArguments) {
-
-    let mut feature_names = None;
-    let mut sample_names = None;
-
-    if let Some(ref feature_header_file) = args.feature_header_file {
-        feature_names = Some(read_header(feature_header_file));
-    }
-
-    if let Some(ref sample_header_file) = args.sample_header_file {
-        sample_names = Some(read_sample_names(sample_header_file));
-    }
-
-    println!("Argumnets parsed: {:?}", args);
-
-    println!("Reading data");
-
-    let counts: Vec<Vec<f64>> = read_counts(&args.count_array_file);
-
-    let report_address = &args.report_address;
+    let report_address = &arc_params.report_address;
 
     println!("##############################################################################################################");
     println!("##############################################################################################################");
     println!("##############################################################################################################");
 
-    let auto_params = AutoParameters::read(&counts);
 
-    println!("Automatic parameters: {:?}", auto_params);
+    let mut rnd_forest = random_forest::Forest::initialize(counts, arc_params.clone(), &report_address);
 
-    let tree_limit = args.tree_limit.unwrap_or(auto_params.trees);
-    let leaf_size_cutoff = args.leaf_size_cutoff.unwrap_or(auto_params.leaf_size_cutoff);
-    let processor_limit =  args.processor_limit.unwrap_or(auto_params.processors);
-    let dropout = args.dropout.unwrap_or(auto_params.dropout);
-    let prediction_mode = args.mode.unwrap_or(auto_params.prediction_mode);
+    rnd_forest.generate(arc_params.clone(),true);
 
-    let mut rnd_forest = random_forest::Forest::initialize(&counts, tree_limit, leaf_size_cutoff,processor_limit, feature_names, sample_names, dropout, report_address);
-
-    let feature_subsample = args.feature_subsample.unwrap_or(auto_params.feature_subsample);
-    let sample_subsample = args.sample_subsample.unwrap_or(auto_params.sample_subsample);
-    let input_features = args.input_features.unwrap_or(auto_params.input_features);
-    let output_features = args.output_features.unwrap_or(auto_params.output_features);
-
-    rnd_forest.generate(feature_subsample,sample_subsample,input_features,output_features,true);
-
-    let dimensions = rnd_forest.dimensions();
-
-    let predictions = rnd_forest.compact_predict(&counts,&rnd_forest.feature_map(), &prediction_mode, &dropout, &report_address);
+    let predictions = rnd_forest.compact_predict(&counts, &rnd_forest.feature_map().unwrap(), arc_params.clone(), &report_address);
 
 }
 
-impl CombinedArguments {
-    fn new<T: Iterator<Item = String>>(args: &mut T) -> CombinedArguments {
 
-        let mut arg_struct = CombinedArguments {
-                    auto: false,
-                    count_array_file: "".to_string(),
-                    feature_header_file: None,
-                    sample_header_file: None,
-                    report_address: "./".to_string(),
-
-                    processor_limit: None,
-                    tree_limit: None,
-                    leaf_size_cutoff: None,
-                    dropout: None,
-
-                    feature_subsample: None,
-                    sample_subsample: None,
-                    input_features: None,
-                    output_features:None,
-                    mode: None,
-
-        };
-
-
-        // let mut current_arg = "";
-        // let mut current_arg_vec = Vec::new();
-        let mut supress_warnings = false;
-        while let Some((i,arg)) = args.enumerate().next() {
-            match &arg[..] {
-                "-sw" | "-suppress_warnings" => {
-                    if i!=1 {
-                        println!("If the supress warnings flag is not given first it may not function correctly!");
-                    }
-                    supress_warnings = true;
-                },
-                "-default" => {
-                    if i == 1 {
-                        arg_struct = CombinedArguments::default_vision()
-                    }
-                    else if !supress_warnings {
-                        eprintln!("WARNING, THE DEFAULT ARGUMENT MUST BE FIRST, IT OVERRIDES ALL ARGUMENTS GIVEN BEFORE IT, PRESS ENTER TO OVERRIDE OR CTRL-C TO STOP");
-                        stdin().read_line(&mut String::new());
-                    }
-                },
-                "-a" | "-auto" => {
-                    arg_struct.auto = true;
-                }
-                "-c" | "-counts" => {
-                    arg_struct.count_array_file = args.next().expect("Error parsing count location!");
-                },
-                "-p" | "-processors" | "-threads" => {
-                    arg_struct.processor_limit = Some(args.next().expect("Error processing processor limit").parse::<usize>().expect("Error parsing processor limit"));
-                },
-                "-o" | "-output" => {
-                    arg_struct.report_address = args.next().expect("Error processing output destination")
-                },
-                "-t" | "-trees" => {
-                    arg_struct.tree_limit = Some(args.next().expect("Error processing tree count").parse::<usize>().expect("Error parsing tree count"));
-                },
-                "-l" | "-leaves" => {
-                    arg_struct.leaf_size_cutoff = Some(args.next().expect("Error processing leaf limit").parse::<usize>().expect("Error parsing leaf limit"));
-                },
-                "-d" | "-drop_mode" => {
-                    arg_struct.dropout = Some(DropMode::read(&args.next().expect("Error processing drop mode")));
-                },
-                "-f" | "-h" | "-features" | "-header" => {
-                    arg_struct.feature_header_file = Some(args.next().expect("Error processing feature file"));
-                },
-                "-s" | "-samples" => {
-                    arg_struct.sample_header_file = Some(args.next().expect("Error processing feature file"));
-                }
-                "-if" | "-in_features" => {
-                    arg_struct.input_features = Some(args.next().expect("Error processing in feature arg").parse::<usize>().expect("Error in feature  arg"));
-                },
-                "-of" | "-out_features" => {
-                    arg_struct.output_features = Some(args.next().expect("Error processing out feature arg").parse::<usize>().expect("Error out feature arg"));
-                },
-                "-fs" | "-feature_sub" => {
-                    arg_struct.feature_subsample = Some(args.next().expect("Error processing feature subsample arg").parse::<usize>().expect("Error feature subsample arg"));
-                },
-                "-ss" | "-sample_sub" => {
-                    arg_struct.sample_subsample = Some(args.next().expect("Error processing sample subsample arg").parse::<usize>().expect("Error sample subsample arg"));
-                },
-                "-m" | "-mode" | "-pm" | "-prediction_mode" | "-prediction" => {
-                    arg_struct.mode = Some(PredictionMode::read(&args.next().expect("Error reading prediction mode")));
-                },
-                &_ => {
-                    if !supress_warnings {
-                        eprintln!("Warning, detected unexpected argument:{}, press enter to continue",arg);
-                        stdin().read_line(&mut String::new());
-                    }
-                }
-
-            }
-        }
-
-        arg_struct
-
-    }
-
-    fn default_vision() -> CombinedArguments {
-        CombinedArguments {
-            auto:false,
-            count_array_file: "./counts.txt".to_string(),
-            feature_header_file: Some("./header.txt".to_string()),
-            sample_header_file: None,
-            report_address: "./test.tree.".to_string(),
-
-            processor_limit: Some(20),
-            tree_limit: Some(100),
-            leaf_size_cutoff: Some(100),
-            dropout: Some(DropMode::Zeros),
-
-            feature_subsample: Some(4773),
-            sample_subsample: Some(800),
-            input_features: Some(400),
-            output_features:Some(4773),
-            mode: Some(PredictionMode::Branch),
-        }
-
-    }
-
-}
-
-#[derive(Debug)]
-pub struct CombinedArguments {
-    auto: bool,
-    count_array_file: String,
-    feature_header_file: Option<String>,
-    sample_header_file: Option<String>,
-    report_address: String,
-
-    processor_limit: Option<usize>,
-    tree_limit: Option<usize>,
-    leaf_size_cutoff: Option<usize>,
-    dropout: Option<DropMode>,
-
-    feature_subsample: Option<usize>,
-    sample_subsample: Option<usize>,
-    input_features: Option<usize>,
-    output_features: Option<usize>,
-
-    mode: Option<PredictionMode>,
-
-}
-
-#[derive(Debug)]
-pub struct GradientArguments {
-    auto: bool,
-    count_array_file: String,
-    feature_header_file: Option<String>,
-    sample_header_file: Option<String>,
-    report_address: String,
-
-    processor_limit: Option<usize>,
-    epoch_size: Option<usize>,
-    epochs: Option<usize>,
-    leaf_size_cutoff: Option<usize>,
-    dropout: Option<DropMode>,
-    boost_mode: Option<BoostMode>,
-
-    feature_subsample: Option<usize>,
-    sample_subsample: Option<usize>,
-    input_features: Option<usize>,
-    output_features: Option<usize>,
-
-    mode: Option<PredictionMode>,
-
-}
-
-#[derive(Debug)]
+#[derive(Clone,Debug)]
 pub enum BoostMode {
     Additive,
     Subsampling,
@@ -808,153 +311,30 @@ impl BoostMode {
 
 }
 
-impl GradientArguments {
-    fn new<T: Iterator<Item = String>>(args: &mut T) -> GradientArguments {
-
-        let mut arg_struct = GradientArguments {
-                    auto: false,
-                    count_array_file: "".to_string(),
-                    feature_header_file: None,
-                    sample_header_file: None,
-                    report_address: "./".to_string(),
-
-                    processor_limit: None,
-                    epoch_size: None,
-                    epochs:None,
-                    leaf_size_cutoff: None,
-                    dropout: None,
-                    boost_mode: None,
-
-                    feature_subsample: None,
-                    sample_subsample: None,
-                    input_features: None,
-                    output_features:None,
-                    mode: None,
-
-        };
-
-
-        // let mut current_arg = "";
-        // let mut current_arg_vec = Vec::new();
-        let mut supress_warnings = false;
-        while let Some((i,arg)) = args.enumerate().next() {
-            match &arg[..] {
-                "-sw" | "-suppress_warnings" => {
-                    if i!=1 {
-                        println!("If the supress warnings flag is not given first it may not function correctly!");
-                    }
-                    supress_warnings = true;
-                },
-                "-a" | "-auto" => {
-                    arg_struct.auto = true;
-                }
-                "-c" | "-counts" => {
-                    arg_struct.count_array_file = args.next().expect("Error parsing count location!");
-                },
-                "-p" | "-processors" | "-threads" => {
-                    arg_struct.processor_limit = Some(args.next().expect("Error processing processor limit").parse::<usize>().expect("Error parsing processor limit"));
-                },
-                "-o" | "-output" => {
-                    arg_struct.report_address = args.next().expect("Error processing output destination")
-                },
-                "-e" | "-epochs" => {
-                    arg_struct.epochs = Some(args.next().expect("Error reading number of epochs").parse::<usize>().expect("-e not a number"));
-                },
-                "-es" | "-ed" | "-epoch_duration" => {
-                    arg_struct.epoch_size = Some(args.next().expect("Error reading epoch duration").parse::<usize>().expect("-ed not a number"));
-                },
-                "-b" | "-boost_mode" => {
-                    arg_struct.boost_mode = Some(BoostMode::read(&args.next().expect("Failed to read boost mode")));
-                }
-                "-l" | "-leaves" => {
-                    arg_struct.leaf_size_cutoff = Some(args.next().expect("Error processing leaf limit").parse::<usize>().expect("Error parsing leaf limit"));
-                },
-                "-d" | "-drop_mode" => {
-                    arg_struct.dropout = Some(DropMode::read(&args.next().expect("Error processing drop mode")));
-                },
-                "-f" | "-h" | "-features" | "-header" => {
-                    arg_struct.feature_header_file = Some(args.next().expect("Error processing feature file"));
-                },
-                "-s" | "-samples" => {
-                    arg_struct.sample_header_file = Some(args.next().expect("Error processing feature file"));
-                }
-                "-if" | "-in_features" => {
-                    arg_struct.input_features = Some(args.next().expect("Error processing in feature arg").parse::<usize>().expect("Error in feature  arg"));
-                },
-                "-of" | "-out_features" => {
-                    arg_struct.output_features = Some(args.next().expect("Error processing out feature arg").parse::<usize>().expect("Error out feature arg"));
-                },
-                "-fs" | "-feature_sub" => {
-                    arg_struct.feature_subsample = Some(args.next().expect("Error processing feature subsample arg").parse::<usize>().expect("Error feature subsample arg"));
-                },
-                "-ss" | "-sample_sub" => {
-                    arg_struct.sample_subsample = Some(args.next().expect("Error processing sample subsample arg").parse::<usize>().expect("Error sample subsample arg"));
-                },
-                "-m" | "-mode" | "-pm" | "-prediction_mode" | "-prediction" => {
-                    arg_struct.mode = Some(PredictionMode::read(&args.next().expect("Error reading prediction mode")));
-                },
-                &_ => {
-                    if !supress_warnings {
-                        eprintln!("Warning, detected unexpected argument:{}, press enter to continue",arg);
-                        stdin().read_line(&mut String::new());
-                    }
-                }
-
-            }
-        }
-
-        arg_struct
-
-    }
-}
-
-fn gradient(args: GradientArguments) {
+fn gradient(args: Parameters) {
 
 
     println!("Read arguments: {:?}", args);
 
+    let arc_params = Arc::new(args.clone());
+
     let counts = read_counts(&args.count_array_file);
-
-    let mut feature_names = None;
-    let mut sample_names = None;
-
-    if let Some(ref feature_header_file) = args.feature_header_file {
-        feature_names = Some(read_header(feature_header_file));
-    }
-
-    if let Some(ref sample_header_file) = args.sample_header_file {
-        sample_names = Some(read_sample_names(sample_header_file));
-    }
 
     let report_address = args.report_address;
 
-    let auto_params = AutoParameters::read(&counts);
-
-    println!("Automatic parameters: {:?}", auto_params);
-
-    let epoch_size = args.epoch_size.unwrap_or(100);
-    let epochs = args.epochs.unwrap_or(3);
-    let leaf_size_cutoff = args.leaf_size_cutoff.unwrap_or(auto_params.leaf_size_cutoff);
-    let input_features = args.input_features.unwrap_or(auto_params.input_features);
-    let output_features = args.output_features.unwrap_or(auto_params.output_features);
-    let sample_subsample = args.sample_subsample.unwrap_or(auto_params.sample_subsample);
-    let processor_limit = args.processor_limit.unwrap_or(auto_params.processors);
-    let dropout = args.dropout.unwrap_or(auto_params.dropout);
-    let prediction_mode = args.mode.unwrap_or(auto_params.prediction_mode);
     let boost_mode = args.boost_mode.unwrap_or(BoostMode::Subsampling);
 
     match boost_mode {
         BoostMode::Additive => {
-            let mut forest = AdditiveBooster::initialize(&counts, epoch_size, leaf_size_cutoff, epochs, processor_limit, feature_names, sample_names, dropout, prediction_mode, &report_address);
+            let mut forest = AdditiveBooster::initialize(&counts, arc_params.clone() , &report_address);
 
-            forest.additive_growth(input_features,output_features,sample_subsample);
-            forest.compact_predict(&counts, &forest.feature_map(), &prediction_mode, &dropout, &report_address);
+            forest.additive_growth(arc_params.clone());
+            forest.compact_predict(&counts, &forest.feature_map(), arc_params , &report_address);
         },
         BoostMode::Subsampling => {
-            let mut forest = BoostedForest::initialize(&counts, epoch_size, leaf_size_cutoff, epochs, processor_limit, feature_names, sample_names, dropout, prediction_mode, &report_address);
-
-            forest.grow_forest();
-            forest.compact_predict(&counts, &forest.feature_map(), &prediction_mode, &dropout, &report_address);
+            let mut forest = BoostedForest::initialize(&counts, arc_params.clone() , &report_address);
+            forest.grow_forest(arc_params.clone());
+            forest.compact_predict(&counts, &forest.feature_map(), arc_params, &report_address);
         }
     }
 
@@ -1021,134 +401,17 @@ fn read_counts(location:&str) -> Vec<Vec<f64>> {
 
 }
 
-#[derive(Debug)]
-struct AutoParameters {
-    input_features: usize,
-    output_features: usize,
-    feature_subsample: usize,
-    sample_subsample: usize,
-    trees: usize,
-    leaf_size_cutoff: usize,
-    processors: usize,
-    dropout: DropMode,
-    prediction_mode: PredictionMode,
 
-}
-
-impl AutoParameters {
-
-    fn read(counts:&Vec<Vec<f64>>) -> AutoParameters {
-        let features = counts.len();
-        let samples = counts.get(0).unwrap_or(&vec![]).len();
-
-        let input_features: usize;
-        let output_features: usize;
-
-        if features < 3 {
-            input_features = 1;
-            output_features = features;
-        }
-        else if features < 6 {
-            input_features = features-1;
-            output_features = features;
-
-        }
-        else if features < 25 {
-            input_features = features-3;
-            output_features = features;
-
-        }
-        else if features < 100 {
-            input_features = features/3;
-            output_features = features;
-
-        }
-        else if features < 1000 {
-            input_features = features/5;
-            output_features = features/2;
-
-        }
-        else if features < 10000 {
-            input_features = features/10;
-            output_features = features/4;
-
-        }
-        else {
-            input_features = features/20;
-            output_features = features/8;
-        }
-
-        let feature_subsample = output_features;
-
-        let sample_subsample: usize;
-
-        if samples < 10 {
-            eprintln!("Warning, you seem to be using suspiciously few samples, are you sure you specified the right file? If so, trees may not be the right solution to your problem.");
-            sample_subsample = samples;
-        }
-        else if samples < 1000 {
-            sample_subsample = (samples/3)*2;
-        }
-        else if samples < 5000 {
-            sample_subsample = samples/2;
-        }
-        else {
-            sample_subsample = samples/4;
-        }
-
-        let leaf_size_cutoff = ((sample_subsample as f64).sqrt() as usize);
-
-        let trees = 100;
-
-        let processors = num_cpus::get();
-
-        let dropout: DropMode;
-
-        if counts.iter().flat_map(|x| x).any(|x| x.is_nan()) {
-            dropout = DropMode::NaNs;
-        }
-        else if counts.iter().flat_map(|x| x.iter().map(|y| if *y == 0. {1.} else {0.})).sum::<f64>() > ((samples * features) as f64 / 4.) {
-            dropout = DropMode::Zeros;
-        }
-        else {
-            dropout = DropMode::No;
-        }
-
-        let prediction_mode: PredictionMode;
-
-        if counts.iter().flat_map(|x| x.iter().map(|y| if *y != 0. {1.} else {0.})).sum::<f64>() < ((samples * features) as f64 / 4.) {
-            prediction_mode = PredictionMode::Abort;
-        }
-        else if counts.iter().flat_map(|x| x.iter().map(|y| if *y != 0. {1.} else {0.})).sum::<f64>() < ((samples * features) as f64 / 2.) {
-            prediction_mode = PredictionMode::Truncate;
-        }
-        else {
-            prediction_mode = PredictionMode::Branch;
-        }
-
-        AutoParameters {
-            feature_subsample: feature_subsample,
-            input_features: input_features,
-            output_features: output_features,
-            sample_subsample: sample_subsample,
-            trees: trees,
-            leaf_size_cutoff: leaf_size_cutoff,
-            processors: processors,
-            dropout: dropout,
-            prediction_mode: prediction_mode,
-        }
-
-    }
-
-}
-
+#[derive(Debug,Clone)]
 pub struct Parameters {
     auto: bool,
-    command: Commandtmp,
+    command: Command,
     count_array_file: String,
-    count_array: Option<Vec<Vec<f64>>>,
+    counts: Option<Vec<Vec<f64>>>,
     feature_header_file: Option<String>,
+    feature_names: Option<Vec<String>>,
     sample_header_file: Option<String>,
+    sample_names: Option<Vec<String>>,
     report_address: String,
 
     processor_limit: Option<usize>,
@@ -1163,6 +426,7 @@ pub struct Parameters {
 
     prediction_mode: Option<PredictionMode>,
     averaging_mode: Option<AveragingMode>,
+    norm_mode: Option<NormMode>,
 
     backups: Option<String>,
     backup_vec: Option<Vec<String>>,
@@ -1178,11 +442,13 @@ impl Parameters {
     pub fn empty() -> Parameters {
         let arg_struct = Parameters {
             auto: false,
-            command: Commandtmp::Gradient,
+            command: Command::Gradient,
             count_array_file: "".to_string(),
-            count_array: None,
+            counts: None,
             feature_header_file: None,
+            feature_names: None,
             sample_header_file: None,
+            sample_names: None,
             report_address: "./".to_string(),
 
             processor_limit: None,
@@ -1197,6 +463,7 @@ impl Parameters {
 
             prediction_mode: None,
             averaging_mode: None,
+            norm_mode: None,
 
             backups: None,
             backup_vec: None,
@@ -1228,14 +495,9 @@ impl Parameters {
                     }
                     supress_warnings = true;
                 },
-                "-auto" => {
-                    if i == 1 {
-                        arg_struct.auto = true;
-                    }
-                    else if !supress_warnings {
-                        eprintln!("WARNING, THE DEFAULT ARGUMENT OVERRIDES ALL ARGUMENTS GIVEN BEFORE IT, PRESS ENTER TO OVERRIDE OR CTRL-C TO STOP");
-                        stdin().read_line(&mut String::new());
-                    }
+                "-auto" | "-a"=> {
+                    arg_struct.auto = true;
+                    arg_struct.auto()
                 },
                 "-m" | "-mode" | "-pm" | "-prediction_mode" | "-prediction" => {
                     arg_struct.prediction_mode = Some(PredictionMode::read(&args.next().expect("Error reading prediction mode")));
@@ -1249,6 +511,9 @@ impl Parameters {
                 "-bm" | "-boost_mode" => {
                     arg_struct.boost_mode = Some(BoostMode::read(&args.next().expect("Failed to read boost mode")));
                 },
+                "-n" | "-norm" | "-norm_mode" => {
+                    arg_struct.norm_mode = Some(NormMode::read(&args.next().expect("Failed to read norm mode")));
+                },
                 "-t" | "-trees" => {
                     arg_struct.tree_limit = Some(args.next().expect("Error processing tree count").parse::<usize>().expect("Error parsing tree count"));
                 },
@@ -1258,7 +523,7 @@ impl Parameters {
                 },
                 "-c" | "-counts" => {
                     arg_struct.count_array_file = args.next().expect("Error parsing count location!");
-                    arg_struct.count_array = Some(read_counts(&arg_struct.count_array_file))
+                    arg_struct.counts = Some(read_counts(&arg_struct.count_array_file))
                 },
                 "-p" | "-processors" | "-threads" => {
                     arg_struct.processor_limit = Some(args.next().expect("Error processing processor limit").parse::<usize>().expect("Error parsing processor limit"));
@@ -1268,9 +533,11 @@ impl Parameters {
                 },
                 "-f" | "-h" | "-features" | "-header" => {
                     arg_struct.feature_header_file = Some(args.next().expect("Error processing feature file"));
+                    arg_struct.feature_names = Some(read_header(arg_struct.feature_header_file.as_ref().unwrap()));
                 },
                 "-s" | "-samples" => {
                     arg_struct.sample_header_file = Some(args.next().expect("Error processing feature file"));
+                    arg_struct.sample_names = Some(read_sample_names(arg_struct.sample_header_file.as_ref().unwrap()));
                 }
                 "-l" | "-leaves" => {
                     arg_struct.leaf_size_cutoff = Some(args.next().expect("Error processing leaf limit").parse::<usize>().expect("Error parsing leaf limit"));
@@ -1319,12 +586,14 @@ impl Parameters {
     }
 
 
-    fn auto(&mut self, counts:&Vec<Vec<f64>>) {
+    fn auto(&mut self) {
+
+        let counts = self.counts.as_ref().expect("Please specify counts file before the \"-auto\" argument.");
 
         let features = counts.len();
         let samples = counts.get(0).unwrap_or(&vec![]).len();
 
-        let mut output_features = (features as f64 / (features as f64).log10()) as usize;
+        let mut output_features = ((features as f64 / (features as f64).log10()) as usize).min(features);
 
         let mut input_features: usize;
 
@@ -1410,31 +679,30 @@ impl Parameters {
 
 }
 
-pub enum Commandtmp {
+#[derive(Debug,Clone)]
+pub enum Command {
     Combined,
     Construct,
     Predict,
     Gradient,
 }
 
-impl Commandtmp {
+impl Command {
 
-    pub fn parse<T: Iterator<Item = String>> (args: &mut T) -> Command {
-
-        let command = args.next().unwrap_or("".to_string());
+    pub fn parse(command: &str) -> Command {
 
         match &command[..] {
             "construct" => {
-                Command::Construct(ConstructionArguments::new(args))
+                Command::Construct
             },
             "predict" => {
-                Command::Predict(PredictionArguments::new(args))
+                Command::Predict
             },
             "construct_predict" | "conpred" | "combined" => {
-                Command::ConstructPredict(CombinedArguments::new(args))
+                Command::Combined
             }
             "gradient" => {
-                Command::Gradient(GradientArguments::new(args))
+                Command::Gradient
             }
             _ =>{
                 println!("Not a valid top-level command, please choose from \"construct\",\"predict\", or \"construct_predict\". Exiting");
@@ -1575,6 +843,60 @@ fn sub_matrix(mat1: &Vec<Vec<f64>>,mat2:&Vec<Vec<f64>>) -> Vec<Vec<f64>> {
     output
 }
 
+fn add_mtx_ip(mut mtx1: Vec<Vec<f64>>, mtx2: &Vec<Vec<f64>>) -> Vec<Vec<f64>> {
+
+    if mtx_dim(&mtx1) != mtx_dim(&mtx2) {
+        panic!("Attempted to add matrices of unequal dimensions: {:?},{:?}", mtx_dim(&mtx1),mtx_dim(&mtx2));
+    }
+
+    let dim = mtx_dim(&mtx1);
+
+    for i in 0..dim.0 {
+        for j in 0..dim.1{
+            mtx1[i][j] += mtx2[i][j];
+        }
+    }
+
+    mtx1
+}
+
+fn sub_mtx_ip(mut mtx1: Vec<Vec<f64>>, mtx2: &Vec<Vec<f64>>) -> Vec<Vec<f64>> {
+
+    if mtx_dim(&mtx1) != mtx_dim(&mtx2) {
+        panic!("Attempted to add matrices of unequal dimensions: {:?},{:?}", mtx_dim(&mtx1),mtx_dim(&mtx2));
+    }
+
+    let dim = mtx_dim(&mtx1);
+
+    for i in 0..dim.0 {
+        for j in 0..dim.1{
+            mtx1[i][j] += mtx2[i][j];
+        }
+    }
+
+    mtx1
+}
+
+fn abs_mtx_ip(mtx: &mut Vec<Vec<f64>>) {
+    let dim = mtx_dim(&mtx);
+    for i in 0..dim.0 {
+        for j in 0..dim.1{
+            mtx[i][j] = mtx[i][j].abs();
+        }
+    }
+}
+
+fn square_mtx_ip(mut mtx: Vec<Vec<f64>>) -> Vec<Vec<f64>> {
+    let dim = mtx_dim(&mtx);
+    for i in 0..dim.0 {
+        for j in 0..dim.1{
+            mtx[i][j] = mtx[i][j].powi(2);
+        }
+    }
+    mtx
+}
+
+
 fn multiply_matrix(mat1: &Vec<Vec<f64>>,mat2:&Vec<Vec<f64>>) -> Vec<Vec<f64>> {
 
     if mtx_dim(mat1) != mtx_dim(mat2) {
@@ -1677,7 +999,7 @@ mod manual_testing {
     pub fn test_command_predict_full() {
         let mut args = vec!["predict", "-m","branching","-b","tree.txt","-tg","tree.0","tree.1","tree.2","-c","counts.txt","-p","3","-o","./elsewhere/","-f","header_backup.txt"].into_iter().map(|x| x.to_string());
 
-        let command = Command::parse(&mut args);
+        let command = Command::parse(&args.next().unwrap());
 
         println!("{:?}",command);
 

@@ -6,6 +6,7 @@ use std::io::Error;
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::cmp::Ordering;
+use std::sync::Arc;
 use compact_predictor::compact_predict;
 use rand::thread_rng;
 use tree::Tree;
@@ -20,7 +21,7 @@ use matrix_flip;
 use sub_matrix;
 use mtx_dim;
 use tsv_format;
-
+use Parameters;
 
 pub struct BoostedForest {
     leaf_size: usize,
@@ -52,25 +53,25 @@ pub struct BoostedForest {
 
 impl BoostedForest {
 
-    pub fn initialize(counts:&Vec<Vec<f64>>,epoch_duration:usize,leaf_size:usize,epochs:usize,processor_limit:usize, feature_option: Option<Vec<String>>, sample_option: Option<Vec<String>>, dropout: DropMode, prediction_mode: PredictionMode, report_address:&str) -> BoostedForest {
+    pub fn initialize(counts:&Vec<Vec<f64>>, parameters: Arc<Parameters>, report_address:&str) -> BoostedForest {
 
         let dimensions: (usize,usize) = (counts.len(),counts.first().unwrap_or(&vec![]).len());
 
-        let feature_names = feature_option.unwrap_or((0..dimensions.0).map(|x| x.to_string()).collect());
+        let feature_names = parameters.feature_names.clone().unwrap_or((0..dimensions.0).map(|x| x.to_string()).collect());
 
-        let sample_names = sample_option.unwrap_or((0..dimensions.1).map(|x| x.to_string()).collect());
+        let sample_names = parameters.sample_names.clone().unwrap_or((0..dimensions.1).map(|x| x.to_string()).collect());
 
         let feature_similarity_matrix = vec![vec![0.;dimensions.0];dimensions.0];
         let cell_coocurrence_matrix = vec![vec![0.;dimensions.1];dimensions.1];
 
         let report_string = format!("{}.0",report_address).to_string();
 
-        let prototype_table = RankTable::new(&counts,&feature_names,&sample_names,dropout);
+        let prototype_table = RankTable::new(&counts,&feature_names,&sample_names,parameters.clone());
 
         BoostedForest {
             trees: Vec::new(),
-            leaf_size: leaf_size,
-            processor_limit: processor_limit,
+            leaf_size: parameters.leaf_size_cutoff.unwrap_or(1),
+            processor_limit: parameters.processor_limit.unwrap_or(1),
             report_string: report_string,
             feature_names: feature_names,
             sample_names: sample_names,
@@ -81,23 +82,23 @@ impl BoostedForest {
 
             predictive_trees: Vec::new(),
             dimensions: dimensions,
-            epoch_duration: epoch_duration,
-            epochs: epochs,
+            epoch_duration: parameters.epoch_duration.unwrap_or(1),
+            epochs: parameters.epochs.unwrap_or(1),
             counts: counts.clone(),
             prototype_rank_table: Some(prototype_table),
             prototype_tree: None,
-            dropout:dropout,
-            prediction_mode: prediction_mode
+            dropout:parameters.dropout.unwrap_or(DropMode::Zeros),
+            prediction_mode: parameters.prediction_mode.unwrap_or(PredictionMode::Truncate)
         }
     }
 
-    pub fn grow_forest(&mut self) -> Result<(),Error>{
+    pub fn grow_forest(&mut self, parameters: Arc<Parameters>) -> Result<(),Error>{
 
         for i in 0..self.epochs {
 
-            self.grow_epoch(400, 400, 400, i);
+            self.grow_epoch(parameters.clone(), i);
 
-            let epoch_predictions = self.compact_predict(&self.counts, &self.feature_map(), &self.prediction_mode, &self.dropout, &[self.report_string.clone(),format!(".{}",i)].join(""))?;
+            let epoch_predictions = self.compact_predict(&self.counts, &self.feature_map(), parameters.clone(), &[self.report_string.clone(),format!(".{}",i)].join(""))?;
 
             self.error_matrix = sub_matrix(&self.counts, &matrix_flip(&epoch_predictions));
 
@@ -108,11 +109,15 @@ impl BoostedForest {
         Ok(())
     }
 
-    pub fn grow_epoch (&mut self,samples_per_tree:usize,input_features_per_tree:usize,output_features_per_tree:usize,epoch:usize) {
+    pub fn grow_epoch (&mut self, parameters: Arc<Parameters> ,epoch:usize) {
 
         println!("Initializing an epoch");
 
         println!("Drawing weights");
+
+        let output_features_per_tree = parameters.output_features.unwrap_or(1);
+        let input_features_per_tree = parameters.input_features.unwrap_or(1);
+        let samples_per_tree = parameters.sample_subsample.unwrap_or(1);
 
         let (input_feature_weights, output_feature_weights, sample_weights) = self.draw_weights(output_features_per_tree * samples_per_tree);
 
@@ -120,7 +125,7 @@ impl BoostedForest {
 
         let mut tree_receivers = Vec::with_capacity(self.epoch_duration);
 
-        let mut prototype_tree =  Tree::prototype_tree(&self.counts,&self.counts,&self.sample_names,&self.feature_names,&self.feature_names, Some(output_feature_weights.clone()), self.leaf_size, self.dropout, 1, [self.report_string.clone(),format!(".{}.0",epoch)].join(""));
+        let mut prototype_tree =  Tree::prototype_tree(&self.counts,&self.counts,&self.sample_names,&self.feature_names,&self.feature_names, Some(output_feature_weights.clone()), parameters, [self.report_string.clone(),format!(".{}.0",epoch)].join(""));
 
         let mut thread_pool = BoostedTreeThreadPool::new(&prototype_tree,self.processor_limit);
 
@@ -156,11 +161,11 @@ impl BoostedForest {
     }
 
 
-    pub fn compact_predict(&self,counts:&Vec<Vec<f64>>,feature_map: &HashMap<String,usize>,prediction_mode:&PredictionMode, drop_mode: &DropMode,report_address: &str) -> Result<Vec<Vec<f64>>,Error> {
+    pub fn compact_predict(&self,counts:&Vec<Vec<f64>>,feature_map: &HashMap<String,usize>,parameters: Arc<Parameters>,report_address: &str) -> Result<Vec<Vec<f64>>,Error> {
 
         println!("Predicting:");
 
-        let predictions = compact_predict(&self.predictive_trees,&matrix_flip(counts),feature_map,prediction_mode,drop_mode,self.processor_limit);
+        let predictions = compact_predict(&self.predictive_trees,&matrix_flip(counts),feature_map,parameters);
 
         let mut prediction_dump = OpenOptions::new().create(true).append(true).open([report_address,".prediction"].join("")).unwrap();
         prediction_dump.write(&tsv_format(&predictions).as_bytes())?;

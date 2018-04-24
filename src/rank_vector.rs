@@ -2,6 +2,7 @@
 use std::cmp::PartialOrd;
 use std::cmp::Ordering;
 use std::collections::HashSet;
+use std::sync::Arc;
 
 extern crate rand;
 
@@ -9,10 +10,12 @@ use raw_vector::RawVector;
 use raw_vector::LeftVectCrawler;
 use raw_vector::RightVectCrawler;
 use DropMode;
+use NormMode;
+use Parameters;
 
 impl RankVector {
 
-    pub fn new(in_vec:&Vec<f64>, feature_name: String,drop: DropMode) -> RankVector {
+    pub fn new(in_vec:&Vec<f64>, feature_name: String, parameters: Arc<Parameters>) -> RankVector {
 
         let vector = RawVector::raw_vector(in_vec);
 
@@ -43,7 +46,8 @@ impl RankVector {
 
             draw_order: (0..length).collect(),
 
-            drop: drop,
+            drop: parameters.dropout.unwrap_or(DropMode::Zeros),
+            norm: parameters.norm_mode.unwrap_or(NormMode::L1),
             num_dropped: 0,
 
             left_zone:zones.0,
@@ -57,7 +61,7 @@ impl RankVector {
     }
 
     pub fn empty() -> RankVector {
-        RankVector::new(&vec![], "".to_string(), DropMode::No)
+        RankVector::new(&vec![], "".to_string(), Arc::new(Parameters::empty()))
     }
 
     fn empty_zones() -> (LeftZone,MedianZone,RightZone) {
@@ -518,6 +522,7 @@ impl RankVector {
         }
 
         let mut meds_mads = Vec::with_capacity(draw_order.len());
+        meds_mads.push((self.median(),self.mad()));
         for draw in draw_order {
             self.pop(*draw);
             meds_mads.push((self.median(),self.mad()))
@@ -604,6 +609,7 @@ impl RankVector {
             draw_order: (0..length).collect(),
 
             drop: self.drop,
+            norm: self.norm,
             num_dropped: 0,
 
             left_zone:zones.0,
@@ -657,6 +663,8 @@ pub struct RankVector {
 
     length: usize,
     drop: DropMode,
+    norm: NormMode,
+
     num_dropped: usize,
 
     feature_name: String,
@@ -729,7 +737,7 @@ impl MedianZone {
 
             let median = self.dead_center.median();
 
-            let mut distance_to_median = vec![(left.3 - median).abs(), (inner_left.3 - median).abs(), (inner_right.3 - median).abs(), (right.3 - median).abs()];
+            let mut distance_to_median = [(left.3 - median).abs(), (inner_left.3 - median).abs(), (inner_right.3 - median).abs(), (right.3 - median).abs()];
 
             // println!("MAD debug");
             // println!("{}",median);

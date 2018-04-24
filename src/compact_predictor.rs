@@ -1,9 +1,12 @@
 use std::cmp::PartialOrd;
 use std::cmp::Ordering;
+use std::sync::Arc;
 use PredictionMode;
 use DropMode;
+use Parameters;
 use std::collections::HashMap;
 use shuffler::fragment_nodes;
+
 
 extern crate rand;
 
@@ -15,21 +18,22 @@ use tree::PredictiveTree;
 use predict_thread_pool::PredictThreadPool;
 use predict_thread_pool::PredictionMessage;
 
-pub fn compact_predict(trees: &Vec<PredictiveTree>, counts: &Vec<Vec<f64>>, features: &HashMap<String,usize>, prediction_mode: &PredictionMode,drop_mode: &DropMode, processor_limit: usize) -> Vec<Vec<f64>> {
+pub fn compact_predict(trees: &Vec<PredictiveTree>, counts: &Vec<Vec<f64>>, features: &HashMap<String,usize>, parameters: Arc<Parameters>) -> Vec<Vec<f64>> {
     let mut predictions: Vec<Vec<f64>> = Vec::with_capacity(counts.len());
     let feature_intervals: Vec<Vec<(f64,f64,f64)>> = Vec::with_capacity(features.len());
     // println!("Predicting");
     // println!("{}",counts.len());
     // println!("Individual observations");
 
-    let mut prediction_pool = PredictThreadPool::new(processor_limit);
-
+    let mut prediction_pool = PredictThreadPool::new(parameters.processor_limit.unwrap_or(1));
+    let prediction_mode = parameters.prediction_mode.unwrap_or(PredictionMode::Abort);
+    let drop_mode = parameters.dropout.unwrap_or(DropMode::Zeros);
 
     for sample in counts {
         let mut leaves = Vec::with_capacity(trees.len());
         println!("Trees: {}",trees.len());
         for tree in trees {
-            leaves.push(node_predict_leaves(&tree.root,sample,features,prediction_mode,drop_mode));
+            leaves.push(node_predict_leaves(&tree.root,sample,features,&prediction_mode,&drop_mode));
         }
         println!("Leaves: {}", leaves.iter().flat_map(|x| x).collect::<Vec<&&StrippedNode>>().len());
 

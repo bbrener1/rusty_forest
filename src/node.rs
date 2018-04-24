@@ -9,20 +9,18 @@ use serde_json;
 
 extern crate rand;
 use rank_table::RankTable;
-use rank_vector::RankVector;
-use feature_thread_pool::FeatureThreadPool;
 use feature_thread_pool::FeatureMessage;
 use DropMode;
-
+use Parameters;
 
 impl Node {
 
 
-    pub fn feature_root<'a>(input_counts:&Vec<Vec<f64>>,output_counts:&Vec<Vec<f64>>,input_feature_names:&'a[String],output_feature_names:&'a[String],sample_names:&'a[String],dropout:DropMode, feature_weight_option: Option<Vec<f64>>, feature_pool: mpsc::Sender<FeatureMessage>) -> Node {
+    pub fn feature_root<'a>(input_counts:&Vec<Vec<f64>>,output_counts:&Vec<Vec<f64>>,input_feature_names:&'a[String],output_feature_names:&'a[String],sample_names:&'a[String], parameters: Arc<Parameters> , feature_weight_option: Option<Vec<f64>>, feature_pool: mpsc::Sender<FeatureMessage>) -> Node {
 
-        let input_table = RankTable::new(input_counts,&input_feature_names,&sample_names,dropout);
+        let input_table = RankTable::new(input_counts,&input_feature_names,&sample_names,parameters.clone());
 
-        let output_table = RankTable::new(output_counts,&output_feature_names,&sample_names,dropout);
+        let output_table = RankTable::new(output_counts,&output_feature_names,&sample_names,parameters.clone());
 
         let feature_weights = feature_weight_option.unwrap_or(vec![1.;output_feature_names.len()]);
 
@@ -37,7 +35,7 @@ impl Node {
 
             input_table: input_table,
             output_table: output_table,
-            dropout: dropout,
+            dropout: parameters.dropout.unwrap_or(DropMode::Zeros),
 
             id: "RT".to_string(),
             parent_id: "RT".to_string(),
@@ -77,7 +75,7 @@ impl Node {
 
             minima.push( {
 
-                self.output_table.parallel_split_order(draw_order.0,draw_order.1,&self.feature_weights,self.feature_pool.clone()).unwrap_or((0,f64::INFINITY))
+                self.output_table.parallel_split_order(draw_order.0,draw_order.1,Some(&self.feature_weights),self.feature_pool.clone()).unwrap_or((0,f64::INFINITY))
 
             } );
 
@@ -703,7 +701,7 @@ pub struct NodeWrapper {
 
 
 
-#[derive(Serialize,Deserialize,Clone)]
+#[derive(Serialize,Deserialize,Clone,Debug)]
 pub struct StrippedNode {
 
     dropout: DropMode,
@@ -815,9 +813,12 @@ mod node_testing {
 
     #[test]
     fn node_test_simple() {
-        let mut root = Node::feature_root(&vec![vec![10.,-3.,0.,5.,-2.,-1.,15.,20.]],&vec![vec![10.,-3.,0.,5.,-2.,-1.,15.,20.]], &vec!["one".to_string()],&vec!["one".to_string()], &(0..8).map(|x| x.to_string()).collect::<Vec<String>>()[..], DropMode::Zeros, None, FeatureThreadPool::new(1));
+        let mut root = Node::feature_root(&vec![vec![10.,-3.,0.,5.,-2.,-1.,15.,20.]],&vec![vec![10.,-3.,0.,5.,-2.,-1.,15.,20.]], &vec!["one".to_string()],&vec!["two".to_string()], &(0..8).map(|x| x.to_string()).collect::<Vec<String>>()[..], DropMode::Zeros, None, FeatureThreadPool::new(1));
 
         root.feature_parallel_derive();
+
+        println!("{:?}", root.output_table.sort_by_feature("two"));
+        println!("{:?}", root.clone().output_table.parallel_med_mads(root.output_table.sort_by_feature("two").0,root.output_table.sort_by_feature("two").1,FeatureThreadPool::new(1)));
 
         assert_eq!(root.children[0].samples(),&vec!["1".to_string(),"4".to_string(),"5".to_string()]);
         assert_eq!(root.children[1].samples(),&vec!["0".to_string(),"3".to_string(),"6".to_string(),"7".to_string()]);
