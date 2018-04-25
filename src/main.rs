@@ -492,9 +492,8 @@ impl Parameters {
         if features < 3 {
             input_features = features;
             output_features = features;
-        };
-
-        if features < 100 {
+        }
+        else if features < 100 {
             input_features = ((features as f64 * ((125 - features) as f64) / 125.) as usize).max(1);
         }
 
