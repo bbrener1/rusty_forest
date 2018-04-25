@@ -174,99 +174,6 @@ pub fn predict(args: Parameters) {
 
 }
 
-impl PredictionMode {
-    pub fn read(input:&str) -> PredictionMode {
-        match input {
-            "branch" | "branching" | "b" => PredictionMode::Branch,
-            "truncate" | "truncating" | "t" => PredictionMode::Truncate,
-            "abort" | "ab" => PredictionMode::Abort,
-            "auto" | "a" => PredictionMode::Auto,
-            _ => panic!("Not a valid prediction mode, choose branch, truncate, or abort.")
-        }
-    }
-}
-
-#[derive(Serialize,Deserialize,Debug,Clone,Copy)]
-pub enum PredictionMode {
-    Branch,
-    Truncate,
-    Abort,
-    Auto
-}
-
-#[derive(Serialize,Deserialize,Debug,Clone,Copy)]
-pub enum AveragingMode {
-    Arithmetic,
-    Stacking
-}
-
-impl AveragingMode {
-    pub fn read(input:&str) -> AveragingMode {
-        match input {
-            "a" | "arithmetic" | "average" => AveragingMode::Arithmetic,
-            "s" | "stacking" => AveragingMode::Stacking,
-            _ => panic!("Not a valid averaging mode, choose arithmetic or stacking.")
-        }
-    }
-}
-
-#[derive(Serialize,Deserialize,Debug,Clone,Copy)]
-pub enum NormMode {
-    L1,
-    L2,
-}
-
-impl NormMode {
-    pub fn read(input: &str) -> NormMode {
-        match input {
-            "1" | "L1" | "l1" => NormMode::L1,
-            "2" | "L2" | "l2" => NormMode::L2,
-            _ => panic!("Not a valid norm, choose l1 or l2")
-        }
-    }
-}
-
-impl DropMode {
-    pub fn read(input: &str) -> DropMode {
-        match input {
-            "zeros" | "zero" | "z" => DropMode::Zeros,
-            "nans" | "nan" | "NaN" => DropMode::NaNs,
-            "none" | "no" => DropMode::No,
-            _ => panic!("Not a valid drop mode, choose zero, nan, or none")
-        }
-    }
-
-    pub fn cmp(&self) -> f64 {
-        match self {
-            &DropMode::Zeros => 0.,
-            &DropMode::NaNs => f64::NAN,
-            &DropMode::No => f64::INFINITY,
-        }
-    }
-
-    pub fn bool(&self) -> bool {
-        match self {
-            &DropMode::Zeros => true,
-            &DropMode::NaNs => true,
-            &DropMode::No => false,
-        }
-    }
-}
-
-#[derive(Debug,Clone,Copy,Serialize,Deserialize)]
-pub enum DropMode {
-    Zeros,
-    NaNs,
-    No,
-}
-
-#[derive(Clone,Debug)]
-pub enum TreeBackups {
-    File(String),
-    Vector(Vec<String>),
-    Trees(Vec<PredictiveTree>)
-}
-
 pub fn combined(mut args:Parameters) {
 
     let arc_params = Arc::new(args);
@@ -290,26 +197,6 @@ pub fn combined(mut args:Parameters) {
 
 }
 
-
-#[derive(Clone,Debug)]
-pub enum BoostMode {
-    Additive,
-    Subsampling,
-}
-
-impl BoostMode {
-    pub fn read(input: &str) -> BoostMode {
-        match input {
-            "additive" | "a" | "add" => BoostMode::Additive,
-            "s" | "subsampling" | "subsample" => BoostMode::Subsampling,
-            _ => {
-                eprintln!("Not a valid boost mode, choose sub or add (defaulting to add)");
-                BoostMode::Additive
-            }
-        }
-    }
-
-}
 
 fn gradient(args: Parameters) {
 
@@ -427,6 +314,7 @@ pub struct Parameters {
     prediction_mode: Option<PredictionMode>,
     averaging_mode: Option<AveragingMode>,
     norm_mode: Option<NormMode>,
+    weighing_mode: Option<WeighingMode>,
 
     backups: Option<String>,
     backup_vec: Option<Vec<String>>,
@@ -464,6 +352,7 @@ impl Parameters {
             prediction_mode: None,
             averaging_mode: None,
             norm_mode: None,
+            weighing_mode: None,
 
             backups: None,
             backup_vec: None,
@@ -510,6 +399,9 @@ impl Parameters {
                 },
                 "-bm" | "-boost_mode" => {
                     arg_struct.boost_mode = Some(BoostMode::read(&args.next().expect("Failed to read boost mode")));
+                },
+                "-wm" | "-w" | "-weighing_mode" => {
+                    arg_struct.weighing_mode = Some(WeighingMode::read(&args.next().expect("Failed to read weighing mode!")));
                 },
                 "-n" | "-norm" | "-norm_mode" => {
                     arg_struct.norm_mode = Some(NormMode::read(&args.next().expect("Failed to read norm mode")));
@@ -679,6 +571,30 @@ impl Parameters {
 
 }
 
+// Various modes that are included in Parameters, serving as control elements for program internals. Each mode can parse strings that represent alternative options for that mode. Enums were chosen because they compile down to extremely small memory footprint.
+
+
+#[derive(Clone,Debug)]
+pub enum BoostMode {
+    Additive,
+    Subsampling,
+}
+
+impl BoostMode {
+    pub fn read(input: &str) -> BoostMode {
+        match input {
+            "additive" | "a" | "add" => BoostMode::Additive,
+            "s" | "subsampling" | "subsample" => BoostMode::Subsampling,
+            _ => {
+                eprintln!("Not a valid boost mode, choose sub or add (defaulting to add)");
+                BoostMode::Additive
+            }
+        }
+    }
+
+}
+
+
 #[derive(Debug,Clone)]
 pub enum Command {
     Combined,
@@ -712,9 +628,118 @@ impl Command {
     }
 }
 
+impl PredictionMode {
+    pub fn read(input:&str) -> PredictionMode {
+        match input {
+            "branch" | "branching" | "b" => PredictionMode::Branch,
+            "truncate" | "truncating" | "t" => PredictionMode::Truncate,
+            "abort" | "ab" => PredictionMode::Abort,
+            "auto" | "a" => PredictionMode::Auto,
+            _ => panic!("Not a valid prediction mode, choose branch, truncate, or abort.")
+        }
+    }
+}
 
+#[derive(Serialize,Deserialize,Debug,Clone,Copy)]
+pub enum PredictionMode {
+    Branch,
+    Truncate,
+    Abort,
+    Auto
+}
 
+#[derive(Serialize,Deserialize,Debug,Clone,Copy)]
+pub enum AveragingMode {
+    Arithmetic,
+    Stacking
+}
 
+impl AveragingMode {
+    pub fn read(input:&str) -> AveragingMode {
+        match input {
+            "a" | "arithmetic" | "average" => AveragingMode::Arithmetic,
+            "s" | "stacking" => AveragingMode::Stacking,
+            _ => panic!("Not a valid averaging mode, choose arithmetic or stacking.")
+        }
+    }
+}
+
+#[derive(Serialize,Deserialize,Debug,Clone,Copy)]
+pub enum WeighingMode {
+    AbsoluteGain,
+    AbsGainSquared,
+    AbsoluteDispersion,
+    AbsDispSquared,
+}
+
+impl WeighingMode {
+    pub fn read(input:&str) -> WeighingMode {
+        match input {
+            "gain" | "absolute_gain" | "g" => WeighingMode::AbsoluteGain,
+            "gain_squared" | "gs" => WeighingMode::AbsGainSquared,
+            "dispersion" | "d" => WeighingMode::AbsoluteDispersion,
+            "dispersion_squared" | "ds" => WeighingMode::AbsDispSquared,
+            _ => panic!("Not a valid weighing mode, please pick from gain, gain_squared, dispersion, dispersion_squared")
+        }
+    }
+}
+
+#[derive(Serialize,Deserialize,Debug,Clone,Copy)]
+pub enum NormMode {
+    L1,
+    L2,
+}
+
+impl NormMode {
+    pub fn read(input: &str) -> NormMode {
+        match input {
+            "1" | "L1" | "l1" => NormMode::L1,
+            "2" | "L2" | "l2" => NormMode::L2,
+            _ => panic!("Not a valid norm, choose l1 or l2")
+        }
+    }
+}
+
+impl DropMode {
+    pub fn read(input: &str) -> DropMode {
+        match input {
+            "zeros" | "zero" | "z" => DropMode::Zeros,
+            "nans" | "nan" | "NaN" => DropMode::NaNs,
+            "none" | "no" => DropMode::No,
+            _ => panic!("Not a valid drop mode, choose zero, nan, or none")
+        }
+    }
+
+    pub fn cmp(&self) -> f64 {
+        match self {
+            &DropMode::Zeros => 0.,
+            &DropMode::NaNs => f64::NAN,
+            &DropMode::No => f64::INFINITY,
+        }
+    }
+
+    pub fn bool(&self) -> bool {
+        match self {
+            &DropMode::Zeros => true,
+            &DropMode::NaNs => true,
+            &DropMode::No => false,
+        }
+    }
+}
+
+#[derive(Debug,Clone,Copy,Serialize,Deserialize)]
+pub enum DropMode {
+    Zeros,
+    NaNs,
+    No,
+}
+
+#[derive(Clone,Debug)]
+pub enum TreeBackups {
+    File(String),
+    Vector(Vec<String>),
+    Trees(Vec<PredictiveTree>)
+}
 
 
 fn read_header(location: &str) -> Vec<String> {

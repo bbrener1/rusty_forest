@@ -27,7 +27,7 @@ impl RawVector {
 
         let (clean_vector,dirty_set) = RawVector::sanitize_vector(in_vec);
 
-        let mut sorted_invec = clean_vector.iter().enumerate().collect::<Vec<(usize,&f64)>>();
+        let mut sorted_invec = clean_vector.into_iter().enumerate().collect::<Vec<(usize,f64)>>();
         sorted_invec.sort_unstable_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Greater));
 
         for (i,sample) in sorted_invec.iter().enumerate() {
@@ -35,17 +35,17 @@ impl RawVector {
             // eprintln!("{}", i);
 
             if i == 0 {
-                vector.push((sample.0,sample.0,i,*sample.1,sample.0));
+                vector.push((sample.0,sample.0,i,sample.1,sample.0));
                 draw_order.push(sample.0);
             }
             else if i == (sorted_invec.len() - 1) {
                 vector[i-1].4 = sample.0;
-                vector.push((sorted_invec[i-1].0,sample.0,i,*sample.1,sample.0));
+                vector.push((sorted_invec[i-1].0,sample.0,i,sample.1,sample.0));
                 draw_order.push(sample.0);
             }
             if {i != 0} && {i < (sorted_invec.len()-1)} {
                 vector[i-1].4 = sample.0;
-                vector.push((sorted_invec[i-1].0,sample.0,i,*sample.1,sample.0));
+                vector.push((sorted_invec[i-1].0,sample.0,i,sample.1,sample.0));
                 draw_order.push(sample.0);
             }
         }
@@ -136,8 +136,9 @@ impl RawVector {
         self.len
     }
 
+    #[inline]
     pub fn left(&self, i:usize) -> Option<(usize,usize,usize,f64,usize)> {
-        let sample = self.vector[i];
+        let sample = &self.vector[i];
         if sample.0 != sample.1 {
             Some(self[sample.0])
         }
@@ -146,8 +147,9 @@ impl RawVector {
         }
     }
 
+    #[inline]
     pub fn right(&self, i:usize) -> Option<(usize,usize,usize,f64,usize)> {
-        let sample = self.vector[i];
+        let sample = &self.vector[i];
         if sample.4 != sample.1 {
             Some(self[sample.4])
         }
@@ -156,8 +158,9 @@ impl RawVector {
         }
     }
 
+    #[inline]
     pub fn left_ind(&self, i:usize) -> Option<usize> {
-        let sample = self.vector[i];
+        let sample = &self.vector[i];
         if sample.0 != sample.1 {
             Some(sample.0)
         }
@@ -166,8 +169,9 @@ impl RawVector {
         }
     }
 
+    #[inline]
     pub fn right_ind(&self, i:usize) -> Option<usize> {
-        let sample = self.vector[i];
+        let sample = &self.vector[i];
         if sample.4 != sample.1 {
             Some(sample.4)
         }
