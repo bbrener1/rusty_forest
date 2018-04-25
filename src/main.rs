@@ -498,7 +498,7 @@ impl Parameters {
         }
 
         else {
-            input_features = ((features as f64 * (((1500 - features) as f64) / 7000.).max(0.1)) as usize).max(1);
+            input_features = ((features as f64 * (((1500 - features as i32) as f64) / 7000.).max(0.1)) as usize).max(1);
         }
 
         let feature_subsample = output_features;
