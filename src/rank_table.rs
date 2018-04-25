@@ -7,9 +7,10 @@ use std::mem::swap;
 use std::sync::mpsc;
 use feature_thread_pool::FeatureMessage;
 extern crate rand;
-use square_mtx_ip;
 use std::f64;
-
+use square_mtx_ip;
+use NormMode;
+use SplitMode;
 
 use rank_vector::RankVector;
 use DropMode;
@@ -27,6 +28,10 @@ pub struct RankTable {
     index: usize,
     pub dimensions: (usize,usize),
     dropout: DropMode,
+
+    split_mode: SplitMode,
+    norm_mode: NormMode,
+
 }
 
 
@@ -72,6 +77,9 @@ impl RankTable {
             feature_dictionary: feature_dictionary,
             sample_dictionary: sample_dictionary,
             dropout:parameters.dropout.unwrap_or(DropMode::Zeros),
+
+            norm_mode: parameters.norm_mode.unwrap_or(NormMode::L1),
+            split_mode: parameters.split_mode.unwrap_or(SplitMode::CovSquared),
         }
 
     }
@@ -180,6 +188,8 @@ impl RankTable {
             index: 0,
             dimensions: dimensions,
             dropout: self.dropout,
+            norm_mode: self.norm_mode,
+            split_mode: self.split_mode,
         }
     }
 
@@ -233,6 +243,8 @@ impl RankTable {
             index: 0,
             dimensions: dimensions,
             dropout: self.dropout,
+            norm_mode: self.norm_mode,
+            split_mode: self.split_mode,
 
         }
 
@@ -280,17 +292,33 @@ impl RankTable {
             index: 0,
             dimensions: dimensions,
             dropout: self.dropout,
+            norm_mode: self.norm_mode,
+            split_mode: self.split_mode,
         }
     }
 
-    pub fn parallel_split_order(&mut self,draw_order:Vec<usize>, drop_set: &HashSet<usize>,feature_weights:Option<&Vec<f64>>,  pool:mpsc::Sender<FeatureMessage>) -> Option<(usize,f64)> {
+    pub fn parallel_split_order(&mut self,draw_order:Vec<usize>, drop_set: &HashSet<usize>,feature_weights:Option<&Vec<f64>>, pool:mpsc::Sender<FeatureMessage>) -> Option<(usize,f64)> {
 
         let (x,y) = (draw_order.len()+1,self.features().len());
 
-        let cov_opt = self.parallel_covs(draw_order, drop_set, pool);
+        if x < 4 {
+            return None;
+        };
 
-        if let Some(covs) = cov_opt {
-            let mut minimum = l1_minimum(&square_mtx_ip(covs),feature_weights.unwrap_or(&vec![1.;y]));
+        let disp_mtx_opt: Option<Vec<Vec<f64>>> =
+            match self.split_mode {
+                SplitMode::Cov => self.parallel_covs(draw_order,drop_set,pool),
+                SplitMode::CovSquared => self.parallel_covs(draw_order, drop_set, pool).map(|x| square_mtx_ip(x)),
+                SplitMode::MAD => self.parallel_mads(draw_order, drop_set, pool),
+                SplitMode::MADSquared => self.parallel_mads(draw_order, drop_set, pool).map(|x| square_mtx_ip(x)),
+            };
+
+        if let Some(disp_mtx) = disp_mtx_opt {
+
+            let mut minimum = match self.norm_mode {
+                NormMode::L1 => l1_minimum(&disp_mtx, feature_weights.unwrap_or(&vec![1.;y])),
+                NormMode::L2 => l2_minimum(&disp_mtx, feature_weights.unwrap_or(&vec![1.;y])),
+            };
             minimum.0 += 1;
             minimum.1 *= (self.dimensions.1 + 1 - x) as f64;
 

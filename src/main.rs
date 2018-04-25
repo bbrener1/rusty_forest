@@ -315,6 +315,7 @@ pub struct Parameters {
     averaging_mode: Option<AveragingMode>,
     norm_mode: Option<NormMode>,
     weighing_mode: Option<WeighingMode>,
+    split_mode: Option<SplitMode>,
 
     backups: Option<String>,
     backup_vec: Option<Vec<String>>,
@@ -353,6 +354,8 @@ impl Parameters {
             averaging_mode: None,
             norm_mode: None,
             weighing_mode: None,
+            split_mode: None,
+
 
             backups: None,
             backup_vec: None,
@@ -402,6 +405,9 @@ impl Parameters {
                 },
                 "-wm" | "-w" | "-weighing_mode" => {
                     arg_struct.weighing_mode = Some(WeighingMode::read(&args.next().expect("Failed to read weighing mode!")));
+                },
+                "-sm" | "-split_mode" => {
+                    arg_struct.split_mode = Some(SplitMode::read(&args.next().expect("Failed to read split mode")));
                 },
                 "-n" | "-norm" | "-norm_mode" => {
                     arg_struct.norm_mode = Some(NormMode::read(&args.next().expect("Failed to read norm mode")));
@@ -690,6 +696,27 @@ impl WeighingMode {
             "dispersion" | "d" => WeighingMode::AbsoluteDispersion,
             "dispersion_squared" | "ds" => WeighingMode::AbsDispSquared,
             _ => panic!("Not a valid weighing mode, please pick from gain, gain_squared, dispersion, dispersion_squared")
+        }
+    }
+}
+
+#[derive(Serialize,Deserialize,Debug,Clone,Copy)]
+pub enum SplitMode {
+    Cov,
+    CovSquared,
+    MAD,
+    MADSquared,
+}
+
+impl SplitMode {
+    pub fn read(input: &str) -> SplitMode {
+        match input {
+            "c" | "cov" => SplitMode::Cov,
+            "cs" | "cov_squared" => SplitMode::CovSquared,
+            "m" | "mad"  => SplitMode::MAD,
+            "ms" | "mad_squared" => SplitMode::MADSquared,
+            _ => panic!("Not a valid split mode, choose cov, cov_squared, mad or mad_squared")
+
         }
     }
 }
