@@ -549,6 +549,17 @@ impl Parameters {
             prediction_mode = PredictionMode::Branch;
         }
 
+        println!("Automatic parameters:");
+        println!("{:?}",feature_subsample);
+        println!("{:?}",sample_subsample);
+        println!("{:?}",input_features);
+        println!("{:?}",output_features);
+        println!("{:?}",processors);
+        println!("{:?}",trees,);
+        println!("{:?}",leaf_size_cutoff);
+        println!("{:?}",dropout);
+        println!("{:?}",prediction_mode);
+
         self.auto = true;
 
         self.feature_subsample.get_or_insert( feature_subsample );

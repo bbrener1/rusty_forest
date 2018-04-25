@@ -18,6 +18,7 @@ impl TreeThreadPool{
     pub fn new(prototype:&Tree, parameters: Arc<Parameters>) -> Sender<(usize, mpsc::Sender<PredictiveTree>)> {
 
         println!("Prototype tree: {},{},{}", prototype.input_features().len(), prototype.output_features().len(),prototype.root.samples().len());
+        println!("Parameters:{:?},{:?},{:?}", parameters.input_features,parameters.output_features,parameters.sample_subsample);
 
         let processors = parameters.processor_limit.unwrap_or(1);
         let samples_per_tree = parameters.sample_subsample.unwrap_or(1);
