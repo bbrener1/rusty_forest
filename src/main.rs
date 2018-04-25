@@ -125,7 +125,7 @@ pub fn construct(args: Parameters) {
 
     let arc_params = Arc::new(args);
 
-    println!("Argumnets parsed: {:?}", arc_params);
+    // println!("Argumnets parsed: {:?}", arc_params);
 
     println!("Reading data");
 
@@ -178,7 +178,7 @@ pub fn combined(mut args:Parameters) {
 
     let arc_params = Arc::new(args);
 
-    println!("Argumnets parsed: {:?}", arc_params);
+    // println!("Argumnets parsed: {:?}", arc_params);
 
     let counts = arc_params.counts.as_ref().unwrap();
 
@@ -201,7 +201,7 @@ pub fn combined(mut args:Parameters) {
 fn gradient(args: Parameters) {
 
 
-    println!("Read arguments: {:?}", args);
+    // println!("Read arguments: {:?}", args);
 
     let arc_params = Arc::new(args.clone());
 
