@@ -309,14 +309,14 @@ impl RankTable {
 
         if let Some(disp_mtx) = disp_mtx_opt {
 
-            let mut minimum = match self.norm_mode {
+            let mut maximum = match self.norm_mode {
                 NormMode::L1 => l1_maximum(&disp_mtx, feature_weights.unwrap_or(&vec![1.;y])),
                 NormMode::L2 => l2_maximum(&disp_mtx, feature_weights.unwrap_or(&vec![1.;y])),
             };
 
-            minimum.1 *= x as f64;
+            maximum.1 *= x as f64;
 
-            Some(minimum)
+            Some(maximum)
         }
         else { None }
     }
@@ -379,7 +379,7 @@ impl RankTable {
 
         }
 
-        let len = self.dimensions.1+1;
+        let len = forward_dispersions.len()+1;
 
         let mut covs: Vec<Vec<f64>> = vec![vec![0.;self.dimensions.0];len];
 
@@ -402,7 +402,7 @@ pub fn l2_maximum(mtx_in:&Vec<Vec<f64>>, weights: &Vec<f64>) -> (usize,f64) {
         sample.iter().enumerate().map(|(i,feature)| feature.powi(2) * weights[i]).sum::<f64>() / weights.iter().sum::<f64>()
     }).map(|sum| if sum.is_normal() {sum} else {0.});
 
-    sample_sums.enumerate().skip(1).rev().skip(2).max_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Greater)).unwrap_or((0,f64::INFINITY))
+    sample_sums.enumerate().skip(1).rev().skip(2).max_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Greater)).unwrap_or((0,0.))
 
 }
 
@@ -412,7 +412,7 @@ pub fn l1_maximum(mtx_in:&Vec<Vec<f64>>, weights: &Vec<f64>) -> (usize,f64) {
         sample.iter().enumerate().map(|(i,feature)| feature * weights[i] ).sum::<f64>() / weights.iter().sum::<f64>()
     }).map(|sum| if sum.is_normal() {sum} else {0.});
 
-    sample_sums.enumerate().skip(1).rev().skip(2).max_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Greater)).unwrap_or((0,f64::INFINITY))
+    sample_sums.enumerate().skip(1).rev().skip(2).max_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Greater)).unwrap_or((0,0.))
 
 }
 
