@@ -36,6 +36,7 @@ mod compact_predictor;
 mod boosted_forest;
 mod boosted_tree_thread_pool;
 mod additive_booster;
+mod rv2;
 
 use tree::PredictiveTree;
 use random_forest::Forest;
@@ -712,10 +713,8 @@ impl SplitMode {
     pub fn read(input: &str) -> SplitMode {
         match input {
             "c" | "cov" => SplitMode::Cov,
-            "cs" | "cov_squared" => SplitMode::CovSquared,
             "m" | "mad"  => SplitMode::MAD,
-            "ms" | "mad_squared" => SplitMode::MADSquared,
-            _ => panic!("Not a valid split mode, choose cov, cov_squared, mad or mad_squared")
+            _ => panic!("Not a valid split mode, choose cov or mad")
 
         }
     }

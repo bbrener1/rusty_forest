@@ -305,71 +305,23 @@ impl RankTable {
             return None;
         };
 
-        let disp_mtx_opt: Option<Vec<Vec<f64>>> =
-            match self.split_mode {
-                SplitMode::Cov => self.parallel_covs(draw_order,drop_set,pool),
-                SplitMode::CovSquared => self.parallel_covs(draw_order, drop_set, pool).map(|x| square_mtx_ip(x)),
-                SplitMode::MAD => self.parallel_mads(draw_order, drop_set, pool),
-                SplitMode::MADSquared => self.parallel_mads(draw_order, drop_set, pool).map(|x| square_mtx_ip(x)),
-            };
+        let disp_mtx_opt: Option<Vec<Vec<f64>>> = self.parallel_dispersion(draw_order,drop_set,pool);
 
         if let Some(disp_mtx) = disp_mtx_opt {
 
             let mut minimum = match self.norm_mode {
-                NormMode::L1 => l1_minimum(&disp_mtx, feature_weights.unwrap_or(&vec![1.;y])),
-                NormMode::L2 => l2_minimum(&disp_mtx, feature_weights.unwrap_or(&vec![1.;y])),
+                NormMode::L1 => l1_maximum(&disp_mtx, feature_weights.unwrap_or(&vec![1.;y])),
+                NormMode::L2 => l2_maximum(&disp_mtx, feature_weights.unwrap_or(&vec![1.;y])),
             };
-            minimum.0 += 1;
-            minimum.1 *= (self.dimensions.1 + 1 - x) as f64;
+
+            minimum.1 *= x as f64;
 
             Some(minimum)
         }
         else { None }
     }
 
-    pub fn parallel_mads(&mut self,draw_order:Vec<usize>, drop_set: &HashSet<usize>, pool:mpsc::Sender<FeatureMessage>) -> Option<Vec<Vec<f64>>> {
-
-        let len = draw_order.len()+1;
-
-        if let Some((forward_md,reverse_md)) = self.parallel_med_mads(draw_order, drop_set, pool) {
-
-            let mut w_mads: Vec<Vec<f64>> = vec![vec![0.;self.dimensions.0];len];
-
-            for (i,(f_s,r_s)) in forward_md.into_iter().zip(reverse_md.into_iter()).enumerate() {
-                for (j,((_fm,fd),(_rm,rd))) in f_s.into_iter().zip(r_s.into_iter()).enumerate() {
-                    w_mads[i][j] = (fd.abs() * ((len - i) as f64 / len as f64)) + (rd.abs() * ((i + 1) as f64/ len as f64));
-                }
-            }
-
-            Some(w_mads)
-        }
-        else { None }
-    }
-
-    pub fn parallel_covs(&mut self,draw_order:Vec<usize>, drop_set: &HashSet<usize>, pool:mpsc::Sender<FeatureMessage>) -> Option<Vec<Vec<f64>>> {
-
-        let len = draw_order.len()+1;
-
-        if let Some((forward_md,reverse_md)) = self.parallel_med_mads(draw_order, drop_set, pool) {
-
-            let mut covs: Vec<Vec<f64>> = vec![vec![0.;self.dimensions.0];len];
-
-            for (i,(f_s,r_s)) in forward_md.into_iter().zip(reverse_md.into_iter()).enumerate() {
-                for (j,((fm,fd),(rm,rd))) in f_s.into_iter().zip(r_s.into_iter()).enumerate() {
-                    let mut fw = (fd/fm);
-                    let mut rv = (rd/rm).abs();
-                    if !fw.is_normal() { fw = 0.;}
-                    if !rv.is_normal() { rv = 0.;}
-                    covs[i][j] = (fw * ((len - i) as f64 / len as f64)) + (rv * ((i + 1) as f64/ len as f64));
-                }
-            }
-
-            Some(covs)
-        }
-        else { None }
-    }
-
-    pub fn parallel_med_mads(&mut self,draw_order:Vec<usize>, drop_set: &HashSet<usize>, pool:mpsc::Sender<FeatureMessage>) -> Option<((Vec<Vec<(f64,f64)>>,Vec<Vec<(f64,f64)>>))> {
+    pub fn parallel_dispersion(&mut self,draw_order:Vec<usize>, drop_set: &HashSet<usize>, pool:mpsc::Sender<FeatureMessage>) -> Option<Vec<Vec<f64>>> {
 
         let forward_draw = Arc::new(draw_order.clone());
         let reverse_draw: Arc<Vec<usize>> = Arc::new(draw_order.into_iter().rev().collect());
@@ -380,8 +332,8 @@ impl RankTable {
             return None
         }
 
-        let mut forward_covs: Vec<Vec<(f64,f64)>> = vec![vec![(0.,0.);self.dimensions.0];forward_draw.len()+1];
-        let mut reverse_covs: Vec<Vec<(f64,f64)>> = vec![vec![(0.,0.);self.dimensions.0];reverse_draw.len()+1];
+        let mut forward_dispersions: Vec<Vec<f64>> = vec![vec![0.;self.dimensions.0];forward_draw.len()+1];
+        let mut reverse_dispersions: Vec<Vec<f64>> = vec![vec![0.;self.dimensions.0];reverse_draw.len()+1];
 
         let mut forward_receivers = Vec::with_capacity(self.dimensions.0);
         let mut reverse_receivers = Vec::with_capacity(self.dimensions.0);
@@ -391,14 +343,14 @@ impl RankTable {
 
         for feature in self.meta_vector.drain(..) {
             let (tx,rx) = mpsc::channel();
-            pool.send(FeatureMessage::Message((feature,forward_draw.clone(),drop_arc.clone()),tx));
+            pool.send(FeatureMessage::Message((feature,forward_draw.clone(),drop_arc.clone(),self.split_mode),tx));
             forward_receivers.push(rx);
         }
 
         for (i,fr) in forward_receivers.iter().enumerate() {
             if let Ok((disp,feature)) = fr.recv() {
-                for (j,(m,d)) in disp.into_iter().enumerate() {
-                    forward_covs[j][i] = (m,d);
+                for (j,g) in disp.into_iter().enumerate() {
+                    forward_dispersions[j][i] = g;
                 }
                 self.meta_vector.push(feature);
             }
@@ -410,14 +362,14 @@ impl RankTable {
 
         for feature in self.meta_vector.drain(..) {
             let (tx,rx) = mpsc::channel();
-            pool.send(FeatureMessage::Message((feature,reverse_draw.clone(),drop_arc.clone()),tx));
+            pool.send(FeatureMessage::Message((feature,reverse_draw.clone(),drop_arc.clone(),self.split_mode),tx));
             reverse_receivers.push(rx);
         }
 
         for (i,rr) in reverse_receivers.iter().enumerate() {
             if let Ok((disp,feature)) = rr.recv() {
-                for (j,(m,d)) in disp.into_iter().enumerate() {
-                    reverse_covs[reverse_draw.len() - j][i] = (m,d);
+                for (j,g) in disp.into_iter().enumerate() {
+                    reverse_dispersions[reverse_draw.len() - j][i] = g;
                 }
                 self.meta_vector.push(feature);
             }
@@ -427,30 +379,40 @@ impl RankTable {
 
         }
 
-        Some((forward_covs, reverse_covs))
+        let len = forward_dispersions.len()+1;
+
+        let mut covs: Vec<Vec<f64>> = vec![vec![0.;self.dimensions.0];len];
+
+        for (i,(f_s,r_s)) in forward_dispersions.into_iter().zip(reverse_dispersions.into_iter()).enumerate() {
+            for (j,(gf,gr)) in f_s.into_iter().zip(r_s.into_iter()).enumerate() {
+                covs[i][j] = (gf * ((len - i) as f64 / len as f64)) + (gr * ((i + 1) as f64/ len as f64));
+            }
+        }
+
+        Some(covs)
 
     }
 
 
 }
 
-pub fn l2_minimum(mtx_in:&Vec<Vec<f64>>, weights: &Vec<f64>) -> (usize,f64) {
+pub fn l2_maximum(mtx_in:&Vec<Vec<f64>>, weights: &Vec<f64>) -> (usize,f64) {
 
     let sample_sums = mtx_in.iter().map(|sample| {
         sample.iter().enumerate().map(|(i,feature)| feature.powi(2) * weights[i]).sum::<f64>() / weights.iter().sum::<f64>()
     }).map(|sum| if sum.is_normal() {sum} else {0.});
 
-    sample_sums.enumerate().skip(1).rev().skip(2).min_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Greater)).unwrap_or((0,f64::INFINITY))
+    sample_sums.enumerate().skip(1).rev().skip(2).max_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Greater)).unwrap_or((0,f64::INFINITY))
 
 }
 
-pub fn l1_minimum(mtx_in:&Vec<Vec<f64>>, weights: &Vec<f64>) -> (usize,f64) {
+pub fn l1_maximum(mtx_in:&Vec<Vec<f64>>, weights: &Vec<f64>) -> (usize,f64) {
 
     let sample_sums = mtx_in.iter().map(|sample| {
         sample.iter().enumerate().map(|(i,feature)| feature * weights[i] ).sum::<f64>() / weights.iter().sum::<f64>()
     }).map(|sum| if sum.is_normal() {sum} else {0.});
 
-    sample_sums.enumerate().skip(1).rev().skip(2).min_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Greater)).unwrap_or((0,f64::INFINITY))
+    sample_sums.enumerate().skip(1).rev().skip(2).max_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Greater)).unwrap_or((0,f64::INFINITY))
 
 }
 

@@ -46,6 +46,7 @@ impl RankVector {
 
             draw_order: (0..length).collect(),
 
+
             drop: parameters.dropout.unwrap_or(DropMode::Zeros),
             norm: parameters.norm_mode.unwrap_or(NormMode::L1),
             num_dropped: 0,
@@ -515,7 +516,7 @@ impl RankVector {
         OrderedDraw::new(self)
     }
 
-    pub fn ordered_mad(&mut self,draw_order: &Vec<usize>,drop_set: &HashSet<usize>) -> Vec<(f64,f64)> {
+    pub fn ordered_meds_mads(&mut self,draw_order: &Vec<usize>,drop_set: &HashSet<usize>) -> Vec<(f64,f64)> {
 
         for dropped_sample in drop_set {
             self.pop(*dropped_sample);
@@ -528,8 +529,75 @@ impl RankVector {
             meds_mads.push((self.median(),self.mad()))
         }
 
+        self.manual_reset();
+
         meds_mads
     }
+
+    pub fn ordered_mad_gains(&mut self,draw_order: &Vec<usize>, drop_set: &HashSet<usize>) -> Vec<f64> {
+
+        for dropped_sample in drop_set {
+            self.pop(*dropped_sample);
+        }
+
+        let start_mad = self.mad();
+
+        let mut mad_gains = Vec::with_capacity(draw_order.len());
+
+        mad_gains.push(0.);
+        for draw in draw_order {
+            self.pop(*draw);
+            mad_gains.push(start_mad - self.mad())
+        }
+
+        self.manual_reset();
+
+        mad_gains
+
+    }
+
+    pub fn orderd_covs(&mut self,draw_order: &Vec<usize>,drop_set: &HashSet<usize>) -> Vec<f64> {
+
+        for dropped_sample in drop_set {
+            self.pop(*dropped_sample);
+        }
+
+        let mut covs = Vec::with_capacity(draw_order.len());
+
+        covs.push(self.mad()/self.median());
+
+        for draw in draw_order {
+            self.pop(*draw);
+            covs.push(self.mad()/self.median());
+        }
+
+        self.manual_reset();
+
+        covs
+    }
+
+    pub fn ordered_cov_gains(&mut self,draw_order: &Vec<usize>,drop_set: &HashSet<usize>) -> Vec<f64> {
+
+        for dropped_sample in drop_set {
+            self.pop(*dropped_sample);
+        }
+
+        let mut cov_gains = Vec::with_capacity(draw_order.len());
+
+        let start_cov = self.mad()/self.median();
+
+        cov_gains.push(0.);
+
+        for draw in draw_order {
+            self.pop(*draw);
+            cov_gains.push(start_cov - (self.mad()/self.median()));
+        }
+
+        self.manual_reset();
+
+        cov_gains
+    }
+
 
     pub fn give_draw_order(&self) -> (Vec<usize>,&HashSet<usize>) {
         (self.vector.dropped_draw_order(),&self.vector.drop_set)
@@ -727,6 +795,7 @@ impl MedianZone {
     }
 
     fn mad(&self, raw_vector: &RawVector) -> f64 {
+
         if raw_vector.len() > 1 {
 
             let left = raw_vector[self.left.unwrap()];
@@ -755,6 +824,7 @@ impl MedianZone {
         else {
             return 0.
         }
+
     }
 
     fn reset_by_reference(&mut self, backup: &MedianZone) {
