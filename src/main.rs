@@ -1078,18 +1078,18 @@ pub mod primary_testing {
     #[test]
     fn test_command_trivial() {
 
-        match Command::parse(&mut vec!["construct"].iter().map(|x| x.to_string())) {
-            Command::Construct(_) => {},
+        match Command::parse("construct") {
+            Command::Construct => {},
             _ => panic!("Failed prediction parse")
         };
 
-        match Command::parse(&mut vec!["predict"].iter().map(|x| x.to_string())) {
-            Command::Predict(_) => {},
+        match Command::parse("predict") {
+            Command::Predict => {},
             _ => panic!("Failed prediction parse")
         };
 
-        match Command::parse(&mut vec!["combined"].iter().map(|x| x.to_string())) {
-            Command::ConstructPredict(_) => {},
+        match Command::parse("combined") {
+            Command::Combined => {},
             _ => panic!("Failed prediction parse")
         };
 
@@ -1098,61 +1098,32 @@ pub mod primary_testing {
     #[test]
     #[should_panic]
     fn test_command_wrong() {
-        Command::parse(&mut vec!["abc"].iter().map(|x| x.to_string()));
+        Command::parse("abc");
     }
 
-    #[test]
-    fn test_command_predict_args() {
-        let mut args = vec!["predict", "-m","branching","-b","tree.txt","-tg","tree.0","tree.1","tree.2","-c","counts.txt","-p","3","-o","./elsewhere/","-f","header_backup.txt"].into_iter().map(|x| x.to_string());
+    // #[test]
+    // fn test_parameters_args() {
+    //     let mut args_iter = vec!["predict", "-m","branching","-b","tree.txt","-tg","tree.0","tree.1","tree.2","-c","testing/iris.drop","-p","3","-o","./elsewhere/","-f","header_backup.txt"].into_iter().map(|x| x.to_string());
+    //
+    //     let args = Parameters::read(&mut args_iter);
+    //
+    //     match args.prediction_mode.unwrap() {
+    //         PredictionMode::Branch => {},
+    //         _ => panic!("Branch mode not read correctly")
+    //     }
+    //
+    //     assert_eq!(args.backup_vec.unwrap(), vec!["tree.0".to_string(),"tree.1".to_string(),"tree.2".to_string()]);
+    //     assert_eq!(args.backups.unwrap(), "tree.txt".to_string());
+    //
+    //     assert_eq!(args.count_array_file, "counts.txt".to_string());
+    //     assert_eq!(args.feature_header_file.unwrap(), "header_backup.txt".to_string());
+    //     assert_eq!(args.sample_header_file, None);
+    //     assert_eq!(args.report_address, "./elsewhere/".to_string());
+    //
+    //     assert_eq!(args.processor_limit.unwrap(), 3);
+    //
+    // }
 
-        let command = Command::parse(&mut args);
-
-        if let Command::Predict(args) = command {
-
-
-            match args.prediction_mode {
-                PredictionMode::Branch => {},
-                _ => panic!("Branch mode not read correctly")
-            }
-
-            assert_eq!(args.backup_vec, vec!["tree.0".to_string(),"tree.1".to_string(),"tree.2".to_string()]);
-            assert_eq!(args.backups, "tree.txt".to_string());
-
-            assert_eq!(args.count_array_file, "counts.txt".to_string());
-            assert_eq!(args.feature_header_file, Some("header_backup.txt".to_string()));
-            assert_eq!(args.sample_header_file, None);
-            assert_eq!(args.report_address, "./elsewhere/".to_string());
-
-            assert_eq!(args.processor_limit, 3);
-
-        }
-        else {
-            panic!("Error parsing example prediction command ")
-        }
-    }
-
-    #[test]
-    fn test_command_construct_args() {
-        let mut args = vec!["construct", "-of","5","-if","10","-ss","100","-t","10","-c","counts.txt","-p","3","-o","./elsewhere/","-f","header_backup.txt"].into_iter().map(|x| x.to_string());
-
-        let command = Command::parse(&mut args);
-
-        if let Command::Construct(args) = command {
-
-
-            assert_eq!(args.output_features.unwrap(),5);
-            assert_eq!(args.input_features.unwrap(),10);
-            assert_eq!(args.count_array_file, "counts.txt".to_string());
-            assert_eq!(args.feature_header_file, Some("header_backup.txt".to_string()));
-            assert_eq!(args.sample_subsample.unwrap(), 100);
-            assert_eq!(args.report_address, "./elsewhere/".to_string());
-            assert_eq!(args.processor_limit.unwrap(), 3);
-
-        }
-        else {
-            panic!("Error parsing example prediction command ")
-        }
-    }
 
     #[test]
     fn test_read_counts_trivial() {

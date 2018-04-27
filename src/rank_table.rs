@@ -313,7 +313,7 @@ impl RankTable {
                 NormMode::L1 => l1_maximum(&disp_mtx, feature_weights.unwrap_or(&vec![1.;y])),
                 NormMode::L2 => l2_maximum(&disp_mtx, feature_weights.unwrap_or(&vec![1.;y])),
             };
-
+            maximum.0 -= 1;
             maximum.1 *= x as f64;
 
             Some(maximum)
@@ -424,7 +424,7 @@ mod rank_table_tests {
 
     #[test]
     fn rank_table_general_test() {
-        let table = RankTable::new(&vec![vec![1.,2.,3.],vec![4.,5.,6.],vec![7.,8.,9.]], &vec!["one".to_string(),"two".to_string(),"three".to_string()], &vec!["0".to_string(),"1".to_string(),"2".to_string()],DropMode::Zeros);
+        let table = RankTable::new(&vec![vec![1.,2.,3.],vec![4.,5.,6.],vec![7.,8.,9.]], &vec!["one".to_string(),"two".to_string(),"three".to_string()], &vec!["0".to_string(),"1".to_string(),"2".to_string()],Arc::new(Parameters::empty()));
         assert_eq!(table.medians(),vec![2.,5.,8.]);
         assert_eq!(table.dispersions(),vec![1.,1.,1.]);
         assert_eq!(*table.feature_index("one").unwrap(),0);
@@ -432,7 +432,9 @@ mod rank_table_tests {
 
     #[test]
     fn rank_table_trivial_test() {
-        let table = RankTable::new(&Vec::new(), &Vec::new(), &Vec::new(),DropMode::No);
+        let mut params = Parameters::empty();
+        params.dropout = Some(DropMode::No);
+        let table = RankTable::new(&Vec::new(), &Vec::new(), &Vec::new(),Arc::new(params));
         let empty: Vec<f64> = Vec::new();
         assert_eq!(table.medians(),empty);
         assert_eq!(table.dispersions(),empty);
@@ -440,35 +442,35 @@ mod rank_table_tests {
 
     #[test]
     pub fn rank_table_simple_test() {
-        let table = RankTable::new(&vec![vec![10.,-3.,0.,5.,-2.,-1.,15.,20.]], &vec!["one".to_string()], &(0..8).map(|x| x.to_string()).collect::<Vec<String>>()[..],DropMode::Zeros);
+        let table = RankTable::new(&vec![vec![10.,-3.,0.,5.,-2.,-1.,15.,20.]], &vec!["one".to_string()], &(0..8).map(|x| x.to_string()).collect::<Vec<String>>()[..],Arc::new(Parameters::empty()));
         let draw_order = table.sort_by_feature("one");
-        let mad_order = table.meta_vector[*table.feature_index("one").unwrap()].clone().ordered_mad(&draw_order.0,draw_order.1);
+        let mad_order = table.meta_vector[*table.feature_index("one").unwrap()].clone().ordered_meds_mads(&draw_order.0,draw_order.1);
         assert_eq!(mad_order, vec![(5.0,7.0),(7.5,8.),(10.,5.),(12.5,5.),(15.,5.),(17.5,2.5),(20.,0.),(0.,0.)]);
     }
 
     #[test]
     pub fn split() {
-        let mut table = RankTable::new(&vec![vec![10.,-3.,0.,5.,-2.,-1.,15.,20.]], &vec!["one".to_string()], &(0..8).map(|x| x.to_string()).collect::<Vec<String>>()[..],DropMode::Zeros);
+        let mut table = RankTable::new(&vec![vec![10.,-3.,0.,5.,-2.,-1.,15.,20.]], &vec!["one".to_string()], &(0..8).map(|x| x.to_string()).collect::<Vec<String>>()[..],Arc::new(Parameters::empty()));
         let pool = FeatureThreadPool::new(1);
         let mut draw_order = {(table.sort_by_feature("one").0.iter().cloned().collect(),table.sort_by_feature("one").1.iter().cloned().collect())};
 
         println!("{:?}", table.sort_by_feature("one"));
-        println!("{:?}", table.clone().parallel_med_mads(table.sort_by_feature("one").0,table.sort_by_feature("one").1,FeatureThreadPool::new(1)));
-        println!("{:?}", table.clone().parallel_covs(table.sort_by_feature("one").0,table.sort_by_feature("one").1,FeatureThreadPool::new(1)));
+        println!("{:?}", table.clone().parallel_dispersion(table.sort_by_feature("one").0,table.sort_by_feature("one").1,FeatureThreadPool::new(1)));
+        println!("{:?}", table.clone().parallel_dispersion(table.sort_by_feature("one").0,table.sort_by_feature("one").1,FeatureThreadPool::new(1)));
         assert_eq!(table.parallel_split_order(draw_order.0, &draw_order.1, Some(&vec![1.]), pool).unwrap().0,3)
 
     }
 
     #[test]
     pub fn rank_table_derive_test() {
-        let table = RankTable::new(&vec![vec![10.,-3.,0.,5.,-2.,-1.,15.,20.]], &vec!["one".to_string()], &(0..8).map(|x| x.to_string()).collect::<Vec<String>>()[..],DropMode::Zeros);
+        let table = RankTable::new(&vec![vec![10.,-3.,0.,5.,-2.,-1.,15.,20.]], &vec!["one".to_string()], &(0..8).map(|x| x.to_string()).collect::<Vec<String>>()[..],Arc::new(Parameters::empty()));
         let kid1 = table.derive(&vec![0,2,4,6]);
         let kid2 = table.derive(&vec![1,3,5,7]);
     }
 
     #[test]
     pub fn rank_table_derive_empty_test() {
-        let table = RankTable::new(&vec![vec![10.,-3.,0.,5.,-2.,-1.,15.,20.],vec![0.,1.,0.,1.,0.,1.,0.,1.]], &vec!["one".to_string(),"two".to_string()], &(0..8).map(|x| x.to_string()).collect::<Vec<String>>()[..],DropMode::Zeros);
+        let table = RankTable::new(&vec![vec![10.,-3.,0.,5.,-2.,-1.,15.,20.],vec![0.,1.,0.,1.,0.,1.,0.,1.]], &vec!["one".to_string(),"two".to_string()], &(0..8).map(|x| x.to_string()).collect::<Vec<String>>()[..],Arc::new(Parameters::empty()));
         let kid1 = table.derive(&vec![0,2,4,6]);
         let kid2 = table.derive(&vec![1,3,5,7]);
     }

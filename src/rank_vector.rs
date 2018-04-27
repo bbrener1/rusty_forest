@@ -568,7 +568,11 @@ impl RankVector {
 
         for draw in draw_order {
             self.pop(*draw);
-            covs.push(self.mad()/self.median());
+            let mut cov = self.mad()/self.median();
+            if !cov.is_normal() {
+                cov = 0.;
+            }
+            covs.push(cov);
         }
 
         self.manual_reset();
@@ -584,13 +588,24 @@ impl RankVector {
 
         let mut cov_gains = Vec::with_capacity(draw_order.len());
 
-        let start_cov = self.mad()/self.median();
+        let mut start_cov = self.mad()/self.median();
+
+        if !start_cov.is_normal() {
+            start_cov = 0.;
+        }
 
         cov_gains.push(0.);
 
         for draw in draw_order {
+
+            let mut cov = self.mad()/self.median();
+
+            if !cov.is_normal() {
+                cov = 0.;
+            }
+
             self.pop(*draw);
-            cov_gains.push(start_cov - (self.mad()/self.median()));
+            cov_gains.push(start_cov - cov);
         }
 
         self.manual_reset();
@@ -1231,7 +1246,7 @@ mod rank_vector_tests {
 
     #[test]
     fn create_trivial() {
-        let mut vector = RankVector::new(&vec![],"".to_string(),DropMode::No);
+        let mut vector = RankVector::new(&vec![],"".to_string(),Arc::new(Parameters::empty()));
         vector.drop_zeroes();
         vector.initialize();
         vector.set_boundaries();
@@ -1239,13 +1254,13 @@ mod rank_vector_tests {
 
     #[test]
     fn create_very_simple_drop() {
-        let mut vector = RankVector::new(&vec![0.],"test".to_string(),DropMode::Zeros);
+        let mut vector = RankVector::new(&vec![0.],"test".to_string(),Arc::new(Parameters::empty()));
         vector.drop_zeroes();
     }
 
     #[test]
     fn create_very_simple_initialize() {
-        let mut vector = RankVector::new(&vec![0.],"test".to_string(),DropMode::Zeros);
+        let mut vector = RankVector::new(&vec![0.],"test".to_string(),Arc::new(Parameters::empty()));
         vector.drop_zeroes();
         vector.initialize();
         vector.set_boundaries();
@@ -1253,7 +1268,9 @@ mod rank_vector_tests {
 
     #[test]
     fn create_very_simple_nan_drop() {
-        let mut vector = RankVector::new(&vec![NAN],"test".to_string(), DropMode::NaNs);
+        let mut params = Parameters::empty();
+        params.dropout = Some(DropMode::NaNs);
+        let mut vector = RankVector::new(&vec![NAN],"test".to_string(), Arc::new(params));
         vector.drop_zeroes();
         vector.initialize();
         vector.set_boundaries();
@@ -1261,7 +1278,7 @@ mod rank_vector_tests {
 
     #[test]
     fn create_simple() {
-        let mut vector = RankVector::new(&vec![10.,-3.,0.,5.,-2.,-1.,15.,20.],"test".to_string(),DropMode::Zeros);
+        let mut vector = RankVector::new(&vec![10.,-3.,0.,5.,-2.,-1.,15.,20.],"test".to_string(),Arc::new(Parameters::empty()));
         vector.drop_zeroes();
         vector.initialize();
         vector.set_boundaries();
@@ -1271,7 +1288,7 @@ mod rank_vector_tests {
 
     #[test]
     fn create_repetitive() {
-        let mut vector = RankVector::new(&vec![0.,0.,0.,-5.,-5.,-5.,10.,10.,10.,10.,10.],"test".to_string(),DropMode::Zeros);
+        let mut vector = RankVector::new(&vec![0.,0.,0.,-5.,-5.,-5.,10.,10.,10.,10.,10.],"test".to_string(),Arc::new(Parameters::empty()));
         vector.drop_zeroes();
         vector.initialize();
         vector.set_boundaries();
@@ -1281,7 +1298,7 @@ mod rank_vector_tests {
 
     #[test]
     fn sequential_mad_simple() {
-        let mut vector = RankVector::new(&vec![10.,-3.,0.,5.,-2.,-1.,15.,20.],"test".to_string(),DropMode::Zeros);
+        let mut vector = RankVector::new(&vec![10.,-3.,0.,5.,-2.,-1.,15.,20.],"test".to_string(),Arc::new(Parameters::empty()));
         vector.drop_zeroes();
         vector.initialize();
         vector.set_boundaries();
@@ -1305,7 +1322,7 @@ mod rank_vector_tests {
 
     #[test]
     fn sequential_mad_simple_nan() {
-        let mut vector = RankVector::new(&vec![10.,-3.,NAN,5.,-2.,-1.,15.,20.],"test".to_string(),DropMode::NaNs);
+        let mut vector = RankVector::new(&vec![10.,-3.,NAN,5.,-2.,-1.,15.,20.],"test".to_string(),Arc::new(Parameters::empty()));
         vector.drop_zeroes();
         vector.initialize();
         vector.set_boundaries();
