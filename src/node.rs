@@ -75,7 +75,7 @@ impl Node {
 
             maxima.push( {
 
-                self.output_table.parallel_split_order(draw_order.0,draw_order.1,Some(&self.feature_weights),self.feature_pool.clone()).unwrap_or((0,f64::INFINITY))
+                self.output_table.parallel_split_order(draw_order.0,draw_order.1,Some(&self.feature_weights),self.feature_pool.clone()).unwrap_or((0,0.0))
 
             } );
 
