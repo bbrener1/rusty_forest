@@ -379,7 +379,7 @@ impl RankTable {
 
         }
 
-        let len = forward_dispersions.len()+1;
+        let len = self.dimensions.1+1;
 
         let mut covs: Vec<Vec<f64>> = vec![vec![0.;self.dimensions.0];len];
 
