@@ -177,7 +177,7 @@ impl RankTable {
 
         let dimensions = (self.meta_vector.len(),self.meta_vector[0].vector.vector.len());
 
-        RankTable {
+        let child = RankTable {
 
             meta_vector: new_meta_vector,
             feature_names: self.feature_names.clone(),
@@ -190,7 +190,14 @@ impl RankTable {
             dropout: self.dropout,
             norm_mode: self.norm_mode,
             split_mode: self.split_mode,
-        }
+        };
+
+        println!("{:?}",child.samples());
+        println!("{:?}",child.features());
+        println!("{:?}",child.full_ordered_values());
+
+        child
+
     }
 
 
@@ -216,8 +223,15 @@ impl RankTable {
 
         let mut new_meta_vector: Vec<RankVector> = Vec::with_capacity(features.len());
 
-        let new_sample_names:Vec<String> = samples.iter().cloned().cloned().collect();
-        let new_sample_dictionary : HashMap<String,usize> = new_sample_names.iter().enumerate().map(|(count,sample)| (sample.clone(),count)).collect();
+        let mut new_sample_names = Vec::with_capacity(samples.len());
+        let mut new_sample_dictionary = HashMap::with_capacity(samples.len());
+
+        for (i,sample_name) in self.sample_names.iter().enumerate() {
+            if index_set.contains(&i) {
+                new_sample_names.push(sample_name.clone());
+                new_sample_dictionary.insert(sample_name.clone(),new_sample_names.len()-1);
+            }
+        }
 
         let mut new_feature_dictionary = HashMap::with_capacity(features.len());
         let mut new_feature_names = Vec::with_capacity(features.len());
