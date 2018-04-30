@@ -192,9 +192,9 @@ impl RankTable {
             split_mode: self.split_mode,
         };
 
-        println!("{:?}",child.samples());
-        println!("{:?}",child.features());
-        println!("{:?}",child.full_ordered_values());
+        // println!("{:?}",child.samples());
+        // println!("{:?}",child.features());
+        // println!("{:?}",child.full_ordered_values());
 
         child
 
