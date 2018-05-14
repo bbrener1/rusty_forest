@@ -89,8 +89,6 @@ fn compute (mut prot_vector: RankVector<Vec<Node>> , draw_order: Arc<Vec<usize>>
 
     let mut vector = prot_vector.clone_to_stack();
 
-    println!("Splitting: {:?}", split_mode);
-
     let result = match split_mode {
         SplitMode::Cov => vector.ordered_cov_gains(&draw_order,&drop_set),
         SplitMode::MAD => vector.ordered_mad_gains(&draw_order,&drop_set),
