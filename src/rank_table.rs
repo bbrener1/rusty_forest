@@ -309,8 +309,6 @@ impl RankTable {
             return None;
         };
 
-        println!("Table parallel split order beginning");
-
         let disp_mtx_opt: Option<Vec<Vec<f64>>> = self.parallel_dispersion(draw_order,drop_set,pool);
 
         if let Some(disp_mtx) = disp_mtx_opt {
@@ -336,8 +334,6 @@ impl RankTable {
         if forward_draw.len() < 2 {
             return None
         }
-
-        println!("Table parallel dispersion initializing");
 
         let mut forward_dispersions: Vec<Vec<f64>> = vec![vec![0.;self.dimensions.0];forward_draw.len()+1];
         let mut reverse_dispersions: Vec<Vec<f64>> = vec![vec![0.;self.dimensions.0];reverse_draw.len()+1];

@@ -212,8 +212,6 @@ impl<T: Borrow<[Node]> + BorrowMut<[Node]> + Index<usize,Output=Node> + IndexMut
 
     pub fn pop(&mut self, nominal_index: usize) -> f64 {
 
-        println!("Popping {}", nominal_index);
-
         let target = nominal_index + self.zone_offset;
 
         let (old_median,new_median) = self.recenter_median(target);
@@ -224,11 +222,7 @@ impl<T: Borrow<[Node]> + BorrowMut<[Node]> + Index<usize,Output=Node> + IndexMut
 
             if self.len() > 0 {
 
-                println!("Balancing");
-
                 self.balance_zones(target);
-
-                println!("Shifting");
 
                 self.shift_zones(old_median,new_median);
 
@@ -256,8 +250,6 @@ impl<T: Borrow<[Node]> + BorrowMut<[Node]> + Index<usize,Output=Node> + IndexMut
 
         self.nodes[target].zone = 0;
 
-        println!("{:?}", self.nodes[target]);
-
         &self.nodes[target]
     }
 
@@ -284,7 +276,6 @@ impl<T: Borrow<[Node]> + BorrowMut<[Node]> + Index<usize,Output=Node> + IndexMut
     #[inline]
     pub fn establish_median(&mut self) {
         let steps = self.zones[2].length as i32 + 1 - ((self.zones[1].length * 2) as i32 - 1).max(0);
-        println!("median steps: {}", steps);
         for _ in 0..steps {
             self.shift_median_right();
         }
@@ -326,8 +317,6 @@ impl<T: Borrow<[Node]> + BorrowMut<[Node]> + Index<usize,Output=Node> + IndexMut
 
     #[inline]
     pub fn drop_f(&mut self, f: f64) {
-
-        println!("Dropping {}", f);
 
         let mut drop_set: HashSet<usize> = HashSet::with_capacity(self.len());
         drop_set = self.left_to_right().iter().map(|x| &self.nodes[*x]).filter(|y| y.data == f).map(|x| x.index).collect();
@@ -448,14 +437,10 @@ impl<T: Borrow<[Node]> + BorrowMut<[Node]> + Index<usize,Output=Node> + IndexMut
         let right = self.nodes[self.nodes[self.zones[2].tail].previous].data;
         let left = self.nodes[self.nodes[self.zones[2].head].next].data;
 
-        println!("{},{},{}",left,median,right);
-
         if (right - median).abs() > (left - median).abs() {
-            println!("contract right");
             self.contract_right();
         }
         else {
-            println!("contract_left");
             self.contract_left();
         }
     }
@@ -551,26 +536,14 @@ impl<T: Borrow<[Node]> + BorrowMut<[Node]> + Index<usize,Output=Node> + IndexMut
 
         let change = new_median - old_median;
 
-        println!("Change: {}", change);
-
         if change > 0. {
-
-            println!("Shifting right");
 
             for i in 0..self.zones[3].length {
 
                 let left = self.nodes[self.nodes[self.zones[2].head].next].data;
                 let right = self.nodes[self.nodes[self.zones[3].head].next].data;
 
-                println!("{}",i);
-
-                println!("Left: {}, Median:{}, Right: {}", left,new_median,right);
-
-                println!("Comparison: {}, {}",(left-new_median).abs(),(right-new_median).abs());
-
                 if (right - new_median).abs() > (left - new_median).abs() {
-
-                    println!("Finished");
 
                     break
                 }
@@ -581,23 +554,12 @@ impl<T: Borrow<[Node]> + BorrowMut<[Node]> + Index<usize,Output=Node> + IndexMut
         }
         if change < 0. {
 
-            println!("Shifting left");
-
             for i in 0..self.zones[1].length {
-
-                println!("{}",i);
 
                 let left = self.nodes[self.nodes[self.zones[1].tail].previous].data;
                 let right = self.nodes[self.nodes[self.zones[2].tail].previous].data;
 
-                println!("Right: {}, Median:{}, Left: {}", right,new_median,left);
-
-                println!("Comparison: {}, {}",(left-new_median).abs(),(right-new_median).abs());
-
                 if (left - new_median).abs() > (right - new_median).abs() {
-
-                    println!("Finished");
-
                     break
                 }
 
@@ -611,8 +573,6 @@ impl<T: Borrow<[Node]> + BorrowMut<[Node]> + Index<usize,Output=Node> + IndexMut
 
     #[inline]
     pub fn mad(&self) -> f64 {
-
-        println!("{:?}", self);
 
         if self.len() < 2 {return 0.}
 
@@ -629,8 +589,6 @@ impl<T: Borrow<[Node]> + BorrowMut<[Node]> + Index<usize,Output=Node> + IndexMut
 
         let median = self.median();
 
-        println!("{:?}", median);
-
         let mut distance_to_median = [(left - median).abs(), (inner_left - median).abs(), (inner_right - median).abs(), (right - median).abs()];
 
         // println!("MAD debug");
@@ -640,8 +598,6 @@ impl<T: Borrow<[Node]> + BorrowMut<[Node]> + Index<usize,Output=Node> + IndexMut
 
         distance_to_median.sort_unstable_by(|a,b| a.partial_cmp(&b).unwrap_or(Ordering::Greater));
         distance_to_median.reverse();
-
-        println!("{:?}", distance_to_median);
 
         if self.zones[2].length % 2 == 0 {
             return distance_to_median[0]
@@ -657,8 +613,6 @@ impl<T: Borrow<[Node]> + BorrowMut<[Node]> + Index<usize,Output=Node> + IndexMut
         indecies.extend(GRVCrawler::new(&self, self.nodes[self.zones[1].head].next).take(self.zones[1].length));
         indecies.extend(GRVCrawler::new(&self, self.nodes[self.zones[2].head].next).take(self.zones[2].length));
         indecies.extend(GRVCrawler::new(&self, self.nodes[self.zones[3].head].next).take(self.zones[3].length));
-
-        println!("{:?}", indecies);
 
         indecies
     }
@@ -798,8 +752,6 @@ impl RankVector<Vec<Node>> {
 
     pub fn derive(&self, indecies:&[usize]) -> RankVector<Vec<Node>> {
 
-        println!("{:?}", indecies);
-
         let mut new_vector = RankVector::<Vec<Node>>::with_capacity(indecies.len());
 
         let mut new_rank_order = Vec::with_capacity(indecies.len());
@@ -825,11 +777,7 @@ impl RankVector<Vec<Node>> {
         for (i,node) in self.rank_order.as_ref().unwrap_or(&vec![]).iter().map(|x| &self.nodes[*x]).filter(|y| derived_set.contains(&y.index)).enumerate() {
             if derived_set.contains(&node.index) {
 
-                println!("{:?}", node);
-
                 new_index = index_map[&node.index];
-
-                println!("{}", new_index);
 
                 if dirty_indirect.contains(&node.index) {
                     new_dirty_set.insert(new_index);
@@ -859,8 +807,6 @@ impl RankVector<Vec<Node>> {
         new_vector.nodes[5].previous = new_index;
 
         new_vector.nodes.sort_unstable_by_key(|x| x.index);
-
-        println!("{:?}", new_vector);
 
         new_vector.rank_order = Some(new_rank_order);
 
@@ -968,8 +914,6 @@ mod rank_vector_tests {
         if values.len() < 1 {
             return 0.
         }
-
-        println!("{:?}", values);
 
         if values.len()%2==0 {
             median = (values[values.len()/2] + values[values.len()/2 - 1]) as f64 / 2.;

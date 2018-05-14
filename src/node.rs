@@ -73,8 +73,6 @@ impl Node {
                 self.feature_weights[*input_index] = 0.;
             }
 
-            println!("Got to split evaluation, draw order gen ok");
-
             maxima.push( {
 
                 self.output_table.parallel_split_order(draw_order.0,draw_order.1,Some(&self.feature_weights),self.feature_pool.clone()).unwrap_or((0,0.0))
