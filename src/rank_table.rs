@@ -11,15 +11,17 @@ use std::f64;
 use square_mtx_ip;
 use NormMode;
 use SplitMode;
-
-use rank_vector::RankVector;
+use serde::ser::Serialize;
+use serde::de::Deserialize;
+use rv2::RankVector;
+use rv2::Node;
 use DropMode;
 use Parameters;
 
 
-#[derive(Serialize,Deserialize,Debug,Clone)]
+#[derive(Debug,Clone,Serialize,Deserialize)]
 pub struct RankTable {
-    meta_vector: Vec<RankVector>,
+    meta_vector: Vec<RankVector<Vec<Node>>>,
     pub feature_names: Vec<String>,
     pub sample_names: Vec<String>,
     feature_dictionary: HashMap<String,usize>,
@@ -52,18 +54,15 @@ impl RankTable {
             // println!("Starting to iterate");
             feature_dictionary.insert(name.clone(),i);
             // println!("Updated feature dict");
-            let mut construct = RankVector::new(loc_counts,name,parameters.clone());
+            let mut construct = RankVector::<Vec<Node>>::link(loc_counts);
             // println!("Made a rank vector");
-            construct.drop();
-            construct.initialize();
-            construct.set_boundaries();
-            construct.backup();
+            construct.drop_f(parameters.dropout.unwrap().cmp());
             meta_vector.push(construct);
         }
 
         let draw_order = (0..counts.get(0).unwrap_or(&vec![]).len()).collect::<Vec<usize>>();
 
-        let dim = (meta_vector.len(),meta_vector.get(0).unwrap_or(&RankVector::new(&vec![],"".to_string(),Arc::new(Parameters::empty()))).vector.vector.len());
+        let dim = (meta_vector.len(),meta_vector.get(0).unwrap_or(&RankVector::<Vec<Node>>::with_capacity(0)).raw_len());
 
         println!("Made rank table with {} features, {} samples:", dim.0,dim.1);
 
@@ -98,7 +97,7 @@ impl RankTable {
 
     pub fn sort_by_feature(& self, feature: &str) -> (Vec<usize>,&HashSet<usize>) {
 
-        self.meta_vector[self.feature_dictionary[feature]].give_draw_order()
+        self.meta_vector[self.feature_dictionary[feature]].draw_and_drop()
 
     }
 
@@ -115,7 +114,7 @@ impl RankTable {
     }
 
     pub fn feature_fetch(&self, feature: &str, index: usize) -> f64 {
-        self.meta_vector[self.feature_dictionary[feature]].vector[index].3
+        self.meta_vector[self.feature_dictionary[feature]].fetch(index)
     }
 
     pub fn features(&self) -> &Vec<String> {
@@ -130,21 +129,16 @@ impl RankTable {
         self.sample_dictionary[sample_name]
     }
 
-
-    pub fn between(&self, feature: &str,begin:&str,end:&str) -> usize {
-        self.meta_vector[self.feature_dictionary[feature]].crawl_between(self.sample_dictionary[begin],self.sample_dictionary[end])
-    }
-
     pub fn full_values(&self) -> Vec<Vec<f64>> {
         let mut values = Vec::new();
         for feature in &self.meta_vector {
-            values.push(feature.draw_values());
+            values.push(feature.full_values());
         }
         values
     }
 
     pub fn full_ordered_values(&self) -> Vec<Vec<f64>> {
-        self.meta_vector.iter().map(|x| x.draw_ordered_values()).collect()
+        self.meta_vector.iter().map(|x| x.ordered_values()).collect()
     }
 
     pub fn samples(&self) -> &[String] {
@@ -154,7 +148,7 @@ impl RankTable {
 
     pub fn derive(&self, indecies:&[usize]) -> RankTable {
 
-        let mut new_meta_vector: Vec<RankVector> = Vec::with_capacity(indecies.len());
+        let mut new_meta_vector: Vec<RankVector<Vec<Node>>> = Vec::with_capacity(indecies.len());
 
         let index_set: HashSet<&usize> = indecies.iter().collect();
 
@@ -175,7 +169,7 @@ impl RankTable {
 
         let new_draw_order: Vec<usize> = (0..indecies.len()).collect();
 
-        let dimensions = (self.meta_vector.len(),self.meta_vector[0].vector.vector.len());
+        let dimensions = (self.meta_vector.len(),self.meta_vector.get(0).unwrap_or(&RankVector::<Vec<Node>>::with_capacity(0)).raw_len());
 
         let child = RankTable {
 
@@ -201,18 +195,14 @@ impl RankTable {
     }
 
 
-    pub fn cloned_features(&self) -> Vec<RankVector> {
-        self.meta_vector.clone()
-    }
+    pub fn arc_features(&mut self) -> Vec<RankVector<Vec<Node>>> {
 
-    pub fn drain_features(&mut self) -> Vec<RankVector> {
-
-        let mut out = Vec::new();
+        let mut out = Vec::with_capacity(0);
         swap(&mut self.meta_vector,&mut out);
         out
     }
 
-    pub fn return_features(&mut self, returned: Vec<RankVector>) {
+    pub fn return_features(&mut self, returned: Vec<RankVector<Vec<Node>>>) {
         self.meta_vector = returned;
     }
 
@@ -221,7 +211,7 @@ impl RankTable {
         let indecies: Vec<usize> = samples.iter().map(|x| self.sample_index(x)).collect();
         let index_set: HashSet<&usize> = indecies.iter().collect();
 
-        let mut new_meta_vector: Vec<RankVector> = Vec::with_capacity(features.len());
+        let mut new_meta_vector: Vec<RankVector<Vec<Node>>> = Vec::with_capacity(features.len());
 
         let mut new_sample_names = Vec::with_capacity(samples.len());
         let mut new_sample_dictionary = HashMap::with_capacity(samples.len());
@@ -244,7 +234,7 @@ impl RankTable {
 
         let new_draw_order: Vec<usize> = (0..indecies.len()).collect();
 
-        let dimensions = (new_meta_vector.len(),new_meta_vector.get(0).unwrap_or(&RankVector::empty()).vector.vector.len());
+        let dimensions = (new_meta_vector.len(),new_meta_vector.get(0).unwrap_or(&RankVector::<Vec<Node>>::with_capacity(0)).raw_len());
 
         RankTable {
 
@@ -274,7 +264,7 @@ impl RankTable {
 
         // println!("Derive debug {},{}", samples, indecies.len());
 
-        let mut new_meta_vector: Vec<RankVector> = Vec::with_capacity(features);
+        let mut new_meta_vector: Vec<RankVector<Vec<Node>>> = Vec::with_capacity(features);
 
         let new_sample_names: Vec<String> = self.sample_names.iter().enumerate().filter(|x| index_set.contains(&x.0)).map(|x| x.1).cloned().collect();
         let new_sample_dictionary : HashMap<String,usize> = new_sample_names.iter().enumerate().map(|(count,sample)| (sample.clone(),count)).collect();
@@ -290,7 +280,7 @@ impl RankTable {
 
         let new_draw_order: Vec<usize> = (0..indecies.len()).collect();
 
-        let dimensions = (new_meta_vector.len(),new_meta_vector.get(0).unwrap_or(&RankVector::empty()).vector.vector.len());
+        let dimensions = (new_meta_vector.len(),new_meta_vector.get(0).unwrap_or(&RankVector::<Vec<Node>>::with_capacity(0)).raw_len());
 
         println!("Feature dict {:?}", new_feature_dictionary.clone());
         println!("New sample dict {:?}", new_sample_dictionary.clone());
@@ -319,6 +309,8 @@ impl RankTable {
             return None;
         };
 
+        println!("Table parallel split order beginning");
+
         let disp_mtx_opt: Option<Vec<Vec<f64>>> = self.parallel_dispersion(draw_order,drop_set,pool);
 
         if let Some(disp_mtx) = disp_mtx_opt {
@@ -344,6 +336,8 @@ impl RankTable {
         if forward_draw.len() < 2 {
             return None
         }
+
+        println!("Table parallel dispersion initializing");
 
         let mut forward_dispersions: Vec<Vec<f64>> = vec![vec![0.;self.dimensions.0];forward_draw.len()+1];
         let mut reverse_dispersions: Vec<Vec<f64>> = vec![vec![0.;self.dimensions.0];reverse_draw.len()+1];
@@ -465,18 +459,18 @@ mod rank_table_tests {
         assert_eq!(mad_order, vec![(5.0,7.0),(7.5,8.),(10.,5.),(12.5,5.),(15.,5.),(17.5,2.5),(20.,0.),(0.,0.)]);
     }
 
-    #[test]
-    pub fn split() {
-        let mut table = RankTable::new(&vec![vec![10.,-3.,0.,5.,-2.,-1.,15.,20.]], &vec!["one".to_string()], &(0..8).map(|x| x.to_string()).collect::<Vec<String>>()[..],Arc::new(Parameters::empty()));
-        let pool = FeatureThreadPool::new(1);
-        let mut draw_order = {(table.sort_by_feature("one").0.iter().cloned().collect(),table.sort_by_feature("one").1.iter().cloned().collect())};
-
-        println!("{:?}", table.sort_by_feature("one"));
-        println!("{:?}", table.clone().parallel_dispersion(table.sort_by_feature("one").0,table.sort_by_feature("one").1,FeatureThreadPool::new(1)));
-        println!("{:?}", table.clone().parallel_dispersion(table.sort_by_feature("one").0,table.sort_by_feature("one").1,FeatureThreadPool::new(1)));
-        assert_eq!(table.parallel_split_order(draw_order.0, &draw_order.1, Some(&vec![1.]), pool).unwrap().0,3)
-
-    }
+    // #[test]
+    // pub fn split() {
+    //     let mut table = RankTable::new(&vec![vec![10.,-3.,0.,5.,-2.,-1.,15.,20.]], &vec!["one".to_string()], &(0..8).map(|x| x.to_string()).collect::<Vec<String>>()[..],Arc::new(Parameters::empty()));
+    //     let pool = FeatureThreadPool::new(1);
+    //     let mut draw_order = {(table.sort_by_feature("one").0.iter().cloned().collect(),table.sort_by_feature("one").1.iter().cloned().collect())};
+    //
+    //     println!("{:?}", table.sort_by_feature("one"));
+    //     println!("{:?}", table.clone().parallel_dispersion(table.sort_by_feature("one").0,table.sort_by_feature("one").1,FeatureThreadPool::new(1)));
+    //     println!("{:?}", table.clone().parallel_dispersion(table.sort_by_feature("one").0,table.sort_by_feature("one").1,FeatureThreadPool::new(1)));
+    //     assert_eq!(table.parallel_split_order(draw_order.0, &draw_order.1, Some(&vec![1.]), pool).unwrap().0,3)
+    //
+    // }
 
     #[test]
     pub fn rank_table_derive_test() {

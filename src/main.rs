@@ -20,6 +20,7 @@ extern crate serde_json;
 extern crate num_cpus;
 extern crate rand;
 extern crate time;
+extern crate smallvec;
 
 mod raw_vector;
 mod rank_vector;

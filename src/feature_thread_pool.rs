@@ -11,7 +11,8 @@ use std::thread;
 
 extern crate rand;
 
-use rank_vector::RankVector;
+use rv2::RankVector;
+use rv2::Node;
 use SplitMode;
 
 impl FeatureThreadPool{
@@ -80,11 +81,15 @@ struct Worker {
 
 
 pub enum FeatureMessage {
-    Message((RankVector,Arc<Vec<usize>>,Arc<HashSet<usize>>,SplitMode), mpsc::Sender<(Vec<f64>,RankVector)>),
+    Message((RankVector<Vec<Node>>,Arc<Vec<usize>>,Arc<HashSet<usize>>,SplitMode), mpsc::Sender<(Vec<f64>,RankVector<Vec<Node>>)>),
     Terminate
 }
 
-fn compute (mut vector: RankVector , draw_order: Arc<Vec<usize>> , drop_set: Arc<HashSet<usize>>, split_mode:SplitMode) -> (Vec<f64>,RankVector) {
+fn compute (mut prot_vector: RankVector<Vec<Node>> , draw_order: Arc<Vec<usize>> , drop_set: Arc<HashSet<usize>>, split_mode:SplitMode) -> (Vec<f64>,RankVector<Vec<Node>>) {
+
+    let mut vector = prot_vector.clone_to_stack();
+
+    println!("Splitting: {:?}", split_mode);
 
     let result = match split_mode {
         SplitMode::Cov => vector.ordered_cov_gains(&draw_order,&drop_set),
@@ -93,6 +98,6 @@ fn compute (mut vector: RankVector , draw_order: Arc<Vec<usize>> , drop_set: Arc
         SplitMode::MADSquared => vector.ordered_mad_gains(&draw_order,&drop_set),
     };
 
-    (result,vector)
+    (result,prot_vector)
 
 }

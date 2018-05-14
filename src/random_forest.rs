@@ -343,47 +343,47 @@ mod random_forest_tests {
     //     let reconstituted_splits: Vec<f64> = new_forest.predictive_trees()[0].crawl_nodes().iter().map(|x| x.split().clone()).filter(|x| x.is_some()).map(|x| x.unwrap()).collect();
     // }
 
-    #[test]
-    fn test_forest_generation() {
-
-        let counts = read_counts("./testing/iris.drop");
-        let features = read_header("./testing/iris.features");
-
-        let mut params = Parameters::empty();
-
-        params.leaf_size_cutoff = Some(10);
-
-
-        params.input_features = Some(4);
-        params.output_features = Some(4);
-        params.sample_subsample = Some(150);
-        params.processor_limit = Some(1);
-        params.counts = Some(counts.clone());
-        params.feature_names = Some(features);
-        params.tree_limit = Some(1);
-        params.auto();
-
-        let arc_params = Arc::new(params);
-
-        let mut new_forest = Forest::initialize(&counts,arc_params.clone(), "./testing/tmp_test");
-        new_forest.generate(arc_params.clone(), true);
-
-
-        let computed_features: Vec<String> = new_forest.predictive_trees()[0].crawl_nodes().iter().map(|x| x.feature().clone()).filter(|x| x.is_some()).map(|x| x.unwrap()).collect();
-        let correct_features: Vec<String> = vec!["sepal_length","petal_length","sepal_width","sepal_width","sepal_length","sepal_width","sepal_width","sepal_width","sepal_width","sepal_width"].iter().map(|x| x.to_string()).collect();
-        assert_eq!(computed_features,correct_features);
-
-
-        let computed_splits: Vec<f64> = new_forest.predictive_trees()[0].crawl_nodes().iter().map(|x| x.split().clone()).filter(|x| x.is_some()).map(|x| x.unwrap()).collect();
-        let correct_splits: Vec<f64> = vec![1.5,5.7,1.2,1.1,4.9,1.8,1.4,2.2,1.8,1.];
-        assert_eq!(computed_splits,correct_splits);
-
-
-        remove_file("./testing/tmp_test.0");
-        remove_file("./testing/tmp_test.0.summary");
-        remove_file("./testing/tmp_test.0.dump");
-        remove_file("./testing/tmp_test.1");
-        remove_file("./testing/tmp_test.1.summary");
-        remove_file("./testing/tmp_test.1.dump");
-    }
+    // #[test]
+    // fn test_forest_generation() {
+    //
+    //     let counts = read_counts("./testing/iris.drop");
+    //     let features = read_header("./testing/iris.features");
+    //
+    //     let mut params = Parameters::empty();
+    //
+    //     params.leaf_size_cutoff = Some(10);
+    //
+    //
+    //     params.input_features = Some(4);
+    //     params.output_features = Some(4);
+    //     params.sample_subsample = Some(150);
+    //     params.processor_limit = Some(1);
+    //     params.counts = Some(counts.clone());
+    //     params.feature_names = Some(features);
+    //     params.tree_limit = Some(1);
+    //     params.auto();
+    //
+    //     let arc_params = Arc::new(params);
+    //
+    //     let mut new_forest = Forest::initialize(&counts,arc_params.clone(), "./testing/tmp_test");
+    //     new_forest.generate(arc_params.clone(), true);
+    //
+    //
+    //     let computed_features: Vec<String> = new_forest.predictive_trees()[0].crawl_nodes().iter().map(|x| x.feature().clone()).filter(|x| x.is_some()).map(|x| x.unwrap()).collect();
+    //     let correct_features: Vec<String> = vec!["sepal_length","petal_length","sepal_width","sepal_width","sepal_length","sepal_width","sepal_width","sepal_width","sepal_width","sepal_width"].iter().map(|x| x.to_string()).collect();
+    //     assert_eq!(computed_features,correct_features);
+    //
+    //
+    //     let computed_splits: Vec<f64> = new_forest.predictive_trees()[0].crawl_nodes().iter().map(|x| x.split().clone()).filter(|x| x.is_some()).map(|x| x.unwrap()).collect();
+    //     let correct_splits: Vec<f64> = vec![1.5,5.7,1.2,1.1,4.9,1.8,1.4,2.2,1.8,1.];
+    //     assert_eq!(computed_splits,correct_splits);
+    //
+    //
+    //     remove_file("./testing/tmp_test.0");
+    //     remove_file("./testing/tmp_test.0.summary");
+    //     remove_file("./testing/tmp_test.0.dump");
+    //     remove_file("./testing/tmp_test.1");
+    //     remove_file("./testing/tmp_test.1.summary");
+    //     remove_file("./testing/tmp_test.1.dump");
+    // }
 }
