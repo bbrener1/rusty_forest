@@ -153,7 +153,6 @@ impl<T: Borrow<[Node]> + BorrowMut<[Node]> + Index<usize,Output=Node> + IndexMut
                 rank: ranking,
             };
 
-            println!("{:?}", node);
             // println!("{:?}", vector);
 
             vector[previous_node_local_index].next = index+8;
@@ -192,8 +191,6 @@ impl<T: Borrow<[Node]> + BorrowMut<[Node]> + Index<usize,Output=Node> + IndexMut
 
         prototype.establish_median();
         prototype.establish_zones();
-
-        println!("{:?}",prototype);
 
         prototype
 
