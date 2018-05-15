@@ -1,5 +1,6 @@
 use std;
 use std::collections::HashSet;
+use std::mem::replace;
 use std::sync::Arc;
 
 use std::sync::mpsc;
@@ -10,6 +11,8 @@ use std::sync::mpsc::Sender;
 use std::thread;
 
 extern crate rand;
+
+use smallvec::SmallVec;
 
 use rv2::RankVector;
 use rv2::Node;
@@ -57,12 +60,15 @@ impl Worker{
         Worker{
             id: id,
             thread: std::thread::spawn(move || {
+
+                let mut local_container: Option<SmallVec<[Node;1024]>> = Some(SmallVec::new());
+
                 loop{
                     let message_option = channel.lock().unwrap().recv().ok();
                     if let Some(message) = message_option {
                         match message {
                             FeatureMessage::Message((vector,draw_order,drop_set,split_mode),sender) => {
-                                sender.send(compute(vector,draw_order,drop_set,split_mode)).expect("Failed to send feature result");
+                                sender.send(compute(vector,draw_order,drop_set,split_mode,&mut local_container)).expect("Failed to send feature result");
                             },
                             FeatureMessage::Terminate => break
                         }
@@ -85,9 +91,9 @@ pub enum FeatureMessage {
     Terminate
 }
 
-fn compute (mut prot_vector: RankVector<Vec<Node>> , draw_order: Arc<Vec<usize>> , drop_set: Arc<HashSet<usize>>, split_mode:SplitMode) -> (Vec<f64>,RankVector<Vec<Node>>) {
+fn compute (prot_vector: RankVector<Vec<Node>> , draw_order: Arc<Vec<usize>> , drop_set: Arc<HashSet<usize>>, split_mode:SplitMode, local_container:&mut Option<SmallVec<[Node;1024]>>) -> (Vec<f64>,RankVector<Vec<Node>>) {
 
-    let mut vector = prot_vector.clone_to_stack();
+    let mut vector = prot_vector.clone_to_container(replace(local_container, None).unwrap());
 
     let result = match split_mode {
         SplitMode::Cov => vector.ordered_cov_gains(&draw_order,&drop_set),
@@ -95,6 +101,8 @@ fn compute (mut prot_vector: RankVector<Vec<Node>> , draw_order: Arc<Vec<usize>>
         SplitMode::CovSquared => vector.ordered_cov_gains(&draw_order,&drop_set),
         SplitMode::MADSquared => vector.ordered_mad_gains(&draw_order,&drop_set),
     };
+
+    replace(local_container, Some(vector.return_container()));
 
     (result,prot_vector)
 

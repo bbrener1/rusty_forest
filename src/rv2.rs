@@ -814,12 +814,14 @@ impl RankVector<Vec<Node>> {
 
     }
 
-    pub fn clone_to_stack(&self) -> RankVector<SmallVec<[Node;1024]>> {
+    pub fn clone_to_container(&self, mut receptacle_vector: SmallVec<[Node;1024]>) -> RankVector<SmallVec<[Node;1024]>> {
 
-        let new_vec: SmallVec<[Node;1024]> = self.nodes.iter().cloned().collect();
+        receptacle_vector.clear();
+
+        receptacle_vector.clone_from_slice(&self.nodes[..]);
 
         RankVector {
-            nodes: new_vec,
+            nodes: receptacle_vector,
             drop_set: None,
             dirty_set: None,
             rank_order: None,
@@ -831,9 +833,16 @@ impl RankVector<Vec<Node>> {
 
     }
 
-
 }
 
+impl RankVector<SmallVec<[Node;1024]>> {
+
+    pub fn return_container(self) -> SmallVec<[Node;1024]> {
+
+        self.nodes
+
+    }
+}
 
 
 pub fn sanitize_vector(in_vec:&Vec<f64>) -> (Vec<f64>,HashSet<usize>) {

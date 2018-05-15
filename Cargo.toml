@@ -1,5 +1,5 @@
 [package]
-name = "forest_prot"
+name = "forest_2"
 version = "0.1.0"
 authors = ["boris"]
 
@@ -10,3 +10,4 @@ serde = "1.0"
 serde_json = "1.0"
 serde_derive = "1.0"
 num_cpus = "1.8.0"
+smallvec = "0.6.1"
