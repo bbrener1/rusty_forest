@@ -596,7 +596,7 @@ impl<T: Borrow<[Node]> + BorrowMut<[Node]> + Index<usize,Output=Node> + IndexMut
         distance_to_median.sort_unstable_by(|a,b| a.partial_cmp(&b).unwrap_or(Ordering::Greater));
         distance_to_median.reverse();
 
-        if self.zones[2].length % 2 == 0 {
+        if self.len() % 2 == 1 {
             return distance_to_median[0]
         }
         else {
@@ -614,6 +614,7 @@ impl<T: Borrow<[Node]> + BorrowMut<[Node]> + Index<usize,Output=Node> + IndexMut
         indecies
     }
 
+    #[inline]
     pub fn ordered_values(&self) -> Vec<f64> {
         self.left_to_right().iter().map(|x| self.nodes[*x].data).collect()
     }
@@ -680,14 +681,17 @@ impl<T: Borrow<[Node]> + BorrowMut<[Node]> + Index<usize,Output=Node> + IndexMut
         covs
     }
 
+    #[inline]
     pub fn draw_order(&self) -> Vec<usize> {
         self.left_to_right().into_iter().map(|x| x-self.zone_offset).collect()
     }
 
+    #[inline]
     pub fn draw_and_drop(&self) -> (Vec<usize>,&HashSet<usize>) {
         (self.left_to_right().into_iter().map(|x| x-self.zone_offset).collect(),&self.drop_set.as_ref().unwrap())
     }
 
+    #[inline]
     pub fn split_indecies(&self, split:&f64) -> (Vec<usize>,Vec<usize>) {
 
         let (mut left,mut right) = (Vec::with_capacity(self.len()),Vec::with_capacity(self.len()));
@@ -738,9 +742,15 @@ impl<T: Borrow<[Node]> + BorrowMut<[Node]> + Index<usize,Output=Node> + IndexMut
         cov_gains
     }
 
-
+    #[inline]
     pub fn fetch(&self, nominal_index:usize) -> f64 {
         self.nodes[nominal_index + self.zone_offset].data
+    }
+
+    #[inline]
+    pub fn boundaries(&self) -> ((usize,f64),(usize,f64)) {
+        let (left,right) = (self.nodes[4].next, self.nodes[5].previous);
+        ((left,self.nodes[left].data),(right,self.nodes[right].data))
     }
 
 }
@@ -1002,31 +1012,36 @@ mod rank_vector_tests {
         assert_eq!(vector.median(),10.);
         assert_eq!(vector.mad(),0.);
     }
-    //
+
+    #[test]
+    fn sequential_mad_simple() {
+        let mut vector = RankVector::<Vec<Node>>::link(&vec![10.,-3.,0.,5.,-2.,-1.,15.,20.],);
+        vector.drop_f(0.);
+
+        let mut vm = vector.clone();
+
+
+        for draw in vector.draw_order() {
+            println!("{:?}",vm.ordered_values());
+            println!("Median:{},{}",vm.median(),slow_median(vm.ordered_values()));
+            println!("MAD:{},{}",vm.mad(),slow_mad(vm.ordered_values()));
+            println!("Boundaries:{:?}", vm.boundaries());
+            println!("{:?}",vm.pop(draw));
+            println!("{:?}",vm.ordered_values());
+            println!("Median:{},{}",vm.median(),slow_median(vm.ordered_values()));
+            println!("MAD:{},{}",vm.mad(),slow_mad(vm.ordered_values()));
+            println!("Boundaries:{:?}", vm.boundaries());
+            assert_eq!(vm.median(),slow_median(vm.ordered_values()));
+            assert_eq!(vm.mad(),slow_mad(vm.ordered_values()));
+        }
+
+    }
+
     // #[test]
-    // fn sequential_mad_simple() {
-    //     let mut vector = RankVector::new(&vec![10.,-3.,0.,5.,-2.,-1.,15.,20.],"test".to_string(),Arc::new(Parameters::empty()));
-    //     vector.drop_zeroes();
-    //     vector.initialize();
-    //     vector.set_boundaries();
-    //
-    //     let mut vm = vector.clone();
-    //
-    //
-    //     for draw in vector.draw_order {
-    //         println!("{:?}",vm.vector.left_to_right().cloned().collect::<Vec<(usize,usize,usize,f64,usize)>>());
-    //         println!("Median:{},{}",vm.median(),slow_median(&vm.vector));
-    //         println!("MAD:{},{}",vm.mad(),slow_mad(&vm.vector));
-    //         println!("{:?}",vm.pop(draw));
-    //         println!("{:?}",vm.vector.left_to_right().cloned().collect::<Vec<(usize,usize,usize,f64,usize)>>());
-    //         println!("Median:{},{}",vm.median(),slow_median(&vm.vector));
-    //         println!("MAD:{},{}",vm.mad(),slow_mad(&vm.vector));
-    //         assert_eq!(vm.median(),slow_median(&vm.vector));
-    //         assert_eq!(vm.mad(),slow_mad(&vm.vector));
-    //     }
+    // fn fetch_test {
     //
     // }
-    //
+
     // #[test]
     // fn sequential_mad_simple_nan() {
     //     let mut vector = RankVector::new(&vec![10.,-3.,NAN,5.,-2.,-1.,15.,20.],"test".to_string(),Arc::new(Parameters::empty()));
