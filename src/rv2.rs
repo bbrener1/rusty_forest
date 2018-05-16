@@ -773,11 +773,10 @@ impl RankVector<Vec<Node>> {
         let derived_set: HashSet<usize> = indecies.iter().cloned().collect();
 
         let index_map: HashMap<usize,usize> =
-            self.rank_order.as_ref().unwrap_or(&vec![])
-                .iter()
-                .filter(|x| derived_set.contains(x))
+            ((self.zone_offset)..(self.raw_len()+self.zone_offset))
+                .filter(|x| derived_set.contains(&(*x-self.zone_offset)))
                 .enumerate()
-                .map(|(i,x)| (*x+self.zone_offset,i+self.zone_offset))
+                .map(|(i,x)| (x,i+self.zone_offset))
                 .collect();
 
 
@@ -825,6 +824,8 @@ impl RankVector<Vec<Node>> {
         new_vector.establish_median();
         new_vector.establish_zones();
         new_vector.drop_f(0.);
+
+        println!("{:?}", new_vector);
 
         new_vector
 
