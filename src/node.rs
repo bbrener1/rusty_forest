@@ -51,6 +51,8 @@ impl Node {
             absolute_gains: None
         };
 
+        assert_eq!(new_node.input_table.features(),new_node.output_table.features());
+        assert_eq!(new_node.input_table.samples(),new_node.output_table.samples());
         // println!("Preliminary: {:?}",new_node.output_table.full_ordered_values());
 
         new_node
@@ -64,7 +66,7 @@ impl Node {
 
         let mut minima = Vec::with_capacity(self.input_features().len());
 
-        for input_feature in self.input_features().clone().iter() {
+        for input_feature in self.input_features().clone().into_iter() {
 
             let draw_order = self.input_table.sort_by_feature(&input_feature);
 
@@ -75,21 +77,16 @@ impl Node {
                 self.feature_weights[*input_index] = 0.;
             }
 
-            minima.push( {
-
-                self.output_table.parallel_split_order(draw_order.0,draw_order.1,Some(&self.feature_weights),self.feature_pool.clone()).unwrap_or((0,f64::INFINITY))
-
-            } );
+            let (split_index,split_dispersion) = self.output_table.parallel_split_order(draw_order.0,draw_order.1,Some(&self.feature_weights),self.feature_pool.clone()).unwrap_or((0,f64::INFINITY));
 
             if let Some(input_index) = self.output_table.feature_index(&input_feature) {
                 self.feature_weights[*input_index] = saved_weight;
             }
 
+            minima.push((input_feature,split_index,split_dispersion));
         };
 
-        let (best_input_feature_index,(split_index,split_dispersion)) = minima.into_iter().enumerate().min_by(|a,b| (a.1).1.partial_cmp(&(b.1).1).unwrap_or(Ordering::Greater)).unwrap();
-
-        let best_feature = self.input_features()[best_input_feature_index].clone();
+        let (best_feature,split_index,split_dispersion) = minima.into_iter().min_by(|a,b| (a.2).partial_cmp(&b.2).unwrap_or(Ordering::Greater)).unwrap();
 
         let split_order = self.input_table.sort_by_feature(&best_feature);
 
@@ -194,6 +191,8 @@ impl Node {
                 absolute_gains: None
             };
 
+            assert_eq!(child.input_table.features(),child.output_table.features());
+            assert_eq!(child.input_table.samples(),child.output_table.samples());
 
             child
         }
@@ -229,6 +228,8 @@ impl Node {
             absolute_gains: None
         };
 
+        assert_eq!(child.input_table.features(),child.output_table.features());
+        assert_eq!(child.input_table.samples(),child.output_table.samples());
 
         child
     }
