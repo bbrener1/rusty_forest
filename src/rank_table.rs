@@ -281,9 +281,9 @@ impl RankTable {
         let new_draw_order: Vec<usize> = (0..indecies.len()).collect();
 
         let dimensions = (new_meta_vector.len(),new_meta_vector.get(0).unwrap_or(&RankVector::<Vec<Node>>::with_capacity(0)).raw_len());
-
-        println!("Feature dict {:?}", new_feature_dictionary.clone());
-        println!("New sample dict {:?}", new_sample_dictionary.clone());
+        //
+        // println!("Feature dict {:?}", new_feature_dictionary.clone());
+        // println!("New sample dict {:?}", new_sample_dictionary.clone());
 
         RankTable {
 

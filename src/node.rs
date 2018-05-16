@@ -51,7 +51,7 @@ impl Node {
             absolute_gains: None
         };
 
-        println!("Preliminary: {:?}",new_node.output_table.full_ordered_values());
+        // println!("Preliminary: {:?}",new_node.output_table.full_ordered_values());
 
         new_node
     }
