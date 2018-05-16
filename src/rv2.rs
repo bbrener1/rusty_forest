@@ -658,7 +658,23 @@ impl<T: Borrow<[Node]> + BorrowMut<[Node]> + Index<usize,Output=Node> + IndexMut
 
     }
 
-    pub fn orderd_covs(&mut self,draw_order: &Vec<usize>,drop_set: &HashSet<usize>) -> Vec<f64> {
+    pub fn ordered_mads(&mut self,draw_order: &Vec<usize>,drop_set: &HashSet<usize>) -> Vec<f64> {
+
+        for dropped_sample in drop_set {
+            self.pop(*dropped_sample);
+        }
+
+        let mut mads = Vec::with_capacity(draw_order.len());
+        mads.push(self.mad());
+        for draw in draw_order {
+            self.pop(*draw);
+            mads.push(self.mad())
+        }
+
+        mads
+    }
+
+    pub fn ordered_covs(&mut self,draw_order: &Vec<usize>,drop_set: &HashSet<usize>) -> Vec<f64> {
 
         for dropped_sample in drop_set {
             self.pop(*dropped_sample);

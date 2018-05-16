@@ -96,10 +96,10 @@ fn compute (prot_vector: RankVector<Vec<Node>> , draw_order: Arc<Vec<usize>> , d
     let mut vector = prot_vector.clone_to_container(replace(local_container, None).unwrap());
 
     let result = match split_mode {
-        SplitMode::Cov => vector.ordered_cov_gains(&draw_order,&drop_set),
-        SplitMode::MAD => vector.ordered_mad_gains(&draw_order,&drop_set),
-        SplitMode::CovSquared => vector.ordered_cov_gains(&draw_order,&drop_set),
-        SplitMode::MADSquared => vector.ordered_mad_gains(&draw_order,&drop_set),
+        SplitMode::Cov => vector.ordered_covs(&draw_order,&drop_set),
+        SplitMode::MAD => vector.ordered_mads(&draw_order,&drop_set),
+        SplitMode::CovSquared => vector.ordered_covs(&draw_order,&drop_set),
+        SplitMode::MADSquared => vector.ordered_mads(&draw_order,&drop_set),
     };
 
     replace(local_container, Some(vector.return_container()));
