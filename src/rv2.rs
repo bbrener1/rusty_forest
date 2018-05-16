@@ -8,7 +8,6 @@ use std::ops::IndexMut;
 use std::fmt::Debug;
 use std::clone::Clone;
 use std::borrow::{Borrow,BorrowMut};
-use std::mem::swap;
 use DropMode;
 
 #[derive(Clone,Debug,Serialize,Deserialize)]
@@ -100,7 +99,7 @@ impl<T: Borrow<[Node]> + BorrowMut<[Node]> + Index<usize,Output=Node> + IndexMut
         let median = Zone::initialize(&mut vector, 2);
         let right = Zone::initialize(&mut vector, 3);
 
-        let mut zones = [drop,left,median,right];
+        let zones = [drop,left,median,right];
 
         let dirty_set = HashSet::with_capacity(0);
         let median = (4,4);

@@ -384,6 +384,9 @@ impl RankTable {
 
         let len = forward_dispersions.len()+1;
 
+        println!("{:?}",forward_dispersions);
+        println!("{:?}",reverse_dispersions);
+
         let mut covs: Vec<Vec<f64>> = vec![vec![0.;self.dimensions.0];len];
 
         for (i,(f_s,r_s)) in forward_dispersions.into_iter().zip(reverse_dispersions.into_iter()).enumerate() {
@@ -391,6 +394,8 @@ impl RankTable {
                 covs[i][j] = (gf * ((len - i) as f64 / len as f64)) + (gr * ((i + 1) as f64/ len as f64));
             }
         }
+
+        println!("{:?}",covs);
 
         Some(covs)
 
