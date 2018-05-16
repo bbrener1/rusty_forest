@@ -825,7 +825,7 @@ impl RankVector<Vec<Node>> {
         new_vector.establish_zones();
         new_vector.drop_f(0.);
 
-        println!("{:?}", new_vector);
+        // println!("{:?}", new_vector);
 
         new_vector
 
