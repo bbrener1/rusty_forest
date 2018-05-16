@@ -317,7 +317,7 @@ impl RankTable {
                 NormMode::L1 => l1_minimum(&disp_mtx, feature_weights.unwrap_or(&vec![1.;y])),
                 NormMode::L2 => l2_minimum(&disp_mtx, feature_weights.unwrap_or(&vec![1.;y])),
             };
-            minimum.1 *= (self.dimensions.0 - x) as f64;
+            minimum.1 *= (self.dimensions.1 - x) as f64;
 
             Some(minimum)
         }
