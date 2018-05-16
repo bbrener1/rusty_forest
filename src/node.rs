@@ -51,7 +51,7 @@ impl Node {
             absolute_gains: None
         };
 
-        assert_eq!(new_node.input_table.features(),new_node.output_table.features());
+        // assert_eq!(new_node.input_table.features(),new_node.output_table.features());
         assert_eq!(new_node.input_table.samples(),new_node.output_table.samples());
         // println!("Preliminary: {:?}",new_node.output_table.full_ordered_values());
 
@@ -191,7 +191,7 @@ impl Node {
                 absolute_gains: None
             };
 
-            assert_eq!(child.input_table.features(),child.output_table.features());
+            // assert_eq!(child.input_table.features(),child.output_table.features());
             assert_eq!(child.input_table.samples(),child.output_table.samples());
 
             child
@@ -228,7 +228,7 @@ impl Node {
             absolute_gains: None
         };
 
-        assert_eq!(child.input_table.features(),child.output_table.features());
+        // assert_eq!(child.input_table.features(),child.output_table.features());
         assert_eq!(child.input_table.samples(),child.output_table.samples());
 
         child
