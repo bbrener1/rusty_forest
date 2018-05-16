@@ -188,7 +188,7 @@ impl RankTable {
 
         // println!("{:?}",child.samples());
         // println!("{:?}",child.features());
-        println!("{:?}",child.full_ordered_values());
+        // println!("{:?}",child.full_ordered_values());
 
         child
 
