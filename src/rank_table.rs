@@ -303,7 +303,7 @@ impl RankTable {
 
     pub fn parallel_split_order(&mut self,draw_order:Vec<usize>, drop_set: HashSet<usize>,feature_weights:Option<&Vec<f64>>, pool:mpsc::Sender<FeatureMessage>) -> Option<(usize,f64)> {
 
-        let (x,y) = (draw_order.len()+1,self.features().len());
+        let (x,y) = (draw_order.len(),self.features().len());
 
         if x < 4 {
             return None;
@@ -317,7 +317,7 @@ impl RankTable {
                 NormMode::L1 => l1_minimum(&disp_mtx, feature_weights.unwrap_or(&vec![1.;y])),
                 NormMode::L2 => l2_minimum(&disp_mtx, feature_weights.unwrap_or(&vec![1.;y])),
             };
-            minimum.1 *= (self.dimensions.1 - x) as f64;
+            minimum.1 *= (self.dimensions.1 - x + 1) as f64;
 
             Some(minimum)
         }
