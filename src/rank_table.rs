@@ -384,8 +384,8 @@ impl RankTable {
 
         let len = forward_dispersions.len()+1;
 
-        println!("{:?}",forward_dispersions);
-        println!("{:?}",reverse_dispersions);
+        // println!("{:?}",forward_dispersions);
+        // println!("{:?}",reverse_dispersions);
 
         let mut covs: Vec<Vec<f64>> = vec![vec![0.;self.dimensions.0];len];
 
@@ -395,7 +395,7 @@ impl RankTable {
             }
         }
 
-        println!("{:?}",covs);
+        // println!("{:?}",covs);
 
         Some(covs)
 
