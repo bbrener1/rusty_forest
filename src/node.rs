@@ -102,8 +102,8 @@ impl Node {
 
         println!("Best split: {:?}", (best_feature.clone(),split_index, split_value,split_dispersion));
 
-        println!("{:?}",self.output_table.full_ordered_values());
-        println!("{:?}",self.medians());
+        // println!("{:?}",self.output_table.full_ordered_values());
+        // println!("{:?}",self.medians());
 
         (best_feature.clone(),split_dispersion,split_value,split_order.0[..split_index].iter().cloned().collect(),split_order.0[split_index..].iter().cloned().collect())
 
