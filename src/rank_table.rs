@@ -95,7 +95,7 @@ impl RankTable {
         self.dispersions().into_iter().zip(self.dispersions().into_iter()).map(|x| x.0/x.1).map(|y| if y.is_nan() {0.} else {y}).collect()
     }
 
-    pub fn sort_by_feature(& self, feature: &str) -> (Vec<usize>,&HashSet<usize>) {
+    pub fn sort_by_feature(& self, feature: &str) -> (Vec<usize>,HashSet<usize>) {
 
         self.meta_vector[self.feature_dictionary[feature]].draw_and_drop()
 
@@ -188,7 +188,7 @@ impl RankTable {
 
         // println!("{:?}",child.samples());
         // println!("{:?}",child.features());
-        // println!("{:?}",child.full_ordered_values());
+        println!("{:?}",child.full_ordered_values());
 
         child
 
@@ -301,7 +301,7 @@ impl RankTable {
         }
     }
 
-    pub fn parallel_split_order(&mut self,draw_order:Vec<usize>, drop_set: &HashSet<usize>,feature_weights:Option<&Vec<f64>>, pool:mpsc::Sender<FeatureMessage>) -> Option<(usize,f64)> {
+    pub fn parallel_split_order(&mut self,draw_order:Vec<usize>, drop_set: HashSet<usize>,feature_weights:Option<&Vec<f64>>, pool:mpsc::Sender<FeatureMessage>) -> Option<(usize,f64)> {
 
         let (x,y) = (draw_order.len()+1,self.features().len());
 
@@ -324,7 +324,7 @@ impl RankTable {
         else { None }
     }
 
-    pub fn parallel_dispersion(&mut self,draw_order:Vec<usize>, drop_set: &HashSet<usize>, pool:mpsc::Sender<FeatureMessage>) -> Option<Vec<Vec<f64>>> {
+    pub fn parallel_dispersion(&mut self,draw_order:Vec<usize>, drop_set: HashSet<usize>, pool:mpsc::Sender<FeatureMessage>) -> Option<Vec<Vec<f64>>> {
 
         let forward_draw = Arc::new(draw_order.clone());
         let reverse_draw: Arc<Vec<usize>> = Arc::new(draw_order.into_iter().rev().collect());
@@ -429,9 +429,17 @@ mod rank_table_tests {
     use super::*;
     use feature_thread_pool::FeatureThreadPool;
 
+    fn blank_parameter() -> Arc<Parameters> {
+        let mut parameters = Parameters::empty();
+
+        parameters.dropout = Some(DropMode::Zeros);
+
+        Arc::new(parameters)
+    }
+
     #[test]
     fn rank_table_general_test() {
-        let table = RankTable::new(&vec![vec![1.,2.,3.],vec![4.,5.,6.],vec![7.,8.,9.]], &vec!["one".to_string(),"two".to_string(),"three".to_string()], &vec!["0".to_string(),"1".to_string(),"2".to_string()],Arc::new(Parameters::empty()));
+        let table = RankTable::new(&vec![vec![1.,2.,3.],vec![4.,5.,6.],vec![7.,8.,9.]], &vec!["one".to_string(),"two".to_string(),"three".to_string()], &vec!["0".to_string(),"1".to_string(),"2".to_string()],blank_parameter());
         assert_eq!(table.medians(),vec![2.,5.,8.]);
         assert_eq!(table.dispersions(),vec![1.,1.,1.]);
         assert_eq!(*table.feature_index("one").unwrap(),0);
@@ -449,8 +457,9 @@ mod rank_table_tests {
 
     #[test]
     pub fn rank_table_simple_test() {
-        let table = RankTable::new(&vec![vec![10.,-3.,0.,5.,-2.,-1.,15.,20.]], &vec!["one".to_string()], &(0..8).map(|x| x.to_string()).collect::<Vec<String>>()[..],Arc::new(Parameters::empty()));
+        let table = RankTable::new(&vec![vec![10.,-3.,0.,5.,-2.,-1.,15.,20.]], &vec!["one".to_string()], &(0..8).map(|x| x.to_string()).collect::<Vec<String>>()[..],blank_parameter());
         let draw_order = table.sort_by_feature("one");
+        println!("{:?}",draw_order);
         let mad_order = table.meta_vector[*table.feature_index("one").unwrap()].clone().ordered_meds_mads(&draw_order.0,draw_order.1);
         assert_eq!(mad_order, vec![(5.0,7.0),(7.5,8.),(10.,5.),(12.5,5.),(15.,5.),(17.5,2.5),(20.,0.),(0.,0.)]);
     }
@@ -470,14 +479,20 @@ mod rank_table_tests {
 
     #[test]
     pub fn rank_table_derive_test() {
-        let table = RankTable::new(&vec![vec![10.,-3.,0.,5.,-2.,-1.,15.,20.]], &vec!["one".to_string()], &(0..8).map(|x| x.to_string()).collect::<Vec<String>>()[..],Arc::new(Parameters::empty()));
+        let table = RankTable::new(&vec![vec![10.,-3.,0.,5.,-2.,-1.,15.,20.]], &vec!["one".to_string()], &(0..8).map(|x| x.to_string()).collect::<Vec<String>>()[..],blank_parameter());
         let kid1 = table.derive(&vec![0,2,4,6]);
         let kid2 = table.derive(&vec![1,3,5,7]);
+        println!("{:?}",kid1);
+        println!("{:?}",kid2);
+        assert_eq!(kid1.medians(),vec![10.]);
+        assert_eq!(kid1.dispersions(),vec![5.]);
+        assert_eq!(kid2.medians(),vec![2.]);
+        assert_eq!(kid2.dispersions(),vec![4.]);
     }
 
     #[test]
     pub fn rank_table_derive_empty_test() {
-        let table = RankTable::new(&vec![vec![10.,-3.,0.,5.,-2.,-1.,15.,20.],vec![0.,1.,0.,1.,0.,1.,0.,1.]], &vec!["one".to_string(),"two".to_string()], &(0..8).map(|x| x.to_string()).collect::<Vec<String>>()[..],Arc::new(Parameters::empty()));
+        let table = RankTable::new(&vec![vec![10.,-3.,0.,5.,-2.,-1.,15.,20.],vec![0.,1.,0.,1.,0.,1.,0.,1.]], &vec!["one".to_string(),"two".to_string()], &(0..8).map(|x| x.to_string()).collect::<Vec<String>>()[..],blank_parameter());
         let kid1 = table.derive(&vec![0,2,4,6]);
         let kid2 = table.derive(&vec![1,3,5,7]);
     }

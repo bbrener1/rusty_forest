@@ -51,6 +51,8 @@ impl Node {
             absolute_gains: None
         };
 
+        println!("Preliminary: {:?}",new_node.output_table.full_ordered_values());
+
         new_node
     }
 
@@ -99,6 +101,9 @@ impl Node {
         self.split = Some(split_value.clone());
 
         println!("Best split: {:?}", (best_feature.clone(),split_index, split_value,split_dispersion));
+
+        println!("{:?}",self.output_table.full_ordered_values());
+        println!("{:?}",self.medians());
 
         (best_feature.clone(),split_dispersion,split_value,split_order.0[..split_index].iter().cloned().collect(),split_order.0[split_index..].iter().cloned().collect())
 
@@ -811,18 +816,18 @@ mod node_testing {
         root.medians();
     }
 
-    // #[test]
-    // fn node_test_simple() {
-    //     let mut root = Node::feature_root(&vec![vec![10.,-3.,0.,5.,-2.,-1.,15.,20.]],&vec![vec![10.,-3.,0.,5.,-2.,-1.,15.,20.]], &vec!["one".to_string()],&vec!["two".to_string()], &(0..8).map(|x| x.to_string()).collect::<Vec<String>>()[..], Arc::new(Parameters::empty()), None, FeatureThreadPool::new(1));
-    //
-    //     root.feature_parallel_derive();
-    //
-    //     println!("{:?}", root.output_table.sort_by_feature("two"));
-    //     println!("{:?}", root.clone().output_table.parallel_dispersion(root.output_table.sort_by_feature("two").0,root.output_table.sort_by_feature("two").1,FeatureThreadPool::new(1)));
-    //
-    //     assert_eq!(root.children[0].samples(),&vec!["1".to_string(),"4".to_string(),"5".to_string()]);
-    //     assert_eq!(root.children[1].samples(),&vec!["0".to_string(),"3".to_string(),"6".to_string(),"7".to_string()]);
-    // }
+    #[test]
+    fn node_test_simple() {
+        let mut root = Node::feature_root(&vec![vec![10.,-3.,0.,5.,-2.,-1.,15.,20.]],&vec![vec![10.,-3.,0.,5.,-2.,-1.,15.,20.]], &vec!["one".to_string()],&vec!["two".to_string()], &(0..8).map(|x| x.to_string()).collect::<Vec<String>>()[..], Arc::new(Parameters::empty()), None, FeatureThreadPool::new(1));
+
+        root.feature_parallel_derive();
+
+        println!("{:?}", root.output_table.sort_by_feature("two"));
+        println!("{:?}", root.clone().output_table.parallel_dispersion(root.output_table.sort_by_feature("two").0,root.output_table.sort_by_feature("two").1,FeatureThreadPool::new(1)));
+
+        assert_eq!(root.children[0].samples(),&vec!["1".to_string(),"4".to_string(),"5".to_string()]);
+        assert_eq!(root.children[1].samples(),&vec!["0".to_string(),"3".to_string(),"6".to_string(),"7".to_string()]);
+    }
 
 }
 
