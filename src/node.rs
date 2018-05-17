@@ -88,7 +88,7 @@ impl Node {
             minima.push((input_feature,split_sample_index,split_index,split_dispersion));
         };
 
-        let (best_feature,split_sample_index,split_index,split_dispersion) = minima.into_iter().min_by(|a,b| (a.2).partial_cmp(&b.2).unwrap_or(Ordering::Greater)).unwrap();
+        let (best_feature,split_sample_index,split_index,split_dispersion) = minima.iter().min_by(|a,b| (a.2).partial_cmp(&b.2).unwrap_or(Ordering::Greater)).unwrap().clone();
 
         let split_order = self.input_table.sort_by_feature(&best_feature);
 
@@ -100,6 +100,7 @@ impl Node {
             println!("{:?}", self.input_table.full_ordered_values()[*self.input_table.feature_index(&best_feature).unwrap()]);
             println!("{:?}", best_feature);
             println!("{:?}", self.input_table.features()[*self.input_table.feature_index(&best_feature).unwrap()]);
+            println!("{:?}", minima);
             panic!("Edge split")
         }
 
