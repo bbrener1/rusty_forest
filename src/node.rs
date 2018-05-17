@@ -88,7 +88,7 @@ impl Node {
             minima.push((input_feature,split_sample_index,split_index,split_dispersion));
         };
 
-        let (best_feature,split_sample_index,split_index,split_dispersion) = minima.iter().min_by(|a,b| (a.2).partial_cmp(&b.2).unwrap_or(Ordering::Greater)).unwrap().clone();
+        let (best_feature,split_sample_index,split_index,split_dispersion) = minima.iter().min_by(|a,b| (a.3).partial_cmp(&b.3).unwrap_or(Ordering::Greater)).unwrap().clone();
 
         let split_order = self.input_table.sort_by_feature(&best_feature);
 
