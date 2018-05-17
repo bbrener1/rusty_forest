@@ -98,6 +98,9 @@ impl Node {
             println!("{:?}", split_dispersion);
             println!("{:?}", self.input_table.full_ordered_values()[*self.input_table.feature_index(&best_feature).unwrap()]);
             println!("{:?}", self.output_table.full_ordered_values()[*self.input_table.feature_index(&best_feature).unwrap()]);
+            println!("{:?}", best_feature);
+            println!("{:?}", self.input_table.features()[*self.input_table.feature_index(&best_feature).unwrap()]);
+            println!("{:?}", self.input_table.features()[*self.output_table.feature_index(&best_feature).unwrap()]);
             panic!("Edge split")
         }
 
