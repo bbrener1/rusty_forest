@@ -301,7 +301,7 @@ impl RankTable {
         }
     }
 
-    pub fn parallel_split_order(&mut self,draw_order:Vec<usize>, drop_set: HashSet<usize>,feature_weights:Option<&Vec<f64>>, pool:mpsc::Sender<FeatureMessage>) -> Option<(usize,f64)> {
+    pub fn parallel_split_order(&mut self,draw_order:&Vec<usize>, drop_set: &HashSet<usize>,feature_weights:Option<&Vec<f64>>, pool:mpsc::Sender<FeatureMessage>) -> Option<(usize,f64)> {
 
         let (x,y) = (draw_order.len(),self.features().len());
 
@@ -324,10 +324,10 @@ impl RankTable {
         else { None }
     }
 
-    pub fn parallel_dispersion(&mut self,draw_order:Vec<usize>, drop_set: HashSet<usize>, pool:mpsc::Sender<FeatureMessage>) -> Option<Vec<Vec<f64>>> {
+    pub fn parallel_dispersion(&mut self,draw_order:&Vec<usize>, drop_set: &HashSet<usize>, pool:mpsc::Sender<FeatureMessage>) -> Option<Vec<Vec<f64>>> {
 
         let forward_draw = Arc::new(draw_order.clone());
-        let reverse_draw: Arc<Vec<usize>> = Arc::new(draw_order.into_iter().rev().collect());
+        let reverse_draw: Arc<Vec<usize>> = Arc::new(draw_order.iter().cloned().rev().collect());
 
         let drop_arc = Arc::new(drop_set.clone());
 

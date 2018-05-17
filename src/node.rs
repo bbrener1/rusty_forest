@@ -77,16 +77,18 @@ impl Node {
                 self.feature_weights[*input_index] = 0.;
             }
 
-            let (split_index,split_dispersion) = self.output_table.parallel_split_order(draw_order.0,draw_order.1,Some(&self.feature_weights),self.feature_pool.clone()).unwrap_or((0,f64::INFINITY));
+            let (split_index,split_dispersion) = self.output_table.parallel_split_order(&draw_order.0,&draw_order.1,Some(&self.feature_weights),self.feature_pool.clone()).unwrap_or((0,f64::INFINITY));
 
             if let Some(input_index) = self.output_table.feature_index(&input_feature) {
                 self.feature_weights[*input_index] = saved_weight;
             }
 
-            minima.push((input_feature,split_index,split_dispersion));
+            let split_sample_index = draw_order.0[split_index];
+
+            minima.push((input_feature,split_sample_index,split_index,split_dispersion));
         };
 
-        let (best_feature,split_index,split_dispersion) = minima.into_iter().min_by(|a,b| (a.2).partial_cmp(&b.2).unwrap_or(Ordering::Greater)).unwrap();
+        let (best_feature,split_sample_index,split_index,split_dispersion) = minima.into_iter().min_by(|a,b| (a.2).partial_cmp(&b.2).unwrap_or(Ordering::Greater)).unwrap();
 
         let split_order = self.input_table.sort_by_feature(&best_feature);
 
@@ -839,7 +841,7 @@ mod node_testing {
         root.feature_parallel_derive();
 
         println!("{:?}", root.output_table.sort_by_feature("two"));
-        println!("{:?}", root.clone().output_table.parallel_dispersion(root.output_table.sort_by_feature("two").0,root.output_table.sort_by_feature("two").1,FeatureThreadPool::new(1)));
+        println!("{:?}", root.clone().output_table.parallel_dispersion(&root.output_table.sort_by_feature("two").0,&root.output_table.sort_by_feature("two").1,FeatureThreadPool::new(1)));
 
         assert_eq!(root.children[0].samples(),&vec!["1".to_string(),"3".to_string(),"4".to_string(),"5".to_string()]);
         assert_eq!(root.children[1].samples(),&vec!["0".to_string(),"6".to_string(),"7".to_string()]);
