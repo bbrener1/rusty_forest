@@ -95,12 +95,11 @@ impl Node {
         if (split_order.0.len() - split_index < 3 || split_index < 3) && self.samples().len() > 20 {
             println!("{:?}", split_order);
             println!("{:?}", split_index);
+            println!("{:?}", split_sample_index);
             println!("{:?}", split_dispersion);
             println!("{:?}", self.input_table.full_ordered_values()[*self.input_table.feature_index(&best_feature).unwrap()]);
-            println!("{:?}", self.output_table.full_ordered_values()[*self.input_table.feature_index(&best_feature).unwrap()]);
             println!("{:?}", best_feature);
             println!("{:?}", self.input_table.features()[*self.input_table.feature_index(&best_feature).unwrap()]);
-            println!("{:?}", self.input_table.features()[*self.output_table.feature_index(&best_feature).unwrap()]);
             panic!("Edge split")
         }
 
