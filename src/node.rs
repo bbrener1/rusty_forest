@@ -90,7 +90,7 @@ impl Node {
 
         let split_order = self.input_table.sort_by_feature(&best_feature);
 
-        if (split_order.1.len() - split_index < 3 || split_index < 3) && self.samples().len() > 20 {
+        if (split_order.0.len() - split_index < 3 || split_index < 3) && self.samples().len() > 20 {
             println!("{:?}", self.input_table.full_ordered_values()[*self.input_table.feature_index(&best_feature).unwrap()]);
             println!("{:?}", self.output_table.full_ordered_values()[*self.input_table.feature_index(&best_feature).unwrap()]);
             panic!("Edge split")
