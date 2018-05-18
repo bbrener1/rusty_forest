@@ -305,7 +305,7 @@ impl RankTable {
 
         let (x,y) = (draw_order.len(),self.features().len());
 
-        if x < 4 {
+        if x < 6 {
             return None;
         };
 
@@ -412,7 +412,7 @@ pub fn l2_minimum(mtx_in:&Vec<Vec<f64>>, weights: &Vec<f64>) -> (usize,f64) {
 
     // println!("{:?}", sample_sums);
 
-    sample_sums.enumerate().skip(3).rev().skip(3).min_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Greater)).unwrap_or((0,f64::INFINITY))
+    sample_sums.enumerate().skip(2).rev().skip(2).min_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Greater)).unwrap_or((3,f64::INFINITY))
 
 }
 
@@ -424,7 +424,7 @@ pub fn l1_minimum(mtx_in:&Vec<Vec<f64>>, weights: &Vec<f64>) -> (usize,f64) {
 
     // println!("{:?}", sample_sums);
 
-    sample_sums.enumerate().skip(3).rev().skip(3).min_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Greater)).unwrap_or((0,f64::INFINITY))
+    sample_sums.enumerate().skip(2).rev().skip(2).min_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Greater)).unwrap_or((3,f64::INFINITY))
 
 }
 
