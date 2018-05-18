@@ -279,9 +279,10 @@ pub struct Tree {
 
 pub fn grow_branches(target:&mut Node, size_limit:usize,report_address:&str,level:usize) {
     if target.samples().len() > size_limit {
-        target.feature_parallel_derive();
-        for child in target.children.iter_mut() {
-            grow_branches(child, size_limit,report_address, level+1);
+        if target.feature_parallel_derive().is_some() {
+            for child in target.children.iter_mut() {
+                grow_branches(child, size_limit,report_address, level+1);
+            }
         }
     }
     // report_node_structure(target,report_address);
