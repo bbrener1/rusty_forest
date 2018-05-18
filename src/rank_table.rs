@@ -317,9 +317,10 @@ impl RankTable {
                 NormMode::L1 => l1_minimum(&disp_mtx, feature_weights.unwrap_or(&vec![1.;y])),
                 NormMode::L2 => l2_minimum(&disp_mtx, feature_weights.unwrap_or(&vec![1.;y])),
             };
-            minimum.1 *= (self.dimensions.1 - x + 1).pow(match self.norm_mode { NormMode::L1 => 1, NormMode::L2 => 2}) as f64;
 
-            Some(minimum)
+            minimum.map(|z| (z.0, z.1 * ((self.dimensions.1 - x + 1) as f64)));
+
+            minimum
         }
         else { None }
     }
@@ -331,7 +332,7 @@ impl RankTable {
 
         let drop_arc = Arc::new(drop_set.clone());
 
-        if forward_draw.len() < 2 {
+        if forward_draw.len() < 4 {
             return None
         }
 
@@ -404,7 +405,7 @@ impl RankTable {
 
 }
 
-pub fn l2_minimum(mtx_in:&Vec<Vec<f64>>, weights: &Vec<f64>) -> (usize,f64) {
+pub fn l2_minimum(mtx_in:&Vec<Vec<f64>>, weights: &Vec<f64>) -> Option<(usize,f64)> {
 
     let sample_sums = mtx_in.iter().map(|sample| {
         sample.iter().enumerate().map(|(i,feature)| feature.powi(2) * weights[i]).sum::<f64>() / weights.iter().sum::<f64>()
@@ -412,11 +413,11 @@ pub fn l2_minimum(mtx_in:&Vec<Vec<f64>>, weights: &Vec<f64>) -> (usize,f64) {
 
     // println!("{:?}", sample_sums);
 
-    sample_sums.enumerate().skip(2).rev().skip(2).min_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Greater)).unwrap_or((3,f64::INFINITY))
+    sample_sums.enumerate().skip(2).rev().skip(2).min_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Greater))
 
 }
 
-pub fn l1_minimum(mtx_in:&Vec<Vec<f64>>, weights: &Vec<f64>) -> (usize,f64) {
+pub fn l1_minimum(mtx_in:&Vec<Vec<f64>>, weights: &Vec<f64>) -> Option<(usize,f64)> {
 
     let sample_sums = mtx_in.iter().map(|sample| {
         sample.iter().enumerate().map(|(i,feature)| feature * weights[i] ).sum::<f64>() / weights.iter().sum::<f64>()
@@ -424,7 +425,7 @@ pub fn l1_minimum(mtx_in:&Vec<Vec<f64>>, weights: &Vec<f64>) -> (usize,f64) {
 
     // println!("{:?}", sample_sums);
 
-    sample_sums.enumerate().skip(2).rev().skip(2).min_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Greater)).unwrap_or((3,f64::INFINITY))
+    sample_sums.enumerate().skip(2).rev().skip(2).min_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Greater))
 
 }
 
