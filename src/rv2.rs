@@ -246,20 +246,20 @@ impl<T: Borrow<[Node]> + BorrowMut<[Node]> + Index<usize,Output=Node> + IndexMut
 
         }
 
-        if (self.median() - slow_median(self.ordered_values())).abs() > 0.00001 {
-            println!("{:?}", self);
-            println!("{:?}", self.ordered_values());
-            println!("{:?}", slow_median(self.ordered_values()));
-            panic!("Failed to adjust median!");
-        };
-
-        if (self.mad() - slow_mad(self.ordered_values())).abs() > 0.00001 {
-            println!("{:?}", self);
-            println!("{:?}", self.ordered_values());
-            println!("{:?}", self.mad());
-            println!("{:?}", slow_mad(self.ordered_values()));
-            panic!("Failed to adjust mad");
-        };
+        // if (self.median() - slow_median(self.ordered_values())).abs() > 0.00001 {
+        //     println!("{:?}", self);
+        //     println!("{:?}", self.ordered_values());
+        //     println!("{:?}", slow_median(self.ordered_values()));
+        //     panic!("Failed to adjust median!");
+        // };
+        //
+        // if (self.mad() - slow_mad(self.ordered_values())).abs() > 0.00001 {
+        //     println!("{:?}", self);
+        //     println!("{:?}", self.ordered_values());
+        //     println!("{:?}", self.mad());
+        //     println!("{:?}", slow_mad(self.ordered_values()));
+        //     panic!("Failed to adjust mad");
+        // };
 
         self.nodes[target].data
 
@@ -329,12 +329,12 @@ impl<T: Borrow<[Node]> + BorrowMut<[Node]> + Index<usize,Output=Node> + IndexMut
             _ => unreachable!(),
         }
 
-        if (self.median() - slow_median(self.ordered_values())) > 0.00001 {
-            println!("{:?}", self);
-            println!("{:?}", self.ordered_values());
-            println!("{:?}", slow_median(self.ordered_values()));
-            panic!("Failed to establish median!");
-        }
+        // if (self.median() - slow_median(self.ordered_values())) > 0.00001 {
+        //     println!("{:?}", self);
+        //     println!("{:?}", self.ordered_values());
+        //     println!("{:?}", slow_median(self.ordered_values()));
+        //     panic!("Failed to establish median!");
+        // }
     }
 
     #[inline]
@@ -343,13 +343,13 @@ impl<T: Borrow<[Node]> + BorrowMut<[Node]> + Index<usize,Output=Node> + IndexMut
             self.contract_1();
         };
 
-        if (self.mad() - slow_mad(self.ordered_values())) > 0.00001 {
-            println!("{:?}", self);
-            println!("{:?}", self.ordered_values());
-            println!("{:?}", self.mad());
-            println!("{:?}", slow_mad(self.ordered_values()));
-            panic!("Failed to establish mad");
-        };
+        // if (self.mad() - slow_mad(self.ordered_values())) > 0.00001 {
+        //     println!("{:?}", self);
+        //     println!("{:?}", self.ordered_values());
+        //     println!("{:?}", self.mad());
+        //     println!("{:?}", slow_mad(self.ordered_values()));
+        //     panic!("Failed to establish mad");
+        // };
 
     }
 
@@ -761,13 +761,13 @@ impl<T: Borrow<[Node]> + BorrowMut<[Node]> + Index<usize,Output=Node> + IndexMut
         for draw in draw_order {
             self.pop(*draw);
             mads.push(self.mad());
-            if (self.mad() - slow_mad(self.ordered_values())).abs() > 0.00001 {
-                println!("{:?}", self);
-                println!("{:?}", self.ordered_values());
-                println!("{:?}", self.mad());
-                println!("{:?}", slow_mad(self.ordered_values()));
-                panic!("Mad mismatch");
-            }
+            // if (self.mad() - slow_mad(self.ordered_values())).abs() > 0.00001 {
+            //     println!("{:?}", self);
+            //     println!("{:?}", self.ordered_values());
+            //     println!("{:?}", self.mad());
+            //     println!("{:?}", slow_mad(self.ordered_values()));
+            //     panic!("Mad mismatch");
+            // }
         }
 
         mads
