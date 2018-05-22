@@ -168,9 +168,6 @@ impl<T: Borrow<[Node]> + BorrowMut<[Node]> + Index<usize,Output=Node> + IndexMut
 
         };
 
-        // let med_left = if vector.len() > 8 {(vector.len()-8)/2 + 7} else {4};
-        // let med_right = if vector.len() > 8 {(((vector.len()-8)/2) + 1 - vector.len()%2) + 7} else {5};
-
         let median = (4,4);
 
         vector.sort_unstable_by_key(|x| x.index);
@@ -187,6 +184,8 @@ impl<T: Borrow<[Node]> + BorrowMut<[Node]> + Index<usize,Output=Node> + IndexMut
             zone_offset: 8,
             median: median,
         };
+
+        // println!("Linking");
 
         prototype.establish_median();
         prototype.establish_zones();
@@ -208,23 +207,59 @@ impl<T: Borrow<[Node]> + BorrowMut<[Node]> + Index<usize,Output=Node> + IndexMut
 
     pub fn pop(&mut self, nominal_index: usize) -> f64 {
 
+        // println!("{:?}", self);
+
         let target = nominal_index + self.zone_offset;
+
+        let target_zone = self.nodes[target].zone;
+
+        // println!("Popping {}", target);
 
         if self.nodes[target].zone != 0 {
 
+            // println!("Popping internal");
+
+            self.zones[target_zone].length -= 1;
+            self.zones[0].length += 1;
+            self.nodes[target].zone = 0;
+
+            // println!("Balancing");
+            // println!("{:?}", self.zones);
+            // println!("{:?}", self.median);
+
+            self.balance_zones(target);
+
+            // println!("{:?}", self.zones);
+            // println!("{:?}", self.median);
+
+            self.unlink(target);
+
+            // println!("Recentering");
+            // println!("{:?}", self.median);
             let (old_median,new_median) = self.recenter_median(target);
+            // println!("{:?}", self.median);
 
-            self.pop_internal(target);
+            //
+            // println!("Shifting zones");
 
-            if self.len() > 0 {
-
-                self.balance_zones(target);
-
-                self.shift_zones(old_median,new_median);
-
-            }
+            self.shift_zones(old_median,new_median);
 
         }
+
+        if (self.median() - slow_median(self.ordered_values())).abs() > 0.00001 {
+            println!("{:?}", self);
+            println!("{:?}", self.ordered_values());
+            println!("{:?}", slow_median(self.ordered_values()));
+            panic!("Failed to adjust median!");
+        };
+
+        if (self.mad() - slow_mad(self.ordered_values())).abs() > 0.00001 {
+            println!("{:?}", self);
+            println!("{:?}", self.ordered_values());
+            println!("{:?}", self.mad());
+            println!("{:?}", slow_mad(self.ordered_values()));
+            panic!("Failed to adjust mad");
+        };
 
         self.nodes[target].data
 
@@ -232,8 +267,24 @@ impl<T: Borrow<[Node]> + BorrowMut<[Node]> + Index<usize,Output=Node> + IndexMut
 
     // This method acts directly on the internal linked list, bypassing the node at a given index.
 
-    #[inline]
-    fn pop_internal(&mut self, target: usize) -> &Node {
+    // #[inline]
+    // fn pop_internal(&mut self, target: usize) -> &Node {
+    //
+    //     let left = self.nodes[target].previous;
+    //     let right = self.nodes[target].next;
+    //
+    //     self.nodes[left].next = self.nodes[target].next;
+    //     self.nodes[right].previous = self.nodes[target].previous;
+    //
+    //     self.zones[self.nodes[target].zone].length -= 1;
+    //     self.zones[0].length += 1;
+    //
+    //     self.nodes[target].zone = 0;
+    //
+    //     &self.nodes[target]
+    // }
+
+    fn unlink(&mut self, target: usize) {
 
         let left = self.nodes[target].previous;
         let right = self.nodes[target].next;
@@ -241,12 +292,6 @@ impl<T: Borrow<[Node]> + BorrowMut<[Node]> + Index<usize,Output=Node> + IndexMut
         self.nodes[left].next = self.nodes[target].next;
         self.nodes[right].previous = self.nodes[target].previous;
 
-        self.zones[self.nodes[target].zone].length -= 1;
-        self.zones[0].length += 1;
-
-        self.nodes[target].zone = 0;
-
-        &self.nodes[target]
     }
 
     //
@@ -271,17 +316,41 @@ impl<T: Borrow<[Node]> + BorrowMut<[Node]> + Index<usize,Output=Node> + IndexMut
 
     #[inline]
     pub fn establish_median(&mut self) {
-        let steps = self.zones[2].length as i32 + 1 - ((self.zones[1].length * 2) as i32 - 1).max(0);
-        for _ in 0..steps {
-            self.shift_median_right();
+
+        let order = self.left_to_right();
+
+        match order.len() % 2 {
+            0 => {
+                self.median = (order[(order.len()/2)-1],order[order.len()/2]);
+            },
+            1 => {
+                self.median = (order[order.len()/2],order[order.len()/2]);
+            },
+            _ => unreachable!(),
+        }
+
+        if (self.median() - slow_median(self.ordered_values())) > 0.00001 {
+            println!("{:?}", self);
+            println!("{:?}", self.ordered_values());
+            println!("{:?}", slow_median(self.ordered_values()));
+            panic!("Failed to establish median!");
         }
     }
 
     #[inline]
     pub fn establish_zones(&mut self) {
-        for _ in 0..(((self.len())/2).max(1) - 1) {
+        for _ in 0..(((self.len())/2).max(1) - (1 - self.len()%2)) {
             self.contract_1();
         };
+
+        if (self.mad() - slow_mad(self.ordered_values())) > 0.00001 {
+            println!("{:?}", self);
+            println!("{:?}", self.ordered_values());
+            println!("{:?}", self.mad());
+            println!("{:?}", slow_mad(self.ordered_values()));
+            panic!("Failed to establish mad");
+        };
+
     }
 
     #[inline]
@@ -321,7 +390,7 @@ impl<T: Borrow<[Node]> + BorrowMut<[Node]> + Index<usize,Output=Node> + IndexMut
             self.pop(index);
         };
         drop_set.shrink_to_fit();
-        self.drop_set = Some(drop_set);
+        self.drop_set.as_mut().unwrap().extend(drop_set.iter());
         self.drop = DropMode::Zeros;
     }
 
@@ -348,7 +417,14 @@ impl<T: Borrow<[Node]> + BorrowMut<[Node]> + Index<usize,Output=Node> + IndexMut
 
         let head = self.nodes[self.zones[zone].head].next;
 
-        self.pop_internal(head).index
+        self.unlink(head);
+
+        self.zones[self.nodes[head].zone].length -= 1;
+        self.zones[0].length += 1;
+
+        self.nodes[head].zone = 0;
+
+        head
 
     }
 
@@ -357,7 +433,14 @@ impl<T: Borrow<[Node]> + BorrowMut<[Node]> + Index<usize,Output=Node> + IndexMut
 
         let tail = self.nodes[self.zones[zone].tail].previous;
 
-        self.pop_internal(tail).index
+        self.unlink(tail);
+
+        self.zones[self.nodes[tail].zone].length -= 1;
+        self.zones[0].length += 1;
+
+        self.nodes[tail].zone = 0;
+
+        tail
 
     }
 
@@ -410,7 +493,7 @@ impl<T: Borrow<[Node]> + BorrowMut<[Node]> + Index<usize,Output=Node> + IndexMut
             if (right - median).abs() > (median - left).abs() {
                 self.expand_left();
             }
-            if (median - left).abs() > (right - median).abs() {
+            else {
                 self.expand_right();
             }
 
@@ -429,14 +512,21 @@ impl<T: Borrow<[Node]> + BorrowMut<[Node]> + Index<usize,Output=Node> + IndexMut
 
     #[inline]
     pub fn contract_1(&mut self) {
+
+        let left = self.nodes[self.nodes[self.zones[2].head].next].data;
         let median = self.median();
         let right = self.nodes[self.nodes[self.zones[2].tail].previous].data;
-        let left = self.nodes[self.nodes[self.zones[2].head].next].data;
+
+        // println!("{},{},{}", left, median, right);
+        //
+        // println!("Comparison {},{}", left-median, right-median);
 
         if (right - median).abs() > (left - median).abs() {
+            // println!("Right");
             self.contract_right();
         }
         else {
+            // println!("Left");
             self.contract_left();
         }
     }
@@ -444,29 +534,27 @@ impl<T: Borrow<[Node]> + BorrowMut<[Node]> + Index<usize,Output=Node> + IndexMut
     #[inline]
     pub fn balance_zones(&mut self,target:usize) {
 
-        // println!("{:?}", self);
+        if self.len() > 0 {
 
-        assert_eq!(self.len(), self.zones[1..].iter().map(|x| x.length).sum::<usize>());
-
-        match self.len() %2 {
-            1 => {
-                match self.zones[2].length.cmp(&(self.zones[1].length + self.zones[3].length + 1)) {
-                    Ordering::Greater => self.contract_1(),
-                    Ordering::Less => self.expand_1(),
-                    Ordering::Equal => {},
+            match self.len() %2 {
+                1 => {
+                    match self.zones[2].length.cmp(&(self.zones[1].length + self.zones[3].length + 1)) {
+                        Ordering::Greater => self.contract_1(),
+                        Ordering::Less => self.expand_1(),
+                        Ordering::Equal => {},
+                    }
+                },
+                0 => {
+                    match self.zones[2].length.cmp(&(self.zones[1].length + self.zones[3].length + 2)) {
+                        Ordering::Greater => self.contract_1(),
+                        Ordering::Less => self.expand_1(),
+                        Ordering::Equal => {},
+                    }
                 }
-            },
-            0 => {
-                match self.zones[2].length.cmp(&(self.zones[1].length + self.zones[3].length + 2)) {
-                    Ordering::Greater => self.contract_1(),
-                    Ordering::Less => self.expand_1(),
-                    Ordering::Equal => {},
-                }
+                _ => unreachable!(),
             }
-            _ => unreachable!(),
-        }
 
-        // println!("{:?}", self);
+        }
 
     }
 
@@ -505,6 +593,10 @@ impl<T: Borrow<[Node]> + BorrowMut<[Node]> + Index<usize,Output=Node> + IndexMut
     pub fn recenter_median(&mut self, target:usize) -> (f64,f64) {
 
         let old_median = self.median();
+
+        // println!("Recentering");
+        // println!("{:?}", self.nodes[self.median.0]);
+        // println!("{:?}", self.nodes[self.median.1]);
 
         let target_rank = self.nodes[target].rank;
         let left_rank = self.nodes[self.median.0].rank;
@@ -668,7 +760,14 @@ impl<T: Borrow<[Node]> + BorrowMut<[Node]> + Index<usize,Output=Node> + IndexMut
         mads.push(self.mad());
         for draw in draw_order {
             self.pop(*draw);
-            mads.push(self.mad())
+            mads.push(self.mad());
+            if (self.mad() - slow_mad(self.ordered_values())).abs() > 0.00001 {
+                println!("{:?}", self);
+                println!("{:?}", self.ordered_values());
+                println!("{:?}", self.mad());
+                println!("{:?}", slow_mad(self.ordered_values()));
+                panic!("Mad mismatch");
+            }
         }
 
         mads
@@ -686,12 +785,19 @@ impl<T: Borrow<[Node]> + BorrowMut<[Node]> + Index<usize,Output=Node> + IndexMut
 
         for draw in draw_order {
             self.pop(*draw);
-            let mut cov = self.mad()/self.median();
-            if !cov.is_normal() {
-                cov = 0.;
-            }
+            let mut cov = (self.mad()/self.median()).abs();
             covs.push(cov);
         }
+
+        // println!("innermost pre-filter: {:?}", covs);
+
+        for element in covs.iter_mut() {
+            if !element.is_normal() {
+                *element = 0.;
+            }
+        }
+
+        // println!("innermost: {:?}", covs);
 
         covs
     }
@@ -943,57 +1049,56 @@ pub struct GLVCrawler<'a, T:'a + Borrow<[Node]> + BorrowMut<[Node]> + Index<usiz
     index: usize,
 }
 
+fn slow_median(values: Vec<f64>) -> f64 {
+    let median: f64;
+    if values.len() < 1 {
+        return 0.
+    }
+
+    if values.len()%2==0 {
+        median = (values[values.len()/2] + values[values.len()/2 - 1]) as f64 / 2.;
+    }
+    else {
+        median = values[(values.len()-1)/2];
+    }
+
+    median
+
+}
+
+fn slow_mad(values: Vec<f64>) -> f64 {
+    let median: f64;
+    if values.len() < 1 {
+        return 0.
+    }
+    if values.len()%2==0 {
+        median = (values[values.len()/2] + values[values.len()/2 - 1]) as f64 / 2.;
+    }
+    else {
+        median = values[(values.len()-1)/2];
+    }
+
+    let mut abs_deviations: Vec<f64> = values.iter().map(|x| (x-median).abs()).collect();
+
+    abs_deviations.sort_by(|a,b| a.partial_cmp(&b).unwrap_or(Ordering::Greater));
+
+    let mad: f64;
+    if abs_deviations.len()%2==0 {
+        mad = (abs_deviations[abs_deviations.len()/2] + abs_deviations[abs_deviations.len()/2 - 1]) as f64 / 2.;
+    }
+    else {
+        mad = abs_deviations[(abs_deviations.len()-1)/2];
+    }
+
+    mad
+
+}
 
 #[cfg(test)]
 mod rank_vector_tests {
 
     use super::*;
     use std::f64::NAN;
-
-    fn slow_median(values: Vec<f64>) -> f64 {
-        let median: f64;
-        if values.len() < 1 {
-            return 0.
-        }
-
-        if values.len()%2==0 {
-            median = (values[values.len()/2] + values[values.len()/2 - 1]) as f64 / 2.;
-        }
-        else {
-            median = values[(values.len()-1)/2];
-        }
-
-        median
-
-    }
-
-    fn slow_mad(values: Vec<f64>) -> f64 {
-        let median: f64;
-        if values.len() < 1 {
-            return 0.
-        }
-        if values.len()%2==0 {
-            median = (values[values.len()/2] + values[values.len()/2 - 1]) as f64 / 2.;
-        }
-        else {
-            median = values[(values.len()-1)/2];
-        }
-
-        let mut abs_deviations: Vec<f64> = values.iter().map(|x| (x-median).abs()).collect();
-
-        abs_deviations.sort_by(|a,b| a.partial_cmp(&b).unwrap_or(Ordering::Greater));
-
-        let mad: f64;
-        if abs_deviations.len()%2==0 {
-            mad = (abs_deviations[abs_deviations.len()/2] + abs_deviations[abs_deviations.len()/2 - 1]) as f64 / 2.;
-        }
-        else {
-            mad = abs_deviations[(abs_deviations.len()-1)/2];
-        }
-
-        mad
-
-    }
 
     #[test]
     fn create_trivial() {

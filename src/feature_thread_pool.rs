@@ -104,6 +104,8 @@ fn compute (prot_vector: RankVector<Vec<Node>> , draw_order: Arc<Vec<usize>> , d
 
     replace(local_container, Some(vector.return_container()));
 
+    // println!("parallel: {:?}", result);
+
     (result,prot_vector)
 
 }

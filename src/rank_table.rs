@@ -321,23 +321,24 @@ impl RankTable {
             minimum.map(|z| (z.0, z.1 * ((self.dimensions.1 - x + 1) as f64)));
 
             minimum
+
         }
         else { None }
     }
 
     pub fn parallel_dispersion(&mut self,draw_order:&Vec<usize>, drop_set: &HashSet<usize>, pool:mpsc::Sender<FeatureMessage>) -> Option<Vec<Vec<f64>>> {
 
-        let forward_draw = Arc::new(draw_order.clone());
-        let reverse_draw: Arc<Vec<usize>> = Arc::new(draw_order.iter().cloned().rev().collect());
+        let forward_draw_arc = Arc::new(draw_order.clone());
+        let reverse_draw_arc: Arc<Vec<usize>> = Arc::new(draw_order.iter().cloned().rev().collect());
 
         let drop_arc = Arc::new(drop_set.clone());
 
-        if forward_draw.len() < 4 {
+        if forward_draw_arc.len() < 4 {
             return None
         }
 
-        let mut forward_dispersions: Vec<Vec<f64>> = vec![vec![0.;self.dimensions.0];forward_draw.len()+1];
-        let mut reverse_dispersions: Vec<Vec<f64>> = vec![vec![0.;self.dimensions.0];reverse_draw.len()+1];
+        let mut forward_dispersions: Vec<Vec<f64>> = vec![vec![0.;self.dimensions.0];forward_draw_arc.len()+1];
+        let mut reverse_dispersions: Vec<Vec<f64>> = vec![vec![0.;self.dimensions.0];reverse_draw_arc.len()+1];
 
         let mut forward_receivers = Vec::with_capacity(self.dimensions.0);
         let mut reverse_receivers = Vec::with_capacity(self.dimensions.0);
@@ -347,13 +348,14 @@ impl RankTable {
 
         for feature in self.meta_vector.drain(..) {
             let (tx,rx) = mpsc::channel();
-            pool.send(FeatureMessage::Message((feature,forward_draw.clone(),drop_arc.clone(),self.split_mode),tx));
+            pool.send(FeatureMessage::Message((feature,forward_draw_arc.clone(),drop_arc.clone(),self.split_mode),tx));
             forward_receivers.push(rx);
         }
 
         for (i,fr) in forward_receivers.iter().enumerate() {
             if let Ok((disp,feature)) = fr.recv() {
                 for (j,g) in disp.into_iter().enumerate() {
+                    // println!("{:?}", g);
                     forward_dispersions[j][i] = g;
                 }
                 self.meta_vector.push(feature);
@@ -366,14 +368,14 @@ impl RankTable {
 
         for feature in self.meta_vector.drain(..) {
             let (tx,rx) = mpsc::channel();
-            pool.send(FeatureMessage::Message((feature,reverse_draw.clone(),drop_arc.clone(),self.split_mode),tx));
+            pool.send(FeatureMessage::Message((feature,reverse_draw_arc.clone(),drop_arc.clone(),self.split_mode),tx));
             reverse_receivers.push(rx);
         }
 
         for (i,rr) in reverse_receivers.iter().enumerate() {
             if let Ok((disp,feature)) = rr.recv() {
                 for (j,g) in disp.into_iter().enumerate() {
-                    reverse_dispersions[reverse_draw.len() - j][i] = g;
+                    reverse_dispersions[reverse_draw_arc.len() - j][i] = g;
                 }
                 self.meta_vector.push(feature);
             }
@@ -383,7 +385,7 @@ impl RankTable {
 
         }
 
-        let len = forward_dispersions.len()+1;
+        let len = forward_dispersions.len();
 
         // println!("{:?}",forward_dispersions);
         // println!("{:?}",reverse_dispersions);
@@ -392,11 +394,16 @@ impl RankTable {
 
         for (i,(f_s,r_s)) in forward_dispersions.into_iter().zip(reverse_dispersions.into_iter()).enumerate() {
             for (j,(gf,gr)) in f_s.into_iter().zip(r_s.into_iter()).enumerate() {
-                covs[i][j] = (gf * ((len - i) as f64 / len as f64)) + (gr * ((i + 1) as f64/ len as f64));
+                covs[i][j] = (gf * ((len - i) as f64 / len as f64)) + (gr * ((i+1) as f64/ len as f64));
             }
         }
 
-        // println!("{:?}",covs);
+        // println!("{:?}", covs);
+        //
+        // println!("___________________________________________________________________________");
+        // println!("___________________________________________________________________________");
+        // println!("___________________________________________________________________________");
+
 
         Some(covs)
 
@@ -407,25 +414,35 @@ impl RankTable {
 
 pub fn l2_minimum(mtx_in:&Vec<Vec<f64>>, weights: &Vec<f64>) -> Option<(usize,f64)> {
 
+    let weight_sum = weights.iter().sum::<f64>();
+
     let sample_sums = mtx_in.iter().map(|sample| {
-        sample.iter().enumerate().map(|(i,feature)| feature.powi(2) * weights[i]).sum::<f64>() / weights.iter().sum::<f64>()
-    }).map(|sum| if sum.is_normal() {sum} else {f64::INFINITY});
+        sample.iter().enumerate().map(|(i,feature)| feature.powi(2) * weights[i]).sum::<f64>() / weight_sum
+    }).map(|sum| if sum.is_normal() || sum == 0. {sum} else {f64::INFINITY});
 
-    // println!("{:?}", sample_sums);
+    // println!("Scoring:");
+    // println!("{:?}", mtx_in.iter().map(|sample| {
+    //     sample.iter().enumerate().map(|(i,feature)| feature.powi(2) * weights[i]).sum::<f64>() / weight_sum
+    // }).map(|sum| if sum.is_normal() || sum == 0. {sum} else {f64::INFINITY}).enumerate().collect::<Vec<(usize,f64)>>());
 
-    sample_sums.enumerate().skip(2).rev().skip(2).min_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Greater))
+    sample_sums.enumerate().skip(3).rev().skip(3).min_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Greater))
 
 }
 
 pub fn l1_minimum(mtx_in:&Vec<Vec<f64>>, weights: &Vec<f64>) -> Option<(usize,f64)> {
 
+    let weight_sum = weights.iter().sum::<f64>();
+
     let sample_sums = mtx_in.iter().map(|sample| {
-        sample.iter().enumerate().map(|(i,feature)| feature * weights[i] ).sum::<f64>() / weights.iter().sum::<f64>()
-    }).map(|sum| if sum.is_normal() {sum} else {f64::INFINITY});
+        sample.iter().enumerate().map(|(i,feature)| feature * weights[i] ).sum::<f64>() / weight_sum
+    }).map(|sum| if sum.is_normal() || sum == 0. {sum} else {f64::INFINITY});
 
-    // println!("{:?}", sample_sums);
+    // println!("Scoring:");
+    // println!("{:?}", mtx_in.iter().map(|sample| {
+    //     sample.iter().enumerate().map(|(i,feature)| feature * weights[i]).sum::<f64>() / weight_sum
+    // }).map(|sum| if sum.is_normal() || sum == 0. {sum} else {f64::INFINITY}).enumerate().collect::<Vec<(usize,f64)>>());
 
-    sample_sums.enumerate().skip(2).rev().skip(2).min_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Greater))
+    sample_sums.enumerate().skip(3).rev().skip(3).min_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Greater))
 
 }
 
@@ -470,18 +487,18 @@ mod rank_table_tests {
         assert_eq!(mad_order, vec![(5.0,7.0),(7.5,8.),(10.,5.),(12.5,5.),(15.,5.),(17.5,2.5),(20.,0.),(0.,0.)]);
     }
 
-    // #[test]
-    // pub fn split() {
-    //     let mut table = RankTable::new(&vec![vec![10.,-3.,0.,5.,-2.,-1.,15.,20.]], &vec!["one".to_string()], &(0..8).map(|x| x.to_string()).collect::<Vec<String>>()[..],Arc::new(Parameters::empty()));
-    //     let pool = FeatureThreadPool::new(1);
-    //     let mut draw_order = {(table.sort_by_feature("one").0.iter().cloned().collect(),table.sort_by_feature("one").1.iter().cloned().collect())};
-    //
-    //     println!("{:?}", table.sort_by_feature("one"));
-    //     println!("{:?}", table.clone().parallel_dispersion(table.sort_by_feature("one").0,table.sort_by_feature("one").1,FeatureThreadPool::new(1)));
-    //     println!("{:?}", table.clone().parallel_dispersion(table.sort_by_feature("one").0,table.sort_by_feature("one").1,FeatureThreadPool::new(1)));
-    //     assert_eq!(table.parallel_split_order(draw_order.0, &draw_order.1, Some(&vec![1.]), pool).unwrap().0,3)
-    //
-    // }
+    #[test]
+    pub fn split() {
+        let mut table = RankTable::new(&vec![vec![10.,-3.,0.,5.,-2.,-1.,15.,20.]], &vec!["one".to_string()], &(0..8).map(|x| x.to_string()).collect::<Vec<String>>()[..],blank_parameter());
+        let pool = FeatureThreadPool::new(1);
+        let mut draw_order = {(table.sort_by_feature("one").0.clone(),table.sort_by_feature("one").1.clone())};
+
+        println!("{:?}", table.sort_by_feature("one"));
+        println!("{:?}", table.clone().parallel_dispersion(&table.sort_by_feature("one").0,&table.sort_by_feature("one").1,FeatureThreadPool::new(1)));
+        println!("{:?}", table.clone().parallel_dispersion(&table.sort_by_feature("one").0,&table.sort_by_feature("one").1,FeatureThreadPool::new(1)));
+        assert_eq!(table.parallel_split_order(&draw_order.0, &draw_order.1, Some(&vec![1.]), pool).unwrap().0,3)
+
+    }
 
     #[test]
     pub fn rank_table_derive_test() {
