@@ -303,9 +303,7 @@ impl RankTable {
 
     pub fn parallel_split_order(&mut self,draw_order:&Vec<usize>, drop_set: &HashSet<usize>,feature_weights:Option<&Vec<f64>>, pool:mpsc::Sender<FeatureMessage>) -> Option<(usize,f64)> {
 
-        let (x,y) = (draw_order.len(),self.features().len());
-
-        if x < 6 {
+        if draw_order.len() < 6 {
             return None;
         };
 
@@ -314,11 +312,11 @@ impl RankTable {
         if let Some(disp_mtx) = disp_mtx_opt {
 
             let mut minimum = match self.norm_mode {
-                NormMode::L1 => l1_minimum(&disp_mtx, feature_weights.unwrap_or(&vec![1.;y])),
-                NormMode::L2 => l2_minimum(&disp_mtx, feature_weights.unwrap_or(&vec![1.;y])),
+                NormMode::L1 => l1_minimum(&disp_mtx, feature_weights.unwrap_or(&vec![1.;self.feature_names.len()])),
+                NormMode::L2 => l2_minimum(&disp_mtx, feature_weights.unwrap_or(&vec![1.;self.feature_names.len()])),
             };
 
-            minimum.map(|z| (z.0, z.1 / ((x.pow(2) + 1) as f64)));
+            minimum.map(|z| (z.0, z.1 * ((draw_order.len() as f64)/(self.sample_names.len() as f64))));
 
             minimum
 
