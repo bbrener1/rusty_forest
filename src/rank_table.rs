@@ -318,7 +318,7 @@ impl RankTable {
                 NormMode::L2 => l2_minimum(&disp_mtx, feature_weights.unwrap_or(&vec![1.;y])),
             };
 
-            minimum.map(|z| (z.0, z.1 / ((x.powi(2) + 1) as f64)));
+            minimum.map(|z| (z.0, z.1 / ((x.pow(2) + 1) as f64)));
 
             minimum
 
