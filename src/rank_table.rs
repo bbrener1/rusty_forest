@@ -326,7 +326,7 @@ impl RankTable {
 
     pub fn parallel_split_order_max(&mut self,draw_order:&Vec<usize>, drop_set: &HashSet<usize>,feature_weights:Option<&Vec<f64>>, pool:mpsc::Sender<FeatureMessage>) -> Option<(usize,f64)> {
 
-        if draw_order.len() < 6 {
+        if draw_order.len() < 8 {
             return None;
         };
 
