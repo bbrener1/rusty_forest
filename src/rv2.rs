@@ -966,8 +966,8 @@ impl RankVector<Vec<Node>> {
             drop_set: None,
             dirty_set: None,
             rank_order: None,
-            drop: self.drop,
-            zones: self.zones,
+            drop: self.drop.clone(),
+            zones: self.zones.clone(),
             zone_offset: self.zone_offset,
             median: self.median,
         }
