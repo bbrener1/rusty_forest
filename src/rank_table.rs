@@ -446,7 +446,7 @@ pub fn l2_minimum(mtx_in:&Vec<Vec<f64>>, weights: &Vec<f64>) -> Option<(usize,f6
     //     sample.iter().enumerate().map(|(i,feature)| feature.powi(2) * weights[i]).sum::<f64>() / weight_sum
     // }).map(|sum| if sum.is_normal() || sum == 0. {sum} else {f64::INFINITY}).enumerate().collect::<Vec<(usize,f64)>>());
 
-    sample_sums.enumerate().skip(3).rev().skip(3).min_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Greater))
+    sample_sums.enumerate().skip(4).rev().skip(4).min_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Greater))
 
 }
 
@@ -463,7 +463,7 @@ pub fn l1_minimum(mtx_in:&Vec<Vec<f64>>, weights: &Vec<f64>) -> Option<(usize,f6
     //     sample.iter().enumerate().map(|(i,feature)| feature * weights[i]).sum::<f64>() / weight_sum
     // }).map(|sum| if sum.is_normal() || sum == 0. {sum} else {f64::INFINITY}).enumerate().collect::<Vec<(usize,f64)>>());
 
-    sample_sums.enumerate().skip(3).rev().skip(3).min_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Greater))
+    sample_sums.enumerate().skip(4).rev().skip(4).min_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Greater))
 
 }
 
@@ -475,7 +475,7 @@ pub fn l2_maximum(mtx_in:&Vec<Vec<f64>>, weights: &Vec<f64>) -> Option<(usize,f6
         sample.iter().enumerate().map(|(i,feature)| feature.powi(2) * weights[i]).sum::<f64>() / weight_sum
     }).map(|sum| if sum.is_normal() || sum == 0. {sum} else {0.});
 
-    sample_sums.enumerate().skip(3).rev().skip(3).max_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Greater))
+    sample_sums.enumerate().skip(4).rev().skip(4).max_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Greater))
 
 }
 
@@ -488,7 +488,7 @@ pub fn l1_maximum(mtx_in:&Vec<Vec<f64>>, weights: &Vec<f64>) -> Option<(usize,f6
     }).map(|sum| if sum.is_normal() || sum == 0. {sum} else {0.});
 
 
-    sample_sums.enumerate().skip(3).rev().skip(3).max_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Greater))
+    sample_sums.enumerate().skip(4).rev().skip(4).max_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Greater))
 
 }
 
