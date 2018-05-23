@@ -487,10 +487,10 @@ pub fn l1_maximum(mtx_in:&Vec<Vec<f64>>, weights: &Vec<f64>) -> Option<(usize,f6
         sample.iter().enumerate().map(|(i,feature)| feature * weights[i] ).sum::<f64>() / weight_sum
     }).map(|sum| if sum.is_normal() || sum == 0. {sum} else {0.});
 
-    println!("Scoring:");
-    println!("{:?}", mtx_in.iter().map(|sample| {
-        sample.iter().enumerate().map(|(i,feature)| feature * weights[i]).sum::<f64>() / weight_sum
-    }).map(|sum| if sum.is_normal() || sum == 0. {sum} else {0.}).enumerate().collect::<Vec<(usize,f64)>>());
+    // println!("Scoring:");
+    // println!("{:?}", mtx_in.iter().map(|sample| {
+    //     sample.iter().enumerate().map(|(i,feature)| feature * weights[i]).sum::<f64>() / weight_sum
+    // }).map(|sum| if sum.is_normal() || sum == 0. {sum} else {0.}).enumerate().collect::<Vec<(usize,f64)>>());
 
     sample_sums.enumerate().skip(3).rev().skip(3).max_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Greater))
 
