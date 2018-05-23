@@ -77,7 +77,7 @@ impl Node {
                 self.feature_weights[*input_index] = 0.;
             }
 
-            if let Some((split_index,split_dispersion)) = self.output_table.parallel_split_order(&draw_order.0,&draw_order.1,Some(&self.feature_weights),self.feature_pool.clone()) {
+            if let Some((split_index,split_dispersion)) = self.output_table.parallel_split_order_min(&draw_order.0,&draw_order.1,Some(&self.feature_weights),self.feature_pool.clone()) {
 
                 let split_sample_index = draw_order.0[split_index];
 

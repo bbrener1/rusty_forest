@@ -301,7 +301,7 @@ impl RankTable {
         }
     }
 
-    pub fn parallel_split_order(&mut self,draw_order:&Vec<usize>, drop_set: &HashSet<usize>,feature_weights:Option<&Vec<f64>>, pool:mpsc::Sender<FeatureMessage>) -> Option<(usize,f64)> {
+    pub fn parallel_split_order_min(&mut self,draw_order:&Vec<usize>, drop_set: &HashSet<usize>,feature_weights:Option<&Vec<f64>>, pool:mpsc::Sender<FeatureMessage>) -> Option<(usize,f64)> {
 
         if draw_order.len() < 6 {
             return None;
@@ -316,9 +316,32 @@ impl RankTable {
                 NormMode::L2 => l2_minimum(&disp_mtx, feature_weights.unwrap_or(&vec![1.;self.feature_names.len()])),
             };
 
-            minimum.map(|z| (z.0, z.1 * ((draw_order.len() as f64)/(self.sample_names.len() as f64))));
+            minimum.map(|z| (z.0, z.1 * (((self.sample_names.len() - draw_order.len()) as f64)/(self.sample_names.len() as f64))));
 
             minimum
+
+        }
+        else { None }
+    }
+
+    pub fn parallel_split_order_max(&mut self,draw_order:&Vec<usize>, drop_set: &HashSet<usize>,feature_weights:Option<&Vec<f64>>, pool:mpsc::Sender<FeatureMessage>) -> Option<(usize,f64)> {
+
+        if draw_order.len() < 6 {
+            return None;
+        };
+
+        let disp_mtx_opt: Option<Vec<Vec<f64>>> = self.parallel_dispersion(draw_order,drop_set,pool);
+
+        if let Some(disp_mtx) = disp_mtx_opt {
+
+            let mut maximum = match self.norm_mode {
+                NormMode::L1 => l1_maximum(&disp_mtx, feature_weights.unwrap_or(&vec![1.;self.feature_names.len()])),
+                NormMode::L2 => l2_maximum(&disp_mtx, feature_weights.unwrap_or(&vec![1.;self.feature_names.len()])),
+            };
+
+            maximum.map(|z| (z.0, z.1 * ((draw_order.len() as f64)/(self.sample_names.len() as f64))));
+
+            maximum
 
         }
         else { None }
@@ -441,6 +464,31 @@ pub fn l1_minimum(mtx_in:&Vec<Vec<f64>>, weights: &Vec<f64>) -> Option<(usize,f6
     // }).map(|sum| if sum.is_normal() || sum == 0. {sum} else {f64::INFINITY}).enumerate().collect::<Vec<(usize,f64)>>());
 
     sample_sums.enumerate().skip(3).rev().skip(3).min_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Greater))
+
+}
+
+pub fn l2_maximum(mtx_in:&Vec<Vec<f64>>, weights: &Vec<f64>) -> Option<(usize,f64)> {
+
+    let weight_sum = weights.iter().sum::<f64>();
+
+    let sample_sums = mtx_in.iter().map(|sample| {
+        sample.iter().enumerate().map(|(i,feature)| feature.powi(2) * weights[i]).sum::<f64>() / weight_sum
+    }).map(|sum| if sum.is_normal() || sum == 0. {sum} else {0.});
+
+    sample_sums.enumerate().skip(3).rev().skip(3).max_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Greater))
+
+}
+
+pub fn l1_maximum(mtx_in:&Vec<Vec<f64>>, weights: &Vec<f64>) -> Option<(usize,f64)> {
+
+    let weight_sum = weights.iter().sum::<f64>();
+
+    let sample_sums = mtx_in.iter().map(|sample| {
+        sample.iter().enumerate().map(|(i,feature)| feature * weights[i] ).sum::<f64>() / weight_sum
+    }).map(|sum| if sum.is_normal() || sum == 0. {sum} else {0.});
+
+
+    sample_sums.enumerate().skip(3).rev().skip(3).max_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Greater))
 
 }
 
