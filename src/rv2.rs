@@ -743,7 +743,7 @@ impl<T: Borrow<[Node]> + BorrowMut<[Node]> + Index<usize,Output=Node> + IndexMut
         mad_gains.push(0.);
         for draw in draw_order {
             self.pop(*draw);
-            mad_gains.push(start_mad - self.mad())
+            mad_gains.push((start_mad - self.mad()).max(0.));
         }
 
         mad_gains

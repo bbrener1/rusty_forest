@@ -487,6 +487,10 @@ pub fn l1_maximum(mtx_in:&Vec<Vec<f64>>, weights: &Vec<f64>) -> Option<(usize,f6
         sample.iter().enumerate().map(|(i,feature)| feature * weights[i] ).sum::<f64>() / weight_sum
     }).map(|sum| if sum.is_normal() || sum == 0. {sum} else {0.});
 
+    println!("Scoring:");
+    println!("{:?}", mtx_in.iter().map(|sample| {
+        sample.iter().enumerate().map(|(i,feature)| feature * weights[i]).sum::<f64>() / weight_sum
+    }).map(|sum| if sum.is_normal() || sum == 0. {sum} else {0.}).enumerate().collect::<Vec<(usize,f64)>>());
 
     sample_sums.enumerate().skip(3).rev().skip(3).max_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Greater))
 
@@ -542,7 +546,7 @@ mod rank_table_tests {
         println!("{:?}", table.sort_by_feature("one"));
         println!("{:?}", table.clone().parallel_dispersion(&table.sort_by_feature("one").0,&table.sort_by_feature("one").1,FeatureThreadPool::new(1)));
         println!("{:?}", table.clone().parallel_dispersion(&table.sort_by_feature("one").0,&table.sort_by_feature("one").1,FeatureThreadPool::new(1)));
-        assert_eq!(table.parallel_split_order(&draw_order.0, &draw_order.1, Some(&vec![1.]), pool).unwrap().0,3)
+        assert_eq!(table.parallel_split_order_min(&draw_order.0, &draw_order.1, Some(&vec![1.]), pool).unwrap().0,3)
 
     }
 
