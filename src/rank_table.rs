@@ -339,7 +339,9 @@ impl RankTable {
                 NormMode::L2 => l2_maximum(&disp_mtx, feature_weights.unwrap_or(&vec![1.;self.feature_names.len()])),
             };
 
+            println!("{:?}", maximum);
             maximum.map(|z| (z.0, z.1 * draw_order.len() as f64));
+            println!("{:?}", maximum);
 
             maximum
 
