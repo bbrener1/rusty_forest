@@ -64,7 +64,7 @@ impl Node {
             panic!("Tried to split with no input features");
         };
 
-        let mut minima = Vec::with_capacity(self.input_features().len());
+        let mut maxima = Vec::with_capacity(self.input_features().len());
 
         for input_feature in self.input_features().clone().into_iter() {
 
@@ -77,11 +77,11 @@ impl Node {
                 self.feature_weights[*input_index] = 0.;
             }
 
-            if let Some((split_index,split_dispersion)) = self.output_table.parallel_split_order_min(&draw_order.0,&draw_order.1,Some(&self.feature_weights),self.feature_pool.clone()) {
+            if let Some((split_index,split_dispersion)) = self.output_table.parallel_split_order_max(&draw_order.0,&draw_order.1,Some(&self.feature_weights),self.feature_pool.clone()) {
 
                 let split_sample_index = draw_order.0[split_index];
 
-                minima.push((input_feature.clone(),split_sample_index,split_index,split_dispersion));
+                maxima.push((input_feature.clone(),split_sample_index,split_index,split_dispersion));
 
             }
 
@@ -92,7 +92,7 @@ impl Node {
 
         };
 
-        let (best_feature,split_sample_index,split_index,split_dispersion) = minima.iter().min_by(|a,b| (a.3).partial_cmp(&b.3).unwrap_or(Ordering::Greater)).unwrap().clone();
+        let (best_feature,split_sample_index,split_index,split_dispersion) = maxima.iter().max_by(|a,b| (a.3).partial_cmp(&b.3).unwrap_or(Ordering::Greater)).unwrap().clone();
 
         let split_order = self.input_table.sort_by_feature(&best_feature);
 
