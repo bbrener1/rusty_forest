@@ -1,7 +1,6 @@
-#![allow(dead_code)]
-
 #[macro_use]
 extern crate serde_derive;
+
 
 use std::env;
 use std::io;
@@ -21,6 +20,7 @@ extern crate num_cpus;
 extern crate rand;
 extern crate time;
 extern crate smallvec;
+extern crate bencher;
 
 mod raw_vector;
 mod rank_vector;
@@ -43,6 +43,8 @@ use tree::PredictiveTree;
 use random_forest::Forest;
 use boosted_forest::BoostedForest;
 use additive_booster::AdditiveBooster;
+
+pub use self::rv2::RankVector;
 
 /// Author: Boris Brenerman
 /// Created: 2017 Academic Year, Johns Hopkins University, Department of Biology, Taylor Lab

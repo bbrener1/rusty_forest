@@ -40,6 +40,19 @@ struct Zone {
     id: usize,
 }
 
+impl Node {
+    pub fn blank() -> Node{
+        Node {
+            data: f64::NAN,
+            index: 0,
+            rank: 0,
+            previous: 0,
+            next: 0,
+            zone: 0,
+        }
+    }
+}
+
 impl Zone {
 
     pub fn initialize(container: &mut Vec<Node>,id:usize) -> Zone{
@@ -391,7 +404,7 @@ impl<T: Borrow<[Node]> + BorrowMut<[Node]> + Index<usize,Output=Node> + IndexMut
         };
         drop_set.shrink_to_fit();
         self.drop_set.as_mut().unwrap().extend(drop_set.iter());
-        self.drop = DropMode::Zeros;
+
     }
 
     #[inline]
@@ -877,75 +890,100 @@ impl<T: Borrow<[Node]> + BorrowMut<[Node]> + Index<usize,Output=Node> + IndexMut
         ((left,self.nodes[left].data),(right,self.nodes[right].data))
     }
 
-    pub fn drop_using_mode(&mut self) {
-        let cmp = self.drop.cmp();
+    #[inline]
+    pub fn drop_using_mode(&mut self,drop_mode: DropMode) {
+        let cmp = drop_mode.cmp();
         self.drop_f(cmp);
+        self.drop = drop_mode;
     }
 
 }
 
 impl RankVector<Vec<Node>> {
 
+    #[inline]
     pub fn derive(&self, indecies:&[usize]) -> RankVector<Vec<Node>> {
 
-        let mut new_vector = RankVector::<Vec<Node>>::with_capacity(indecies.len());
+        let offset = self.zone_offset;
 
+        // let mut new_vector = RankVector::<Vec<Node>>::with_capacity(indecies.len());
+
+        let mut new_nodes: Vec<Node> = vec![Node::blank();indecies.len() + offset];
+        let mut new_zone_temp = Vec::with_capacity(offset);
+        let mut index_map = HashMap::with_capacity(indecies.len());
         let mut new_rank_order = Vec::with_capacity(indecies.len());
+        let mut derived_rank_order = Vec::with_capacity(indecies.len());
+
+        let drop = Zone::initialize(&mut new_zone_temp, 0);
+        let left = Zone::initialize(&mut new_zone_temp, 1);
+        let median = Zone::initialize(&mut new_zone_temp, 2);
+        let right = Zone::initialize(&mut new_zone_temp, 3);
+
+        for (i,zone_node) in new_zone_temp.into_iter().enumerate() {
+            new_nodes[i] = zone_node;
+        }
+
+        let mut new_zones = [drop,left,median,right];
 
         let derived_set: HashSet<usize> = indecies.iter().cloned().collect();
 
-        let index_map: HashMap<usize,usize> =
-            ((self.zone_offset)..(self.raw_len()+self.zone_offset))
-                .filter(|x| derived_set.contains(&(*x-self.zone_offset)))
+        index_map.extend(
+                ((offset)..(self.raw_len()+offset))
+                .filter(|x| derived_set.contains(&(*x-offset)))
                 .enumerate()
-                .map(|(i,x)| (x,i+self.zone_offset))
-                .collect();
+                .map(|(i,x)| (x,i+offset))
+            );
 
+        for n in self.rank_order.as_ref().unwrap() {
+            if derived_set.contains(&(n+offset)) {
+                derived_rank_order.push(n+offset);
+                new_rank_order.push(index_map[&(n+offset)]-offset);
+            }
+        }
 
-        let mut new_dirty_set: HashSet<usize> = HashSet::with_capacity(indecies.len());
+        let new_dirty_set: HashSet<usize> = self.dirty_set.as_ref().unwrap().iter().map(|x| index_map[&(x + offset)] - offset).collect();
 
         let mut previous = 4;
-        let mut new_index = 0;
-        let mut last_local_index = 4;
-        let dirty_indirect = self.dirty_set.as_ref().unwrap();
 
-        for (i,node) in self.rank_order.as_ref().unwrap_or(&vec![]).iter().filter(|y| derived_set.contains(y)).map(|x| &self.nodes[*x+self.zone_offset]).enumerate() {
+        for (i,(old_index,new_index)) in derived_rank_order.iter().map(|x| x+offset).zip(new_rank_order.iter().map(|y| y + offset)).enumerate() {
 
-                new_index = index_map[&node.index];
+            let data = self.nodes[old_index].data;
 
-                if dirty_indirect.contains(&node.index) {
-                    new_dirty_set.insert(new_index);
-                };
+            let new_node = Node {
+                data: data,
+                index: new_index,
+                rank: i,
+                previous: previous,
+                next: 5,
+                zone: 2,
+            };
 
-                let new_node = Node {
-                    data: node.data,
-                    index: new_index,
-                    rank: i,
-                    previous: previous,
-                    next: 5,
-                    zone: 2,
-                };
+            new_nodes[previous].next = new_index;
+            new_nodes[new_index] = new_node;
+            new_zones[2].length += 1;
 
-                new_vector.nodes[last_local_index].next = new_index;
-                new_vector.nodes.push(new_node);
-                new_rank_order.push(new_index - self.zone_offset);
-                new_vector.zones[2].length += 1;
-
-                last_local_index = new_vector.nodes.len()-1;
-
-                previous = new_index;
+            previous = new_index;
 
         }
 
-        new_vector.nodes[5].previous = new_index;
+        new_nodes[5].previous = previous;
 
-        new_vector.nodes.sort_unstable_by_key(|x| x.index);
+        let mut new_vector = RankVector {
+            drop_set: Some(HashSet::with_capacity(0)),
+            dirty_set: Some(new_dirty_set),
+            rank_order: Some(new_rank_order),
+            drop: self.drop,
+            zones: new_zones,
+            zone_offset: self.zone_offset,
+            median: (4,4),
+            nodes: new_nodes,
 
-        new_vector.rank_order = Some(new_rank_order);
+        };
 
         new_vector.establish_median();
         new_vector.establish_zones();
         new_vector.drop_f(0.);
+        new_vector.drop = self.drop;
 
         // println!("{:?}", new_vector);
 
@@ -953,6 +991,7 @@ impl RankVector<Vec<Node>> {
 
     }
 
+    #[inline]
     pub fn clone_to_container(&self, mut local_node_vector: SmallVec<[Node;1024]>) -> RankVector<SmallVec<[Node;1024]>> {
 
         local_node_vector.clear();
@@ -1098,7 +1137,9 @@ fn slow_mad(values: Vec<f64>) -> f64 {
 mod rank_vector_tests {
 
     use super::*;
-    use std::f64::NAN;
+    use rand::{thread_rng,Rng};
+    use rand::distributions::Standard;
+    use rand::seq::sample_indices;
 
     #[test]
     fn create_trivial() {
@@ -1176,40 +1217,5 @@ mod rank_vector_tests {
         assert_eq!(vector.fetch(2),0.);
         assert_eq!(vector.fetch(3),5.);
     }
-
-    // #[test]
-    // fn sequential_mad_simple_nan() {
-    //     let mut vector = RankVector::new(&vec![10.,-3.,NAN,5.,-2.,-1.,15.,20.],"test".to_string(),Arc::new(Parameters::empty()));
-    //     vector.drop_zeroes();
-    //     vector.initialize();
-    //     vector.set_boundaries();
-    //
-    //     let mut vm = vector.clone();
-    //
-    //
-    //     for draw in vector.draw_order {
-    //         println!("{:?}",vm.vector.left_to_right().cloned().collect::<Vec<(usize,usize,usize,f64,usize)>>());
-    //         println!("Median:{},{}",vm.median(),slow_median(&vm.vector));
-    //         println!("MAD:{},{}",vm.mad(),slow_mad(&vm.vector));
-    //         println!("{:?}",vm.pop(draw));
-    //         println!("{:?}",vm.vector.left_to_right().cloned().collect::<Vec<(usize,usize,usize,f64,usize)>>());
-    //         println!("Median:{},{}",vm.median(),slow_median(&vm.vector));
-    //         println!("MAD:{},{}",vm.mad(),slow_mad(&vm.vector));
-    //         assert_eq!(vm.median(),slow_median(&vm.vector));
-    //         assert_eq!(vm.mad(),slow_mad(&vm.vector));
-    //     }
-    //
-    // }
-    //
-    // #[test]
-    // fn odds_ratio() {
-    //     let mut vector = RankVector::new(&vec![10.,-3.,0.,5.,-2.,-1.,15.,20.],"test".to_string());
-    //     vector.drop_zeroes();
-    //     vector.initialize();
-    //     vector.set_boundaries();
-    //
-    // }
-
-
 
 }

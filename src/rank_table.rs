@@ -56,7 +56,7 @@ impl RankTable {
             // println!("Updated feature dict");
             let mut construct = RankVector::<Vec<Node>>::link(loc_counts);
             // println!("Made a rank vector");
-            construct.drop_f(parameters.dropout.unwrap().cmp());
+            construct.drop_using_mode(parameters.dropout.unwrap());
             meta_vector.push(construct);
         }
 
