@@ -935,7 +935,7 @@ impl RankVector<Vec<Node>> {
             );
 
         for n in self.rank_order.as_ref().unwrap() {
-            if derived_set.contains(&(n+offset)) {
+            if derived_set.contains(&n) {
                 derived_rank_order.push(n+offset);
                 new_rank_order.push(index_map[&(n+offset)]-offset);
             }
