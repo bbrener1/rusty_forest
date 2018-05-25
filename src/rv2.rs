@@ -906,8 +906,6 @@ impl RankVector<Vec<Node>> {
 
         let offset = self.zone_offset;
 
-        // let mut new_vector = RankVector::<Vec<Node>>::with_capacity(indecies.len());
-
         let mut new_nodes: Vec<Node> = vec![Node::blank();indecies.len() + offset];
         let mut new_zone_temp = Vec::with_capacity(offset);
         let mut index_map = HashMap::with_capacity(indecies.len());
@@ -936,16 +934,16 @@ impl RankVector<Vec<Node>> {
 
         for n in self.rank_order.as_ref().unwrap() {
             if derived_set.contains(&n) {
-                derived_rank_order.push(n+offset);
+                derived_rank_order.push(*n);
                 new_rank_order.push(index_map[&(n+offset)]-offset);
             }
         }
 
-        let new_dirty_set: HashSet<usize> = self.dirty_set.as_ref().unwrap().iter().map(|x| index_map[&(x + offset)] - offset).collect();
+        let new_dirty_set: HashSet<usize> = self.dirty_set.as_ref().unwrap().iter().filter(|x| derived_set.contains(x)).map(|y| index_map[&(y + offset)] - offset).collect();
 
         let mut previous = 4;
 
-        for (i,(old_index,new_index)) in derived_rank_order.iter().map(|x| x+offset).zip(new_rank_order.iter().map(|y| y + offset)).enumerate() {
+        for (i,(old_index,new_index)) in derived_rank_order.iter().map(|x| x + offset).zip(new_rank_order.iter().map(|y| y + offset)).enumerate() {
 
             let data = self.nodes[old_index].data;
 
