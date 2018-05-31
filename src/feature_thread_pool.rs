@@ -14,8 +14,8 @@ extern crate rand;
 
 use smallvec::SmallVec;
 
-use rv2::RankVector;
-use rv2::Node;
+use rv3::RankVector;
+use rv3::Node;
 use SplitMode;
 
 impl FeatureThreadPool{

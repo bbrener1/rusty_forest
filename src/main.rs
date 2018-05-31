@@ -38,13 +38,12 @@ mod boosted_forest;
 mod boosted_tree_thread_pool;
 mod additive_booster;
 mod rv2;
+mod rv3;
 
 use tree::PredictiveTree;
 use random_forest::Forest;
 use boosted_forest::BoostedForest;
 use additive_booster::AdditiveBooster;
-
-pub use self::rv2::RankVector;
 
 /// Author: Boris Brenerman
 /// Created: 2017 Academic Year, Johns Hopkins University, Department of Biology, Taylor Lab

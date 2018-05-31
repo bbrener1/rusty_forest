@@ -18,7 +18,7 @@ use node::NodeWrapper;
 use node::StrippedNode;
 use feature_thread_pool::FeatureThreadPool;
 use feature_thread_pool::FeatureMessage;
-use rv2::RankVector;
+use rv3::RankVector;
 use DropMode;
 use Parameters;
 

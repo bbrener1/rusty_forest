@@ -859,8 +859,8 @@ mod node_testing {
         println!("{:?}", root.output_table.sort_by_feature("two"));
         println!("{:?}", root.clone().output_table.parallel_dispersion(&root.output_table.sort_by_feature("two").0,&root.output_table.sort_by_feature("two").1,FeatureThreadPool::new(1)));
 
-        assert_eq!(root.children[0].samples(),&vec!["1".to_string(),"3".to_string(),"4".to_string(),"5".to_string()]);
-        assert_eq!(root.children[1].samples(),&vec!["0".to_string(),"6".to_string(),"7".to_string()]);
+        assert_eq!(root.children[0].samples(),&vec!["1".to_string(),"4".to_string(),"5".to_string()]);
+        assert_eq!(root.children[1].samples(),&vec!["0".to_string(),"3".to_string(),"6".to_string(),"7".to_string()]);
     }
 
 }

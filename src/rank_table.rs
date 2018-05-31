@@ -13,8 +13,8 @@ use NormMode;
 use SplitMode;
 use serde::ser::Serialize;
 use serde::de::Deserialize;
-use rv2::RankVector;
-use rv2::Node;
+use rv3::RankVector;
+use rv3::Node;
 use DropMode;
 use Parameters;
 
@@ -62,7 +62,7 @@ impl RankTable {
 
         let draw_order = (0..counts.get(0).unwrap_or(&vec![]).len()).collect::<Vec<usize>>();
 
-        let dim = (meta_vector.len(),meta_vector.get(0).unwrap_or(&RankVector::<Vec<Node>>::with_capacity(0)).raw_len());
+        let dim = (meta_vector.len(),meta_vector.get(0).unwrap_or(&RankVector::<Vec<Node>>::empty()).raw_len());
 
         println!("Made rank table with {} features, {} samples:", dim.0,dim.1);
 
@@ -169,7 +169,7 @@ impl RankTable {
 
         let new_draw_order: Vec<usize> = (0..indecies.len()).collect();
 
-        let dimensions = (self.meta_vector.len(),self.meta_vector.get(0).unwrap_or(&RankVector::<Vec<Node>>::with_capacity(0)).raw_len());
+        let dimensions = (self.meta_vector.len(),self.meta_vector.get(0).unwrap_or(&RankVector::<Vec<Node>>::empty()).raw_len());
 
         let child = RankTable {
 
@@ -234,7 +234,7 @@ impl RankTable {
 
         let new_draw_order: Vec<usize> = (0..indecies.len()).collect();
 
-        let dimensions = (new_meta_vector.len(),new_meta_vector.get(0).unwrap_or(&RankVector::<Vec<Node>>::with_capacity(0)).raw_len());
+        let dimensions = (new_meta_vector.len(),new_meta_vector.get(0).unwrap_or(&RankVector::<Vec<Node>>::empty()).raw_len());
 
         RankTable {
 
@@ -280,7 +280,7 @@ impl RankTable {
 
         let new_draw_order: Vec<usize> = (0..indecies.len()).collect();
 
-        let dimensions = (new_meta_vector.len(),new_meta_vector.get(0).unwrap_or(&RankVector::<Vec<Node>>::with_capacity(0)).raw_len());
+        let dimensions = (new_meta_vector.len(),new_meta_vector.get(0).unwrap_or(&RankVector::<Vec<Node>>::empty()).raw_len());
         //
         // println!("Feature dict {:?}", new_feature_dictionary.clone());
         // println!("New sample dict {:?}", new_sample_dictionary.clone());
