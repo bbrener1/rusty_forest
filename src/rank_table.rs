@@ -47,8 +47,8 @@ impl RankTable {
 
         let sample_dictionary: HashMap<String,usize> = sample_names.iter().cloned().enumerate().map(|x| (x.1,x.0)).collect();
 
-        println!("{:?}", counts);
-        println!("{:?}", feature_names);
+        // println!("{:?}", counts);
+        // println!("{:?}", feature_names);
 
         for (i,(name,loc_counts)) in feature_names.iter().cloned().zip(counts.iter()).enumerate() {
             if i%200 == 0 {
