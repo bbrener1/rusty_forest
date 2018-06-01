@@ -61,14 +61,19 @@ impl Worker{
             id: id,
             thread: std::thread::spawn(move || {
 
-                let mut local_container: Option<SmallVec<[Node;1024]>> = Some(SmallVec::new());
+                let mut local_container: SmallVec<[Node;1024]> = SmallVec::new();
 
                 loop{
                     let message_option = channel.lock().unwrap().recv().ok();
                     if let Some(message) = message_option {
                         match message {
                             FeatureMessage::Message((vector,draw_order,drop_set,split_mode),sender) => {
-                                sender.send(compute(vector,draw_order,drop_set,split_mode,&mut local_container)).expect("Failed to send feature result");
+
+                                let (result_vector, rank_vector, container) = compute(vector,draw_order,drop_set,split_mode,local_container);
+
+                                local_container = container;
+
+                                sender.send((result_vector,rank_vector)).expect("Failed to send feature result");
                             },
                             FeatureMessage::Terminate => break
                         }
@@ -91,9 +96,9 @@ pub enum FeatureMessage {
     Terminate
 }
 
-fn compute (prot_vector: RankVector<Vec<Node>> , draw_order: Arc<Vec<usize>> , drop_set: Arc<HashSet<usize>>, split_mode:SplitMode, local_container:&mut Option<SmallVec<[Node;1024]>>) -> (Vec<f64>,RankVector<Vec<Node>>) {
+fn compute (prot_vector: RankVector<Vec<Node>> , draw_order: Arc<Vec<usize>> , drop_set: Arc<HashSet<usize>>, split_mode:SplitMode, mut local_container: SmallVec<[Node;1024]>) -> (Vec<f64>,RankVector<Vec<Node>>,SmallVec<[Node;1024]>) {
 
-    let mut vector = prot_vector.clone_to_container(replace(local_container, None).unwrap());
+    let mut vector = prot_vector.clone_to_container(local_container);
 
     let result = match split_mode {
         SplitMode::Cov => vector.ordered_covs(&draw_order,&drop_set),
@@ -102,10 +107,8 @@ fn compute (prot_vector: RankVector<Vec<Node>> , draw_order: Arc<Vec<usize>> , d
         SplitMode::MADSquared => vector.ordered_mads(&draw_order,&drop_set),
     };
 
-    replace(local_container, Some(vector.return_container()));
-
     // println!("parallel: {:?}", result);
 
-    (result,prot_vector)
+    (result,prot_vector, vector.return_container())
 
 }
