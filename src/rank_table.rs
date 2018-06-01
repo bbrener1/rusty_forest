@@ -57,7 +57,7 @@ impl RankTable {
             // println!("Starting to iterate");
             feature_dictionary.insert(name.clone(),i);
             // println!("Updated feature dict");
-            println!("{:?}", loc_counts);
+            // println!("{:?}", loc_counts);
             let mut construct = RankVector::<Vec<Node>>::link(loc_counts);
             // println!("Made a rank vector");
             construct.drop_using_mode(parameters.dropout.unwrap());
