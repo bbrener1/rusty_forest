@@ -140,12 +140,18 @@ impl<T: Borrow<[Node]> + BorrowMut<[Node]> + Index<usize,Output=Node> + IndexMut
         };
 
         // println!("Linking");
-
+        //
+        // println!("{:?}", in_vec);
+        //
         // println!("{:?}", prototype);
+        //
+        // println!("Median");
 
         prototype.establish_median();
 
         // println!("{:?}", prototype);
+        //
+        // println!("Zones");
 
         prototype.establish_zones();
 
@@ -168,16 +174,16 @@ impl<T: Borrow<[Node]> + BorrowMut<[Node]> + Index<usize,Output=Node> + IndexMut
 
     pub fn pop(&mut self, target: usize) -> f64 {
 
-        println!("{:?}", self);
+        // println!("{:?}", self);
 
         let target_zone = self.nodes[target].zone;
-        //
-        println!("Popping {}", target);
+
+        // println!("Popping {}", target);
 
         if target_zone != 0 {
-            //
+
             // println!("Popping internal");
-            //
+
             self.unlink(target);
 
             self.zones[target_zone] -= 1;
@@ -199,11 +205,12 @@ impl<T: Borrow<[Node]> + BorrowMut<[Node]> + Index<usize,Output=Node> + IndexMut
             // println!("{:?}", self.median);
             let (old_median,new_median) = self.recenter_median(target);
             // println!("{:?}", self.median);
-
-
+            // println!("{:?}", (old_median,new_median));
+            //
+            //
             // println!("Shifting zones");
             //
-            self.shift_zones(old_median,new_median);
+            self.shift_zones(old_median, new_median);
 
         }
 
@@ -222,7 +229,7 @@ impl<T: Borrow<[Node]> + BorrowMut<[Node]> + Index<usize,Output=Node> + IndexMut
         //     panic!("Failed to adjust mad");
         // };
 
-        println!("{:?}", self);
+        // println!("{:?}", self);
 
         self.nodes[target].data
 
@@ -302,10 +309,17 @@ impl<T: Borrow<[Node]> + BorrowMut<[Node]> + Index<usize,Output=Node> + IndexMut
     #[inline]
     pub fn establish_zones(&mut self) {
 
+        // println!("{:?}", self);
+
         // for _ in 0..((self.len() - self.len()%2)/2) {
         for _ in 0..(((self.len())/2).max(1) - (1 - self.len()%2)) {
+        // while  self.zones[1] + self.zones[3] >= self.zones[2] {
+            // println!("+++++++++++++++++++++");
+            // println!("{:?}", self.zones);
             self.contract_1();
         };
+
+        // println!("{:?}", self);
 
         // if (self.mad() - slow_mad(self.ordered_values())) > 0.00001 {
         //     println!("{:?}", self);
@@ -396,8 +410,8 @@ impl<T: Borrow<[Node]> + BorrowMut<[Node]> + Index<usize,Output=Node> + IndexMut
 
         if self.zones[1] > 0 && self.zones[3] > 0 {
 
-            let left = self.nodes[self.left].data;
-            let right = self.nodes[self.right].data;
+            let left = self.nodes[self.nodes[self.left].previous].data;
+            let right = self.nodes[self.nodes[self.right].next].data;
 
             if (right - median).abs() > (median - left).abs() {
                 self.expand_left();
@@ -408,10 +422,10 @@ impl<T: Borrow<[Node]> + BorrowMut<[Node]> + Index<usize,Output=Node> + IndexMut
 
         }
         else {
-            if self.zones[1] == 0 {
+            if self.zones[3] != 0 {
                 self.expand_right();
             }
-            else if self.zones[3] == 0 {
+            else if self.zones[1] != 0 {
                 self.expand_left();
             }
             else {
@@ -448,6 +462,8 @@ impl<T: Borrow<[Node]> + BorrowMut<[Node]> + Index<usize,Output=Node> + IndexMut
 
     #[inline]
     pub fn balance_zones(&mut self,target:usize) {
+
+        // println!("Balancing");
 
         if self.len() > 0 {
 
@@ -507,11 +523,11 @@ impl<T: Borrow<[Node]> + BorrowMut<[Node]> + Index<usize,Output=Node> + IndexMut
     #[inline]
     pub fn recenter_median(&mut self, target:usize) -> (f64,f64) {
 
-        let old_median = self.median();
-
         // println!("Recentering");
         // println!("{:?}", self.nodes[self.median.0]);
         // println!("{:?}", self.nodes[self.median.1]);
+
+        let old_median = self.median();
 
         let target_rank = self.nodes[target].rank;
         let left_rank = self.nodes[self.median.0].rank;
@@ -530,15 +546,16 @@ impl<T: Borrow<[Node]> + BorrowMut<[Node]> + Index<usize,Output=Node> + IndexMut
 
         let new_median = self.median();
 
-        (old_median,new_median)
+        (old_median, new_median)
 
     }
 
     #[inline]
-    pub fn shift_zones(&mut self,old_median:f64,new_median:f64) {
+    pub fn shift_zones(&mut self,old_median:f64, new_median:f64) {
 
         let change = new_median - old_median;
 
+        // println!("Change: {}", change);
 
         if change > 0. {
 
@@ -604,14 +621,17 @@ impl<T: Borrow<[Node]> + BorrowMut<[Node]> + Index<usize,Output=Node> + IndexMut
 
         let mut distance_to_median = [(left - median).abs(), (inner_left - median).abs(), (inner_right - median).abs(), (right - median).abs()];
 
-        println!("MAD debug");
-        println!("{:?}", self);
+        // println!("MAD debug");
+        // println!("{:?}", self);
         // println!("{}",median);
         // println!("{:?},{:?}",left,right);
-        // println!("{:?}",distance_to_median);
 
         distance_to_median.sort_unstable_by(|a,b| a.partial_cmp(&b).unwrap_or(Ordering::Greater));
         distance_to_median.reverse();
+
+        // println!("{:?}",distance_to_median);
+        // println!("{:?}",distance_to_median[0]);
+        // println!("{:?}",(distance_to_median[0] + distance_to_median[1])/2.);
 
         if self.len() % 2 == 1 {
             return distance_to_median[0]
@@ -803,6 +823,7 @@ impl<T: Borrow<[Node]> + BorrowMut<[Node]> + Index<usize,Output=Node> + IndexMut
         let cmp = drop_mode.cmp();
         self.drop_f(cmp);
         self.drop = drop_mode;
+        // println!("Dropped: {:?}", self);
     }
 
 }
@@ -900,10 +921,29 @@ impl RankVector<Vec<Node>> {
 
         };
 
+        // println!("Deriving");
+        // println!("{:?}", new_vector);
+
         new_vector.establish_median();
         new_vector.establish_zones();
 
+        // if (new_vector.mad() - slow_mad(new_vector.ordered_values())).abs() > 0.00001 {
+        //     println!("{:?}", new_vector);
+        //     println!("{:?}", new_vector.ordered_values());
+        //     println!("{:?}", new_vector.mad());
+        //     println!("{:?}", slow_mad(new_vector.ordered_values()));
+        //     panic!("Mad mismatch");
+        // }
+
         new_vector.drop_using_mode(self.drop);
+
+        // if (new_vector.mad() - slow_mad(new_vector.ordered_values())).abs() > 0.00001 {
+        //     println!("{:?}", new_vector);
+        //     println!("{:?}", new_vector.ordered_values());
+        //     println!("{:?}", new_vector.mad());
+        //     println!("{:?}", slow_mad(new_vector.ordered_values()));
+        //     panic!("Mad mismatch");
+        // }
 
         // println!("{:?}", new_vector);
 
@@ -914,13 +954,18 @@ impl RankVector<Vec<Node>> {
     #[inline]
     pub fn clone_to_container(&self, mut local_node_vector: SmallVec<[Node;1024]>) -> RankVector<SmallVec<[Node;1024]>> {
 
+        // println!("Cloning to container");
+        // println!("{:?}", self);
+
         local_node_vector.clear();
 
         for node in &self.nodes {
             local_node_vector.push(node.clone());
         }
 
-        RankVector {
+        // println!("{:?}", local_node_vector);
+
+        let new_vector = RankVector {
             nodes: local_node_vector,
             drop_set: None,
             dirty_set: None,
@@ -931,7 +976,17 @@ impl RankVector<Vec<Node>> {
             median: self.median,
             left: self.left,
             right: self.right,
-        }
+        };
+
+        // if (new_vector.mad() - slow_mad(new_vector.ordered_values())).abs() > 0.00001 {
+        //     println!("{:?}", new_vector);
+        //     println!("{:?}", new_vector.ordered_values());
+        //     println!("{:?}", new_vector.mad());
+        //     println!("{:?}", slow_mad(new_vector.ordered_values()));
+        //     panic!("Mad mismatch after clone to container");
+        // }
+
+        new_vector
 
     }
 

@@ -47,6 +47,9 @@ impl RankTable {
 
         let sample_dictionary: HashMap<String,usize> = sample_names.iter().cloned().enumerate().map(|x| (x.1,x.0)).collect();
 
+        println!("{:?}", counts);
+        println!("{:?}", feature_names);
+
         for (i,(name,loc_counts)) in feature_names.iter().cloned().zip(counts.iter()).enumerate() {
             if i%200 == 0 {
                 println!("Initializing: {}",i);
@@ -54,6 +57,7 @@ impl RankTable {
             // println!("Starting to iterate");
             feature_dictionary.insert(name.clone(),i);
             // println!("Updated feature dict");
+            println!("{:?}", loc_counts);
             let mut construct = RankVector::<Vec<Node>>::link(loc_counts);
             // println!("Made a rank vector");
             construct.drop_using_mode(parameters.dropout.unwrap());
@@ -62,7 +66,7 @@ impl RankTable {
 
         let draw_order = (0..counts.get(0).unwrap_or(&vec![]).len()).collect::<Vec<usize>>();
 
-        let dim = (meta_vector.len(),meta_vector.get(0).unwrap_or(&RankVector::<Vec<Node>>::empty()).raw_len());
+        let dim = (meta_vector.len(),meta_vector.get(0).map(|x| x.raw_len()).unwrap_or(0));
 
         println!("Made rank table with {} features, {} samples:", dim.0,dim.1);
 
@@ -169,7 +173,7 @@ impl RankTable {
 
         let new_draw_order: Vec<usize> = (0..indecies.len()).collect();
 
-        let dimensions = (self.meta_vector.len(),self.meta_vector.get(0).unwrap_or(&RankVector::<Vec<Node>>::empty()).raw_len());
+        let dimensions = (self.meta_vector.len(),self.meta_vector.get(0).map(|x| x.raw_len()).unwrap_or(0));
 
         let child = RankTable {
 
@@ -234,7 +238,7 @@ impl RankTable {
 
         let new_draw_order: Vec<usize> = (0..indecies.len()).collect();
 
-        let dimensions = (new_meta_vector.len(),new_meta_vector.get(0).unwrap_or(&RankVector::<Vec<Node>>::empty()).raw_len());
+        let dimensions = (new_meta_vector.len(),new_meta_vector.get(0).map(|x| x.raw_len()).unwrap_or(0));
 
         RankTable {
 
@@ -280,7 +284,8 @@ impl RankTable {
 
         let new_draw_order: Vec<usize> = (0..indecies.len()).collect();
 
-        let dimensions = (new_meta_vector.len(),new_meta_vector.get(0).unwrap_or(&RankVector::<Vec<Node>>::empty()).raw_len());
+        let dimensions = (new_meta_vector.len(),new_meta_vector.get(0).map(|x| x.raw_len()).unwrap_or(0));
+
         //
         // println!("Feature dict {:?}", new_feature_dictionary.clone());
         // println!("New sample dict {:?}", new_sample_dictionary.clone());
