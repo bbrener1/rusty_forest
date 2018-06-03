@@ -35,29 +35,19 @@ impl TreeThreadPool{
 
         let mut workers = Vec::with_capacity(processors);
 
-        // if processors > 6 {
-        //     for i in 0..(processors/6) {
-        //
-        //         println!("Spawning tree pool worker");
-        //         println!("Prototype tree has {} threads", processors/(processors/6));
-        //
-        //         workers.push(Worker::new(i,prototype.pool_switch_clone(processors/(processors/6)),samples_per_tree,input_features,output_features, worker_receiver_channel.clone()))
-        //
-        //     }
-        // }
-        // else {
-        //     workers.push(Worker::new(0,prototype.pool_switch_clone(processors),samples_per_tree,input_features,output_features, worker_receiver_channel.clone()))
-        // }
-
-        let prototype = prototype.pool_switch_clone(processors);
-
-        for i in 0..(processors/20) {
+        if processors > 4 {
+            for i in 0..(processors/4) {
 
                 println!("Spawning tree pool worker");
-                workers.push(Worker::new(i,prototype.clone(),samples_per_tree,input_features,output_features, worker_receiver_channel.clone()))
+                println!("Prototype tree has {} threads", processors/(processors/4));
 
+                workers.push(Worker::new(i,prototype.pool_switch_clone(processors/(processors/4)),samples_per_tree,input_features,output_features, worker_receiver_channel.clone()))
+
+            }
         }
-
+        else {
+            workers.push(Worker::new(0,prototype.pool_switch_clone(processors),samples_per_tree,input_features,output_features, worker_receiver_channel.clone()))
+        }
 
         tx
     }
