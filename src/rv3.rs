@@ -999,6 +999,52 @@ impl RankVector<SmallVec<[Node;1024]>> {
         self.nodes
 
     }
+
+    pub fn empty_sv() -> RankVector<SmallVec<[Node;1024]>> {
+
+        let container = SmallVec::new();
+
+        let empty = RankVector::<Vec<Node>>::link(&vec![]);
+
+        let mut output = empty.clone_to_container(container);
+
+        output.nodes.grow(1024);
+
+        output
+    }
+
+    #[inline]
+    pub fn clone_from_prototype(&mut self, prototype: &RankVector<Vec<Node>>) {
+
+        // println!("Cloning to container");
+        // println!("{:?}", self);
+
+        self.nodes.clear();
+
+        for node in &prototype.nodes {
+            self.nodes.push(node.clone());
+        }
+
+        // println!("{:?}", local_node_vector);
+
+        self.drop = prototype.drop;
+        self.zones = prototype.zones.clone();
+        self.offset = prototype.offset;
+        self.median = prototype.median;
+        self.left = prototype.left;
+        self.right = prototype.right;
+
+        // if (self.mad() - slow_mad(self.ordered_values())).abs() > 0.00001 {
+        //     println!("{:?}", self);
+        //     println!("{:?}", self.ordered_values());
+        //     println!("{:?}", self.mad());
+        //     println!("{:?}", slow_mad(self.ordered_values()));
+        //     panic!("Mad mismatch after clone to container");
+        // }
+
+    }
+
+
 }
 
 
@@ -1009,7 +1055,6 @@ pub fn sanitize_vector(in_vec:&Vec<f64>) -> (Vec<f64>,HashSet<usize>) {
 
         in_vec.iter().enumerate().filter(|x| !x.1.is_normal() && *x.1 != 0.).map(|x| x.0).collect()
     )
-
 }
 
 
@@ -1117,6 +1162,14 @@ mod rank_vector_tests {
     use rand::{thread_rng,Rng};
     use rand::distributions::Standard;
     use rand::seq::sample_indices;
+    // use test::Bencher;
+
+    #[test]
+    fn create_empty() {
+        let mut vector = RankVector::<Vec<Node>>::empty();
+        vector.drop_f(0.);
+        vector.ordered_values();
+    }
 
     #[test]
     fn create_trivial() {
@@ -1184,6 +1237,132 @@ mod rank_vector_tests {
         }
 
     }
+    //
+    // #[bench]
+    // fn bench_rv3_ordered_values_vector(b: &mut Bencher) {
+    //     let mut vector = RankVector::<Vec<Node>>::link(&vec![10.,-3.,0.,5.,-2.,-1.,15.,20.],);
+    //     vector.drop_f(0.);
+    //
+    //     b.iter(|| vector.ordered_values());
+    // }
+    //
+    // #[bench]
+    // fn bench_rv3_ordered_values_smallvec(b: &mut Bencher) {
+    //     let mut vector = RankVector::<Vec<Node>>::link(&vec![10.,-3.,0.,5.,-2.,-1.,15.,20.],);
+    //     vector.drop_f(0.);
+    //
+    //     let container: SmallVec<[Node;1024]> = SmallVec::with_capacity(8);
+    //
+    //     let vm = vector.clone_to_container(container);
+    //
+    //     b.iter(||
+    //         vm.ordered_values()
+    //     );
+    // }
+    //
+    // #[bench]
+    // fn bench_rv3_mad_vector(b: &mut Bencher) {
+    //     let mut vector = RankVector::<Vec<Node>>::link(&vec![10.,-3.,0.,5.,-2.,-1.,15.,20.],);
+    //     vector.drop_f(0.);
+    //
+    //     b.iter(|| vector.mad());
+    // }
+    //
+    // #[bench]
+    // fn bench_rv3_mad_smallvec(b: &mut Bencher) {
+    //     let mut vector = RankVector::<Vec<Node>>::link(&vec![10.,-3.,0.,5.,-2.,-1.,15.,20.],);
+    //     vector.drop_f(0.);
+    //
+    //     let container: SmallVec<[Node;1024]> = SmallVec::with_capacity(8);
+    //
+    //     let vm = vector.clone_to_container(container);
+    //
+    //     b.iter(||
+    //         vm.mad()
+    //     );
+    // }
+    //
+    // #[bench]
+    // fn bench_rv3_clone_and_return(b: &mut Bencher) {
+    //     let mut vector = RankVector::<Vec<Node>>::link(&vec![10.,-3.,0.,5.,-2.,-1.,15.,20.],);
+    //     vector.drop_f(0.);
+    //
+    //     let mut container: Option<SmallVec<[Node;1024]>> = Some(SmallVec::with_capacity(8));
+    //
+    //     b.iter(move || {
+    //         let mut vm = vector.clone_to_container(container.take().unwrap());
+    //         container = Some(vm.return_container());
+    //     });
+    // }
+    //
+    // #[bench]
+    // fn bench_rv3_clone_to_fresh(b: &mut Bencher) {
+    //     let mut vector = RankVector::<Vec<Node>>::link(&vec![10.,-3.,0.,5.,-2.,-1.,15.,20.],);
+    //     vector.drop_f(0.);
+    //
+    //     let mut container: Option<SmallVec<[Node;1024]>> = Some(SmallVec::with_capacity(8));
+    //
+    //     b.iter(move || {
+    //         let mut vm = vector.clone_to_container(SmallVec::<[Node;1024]>::with_capacity(8));
+    //     });
+    // }
+    //
+    // #[bench]
+    // fn bench_rv3_clone_to_fresh_and_return(b: &mut Bencher) {
+    //     let mut vector = RankVector::<Vec<Node>>::link(&vec![10.,-3.,0.,5.,-2.,-1.,15.,20.],);
+    //     vector.drop_f(0.);
+    //
+    //     let mut container: Option<SmallVec<[Node;1024]>> = Some(SmallVec::with_capacity(8));
+    //
+    //     b.iter(move || {
+    //         let mut vm = vector.clone_to_container(SmallVec::<[Node;1024]>::with_capacity(8));
+    //         vm.return_container();
+    //     });
+    //
+    // }
+    //
+    // #[bench]
+    // fn bench_rv3_clone_from_prototype(b: &mut Bencher) {
+    //     let mut vector = RankVector::<Vec<Node>>::link(&vec![10.,-3.,0.,5.,-2.,-1.,15.,20.],);
+    //     vector.drop_f(0.);
+    //
+    //     let mut vm = RankVector::<SmallVec<[Node;1024]>>::empty_sv();
+    //
+    //     b.iter(move || {
+    //         vm.clone_from_prototype(&vector);
+    //     });
+    //
+    // }
+    //
+    // #[bench]
+    // fn bench_rv3_ordered_mads_vector(b: &mut Bencher) {
+    //     let mut vector = RankVector::<Vec<Node>>::link(&vec![10.,-3.,0.,5.,-2.,-1.,15.,20.],);
+    //     vector.drop_f(0.);
+    //
+    //     let draw_order = vector.draw_order();
+    //     let drop_set = vector.drop_set.as_ref().unwrap().clone();
+    //
+    //     b.iter(||
+    //         vector.clone().ordered_mads(&draw_order,&drop_set));
+    // }
+    //
+    //
+    // #[bench]
+    // fn bench_rv3_ordered_mads_local_clone_smallvec(b: &mut Bencher) {
+    //     let mut vector = RankVector::<Vec<Node>>::link(&vec![10.,-3.,0.,5.,-2.,-1.,15.,20.],);
+    //     vector.drop_f(0.);
+    //
+    //     let draw_order = vector.draw_order();
+    //     let drop_set = vector.drop_set.as_ref().unwrap().clone();
+    //
+    //     let mut vm = vector.clone_to_container(SmallVec::<[Node;1024]>::with_capacity(8));
+    //
+    //     b.iter(move || {
+    //         vm.clone_from_prototype(&vector);
+    //         vm.ordered_mads(&draw_order,&drop_set);
+    //     });
+    //
+    // }
 
     #[test]
     fn fetch_test() {

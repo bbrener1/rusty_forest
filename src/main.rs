@@ -1,3 +1,5 @@
+// #![feature(test)]
+
 #[macro_use]
 extern crate serde_derive;
 
@@ -20,7 +22,8 @@ extern crate num_cpus;
 extern crate rand;
 extern crate time;
 extern crate smallvec;
-extern crate bencher;
+// extern crate test;
+
 
 mod raw_vector;
 mod rank_vector;
@@ -39,6 +42,7 @@ mod boosted_tree_thread_pool;
 mod additive_booster;
 mod rv2;
 mod rv3;
+// mod rv4;
 
 use tree::PredictiveTree;
 use random_forest::Forest;

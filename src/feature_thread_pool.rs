@@ -61,19 +61,14 @@ impl Worker{
             id: id,
             thread: std::thread::spawn(move || {
 
-                let mut local_container: SmallVec<[Node;1024]> = SmallVec::new();
+                let mut local_vector = RankVector::<SmallVec<[Node;1024]>>::empty_sv();
 
                 loop{
                     let message_option = channel.lock().unwrap().recv().ok();
                     if let Some(message) = message_option {
                         match message {
                             FeatureMessage::Message((vector,draw_order,drop_set,split_mode),sender) => {
-
-                                let (result_vector, rank_vector, container) = compute(vector,draw_order,drop_set,split_mode,local_container);
-
-                                local_container = container;
-
-                                sender.send((result_vector,rank_vector)).expect("Failed to send feature result");
+                                sender.send(compute(vector,draw_order,drop_set,split_mode,&mut local_vector)).expect("Failed to send feature result");
                             },
                             FeatureMessage::Terminate => break
                         }
@@ -96,19 +91,19 @@ pub enum FeatureMessage {
     Terminate
 }
 
-fn compute (prot_vector: RankVector<Vec<Node>> , draw_order: Arc<Vec<usize>> , drop_set: Arc<HashSet<usize>>, split_mode:SplitMode, mut local_container: SmallVec<[Node;1024]>) -> (Vec<f64>,RankVector<Vec<Node>>,SmallVec<[Node;1024]>) {
+fn compute (prot_vector: RankVector<Vec<Node>> , draw_order: Arc<Vec<usize>> , drop_set: Arc<HashSet<usize>>, split_mode:SplitMode, local_vector: &mut RankVector<SmallVec<[Node;1024]>>) -> (Vec<f64>,RankVector<Vec<Node>>) {
 
-    let mut vector = prot_vector.clone_to_container(local_container);
+    local_vector.clone_from_prototype(&prot_vector);
 
     let result = match split_mode {
-        SplitMode::Cov => vector.ordered_covs(&draw_order,&drop_set),
-        SplitMode::MAD => vector.ordered_mads(&draw_order,&drop_set),
-        SplitMode::CovSquared => vector.ordered_covs(&draw_order,&drop_set),
-        SplitMode::MADSquared => vector.ordered_mads(&draw_order,&drop_set),
+        SplitMode::Cov => local_vector.ordered_covs(&draw_order,&drop_set),
+        SplitMode::MAD => local_vector.ordered_mads(&draw_order,&drop_set),
+        SplitMode::CovSquared => local_vector.ordered_covs(&draw_order,&drop_set),
+        SplitMode::MADSquared => local_vector.ordered_mads(&draw_order,&drop_set),
     };
 
     // println!("parallel: {:?}", result);
 
-    (result,prot_vector, vector.return_container())
+    (result,prot_vector)
 
 }
