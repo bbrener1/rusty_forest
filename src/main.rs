@@ -1,4 +1,4 @@
-// #![feature(test)]
+#![feature(test)]
 
 #[macro_use]
 extern crate serde_derive;
@@ -22,7 +22,7 @@ extern crate num_cpus;
 extern crate rand;
 extern crate time;
 extern crate smallvec;
-// extern crate test;
+extern crate test;
 
 
 mod raw_vector;

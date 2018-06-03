@@ -1366,6 +1366,23 @@ mod rank_vector_tests {
         b.iter(|| vector.mad());
     }
 
+    #[bench]
+    fn bench_rv1_ordered_mad(b: &mut Bencher) {
+        let mut vector = RankVector::new(&vec![10.,-3.,NAN,5.,-2.,-1.,15.,20.],"test".to_string(),Arc::new(Parameters::empty()));
+        vector.drop_zeroes();
+        vector.initialize();
+        vector.set_boundaries();
+
+        let (draw_order,drop_set) = (vector.vector.dropped_draw_order(),vector.vector.drop_set.clone());
+
+        b.iter(|| {
+            vector.ordered_meds_mads(&draw_order, &drop_set);
+            vector.manual_reset();
+        });
+
+    }
+
+
     // #[test]
     // fn odds_ratio() {
     //     let mut vector = RankVector::new(&vec![10.,-3.,0.,5.,-2.,-1.,15.,20.],"test".to_string());

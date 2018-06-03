@@ -22,6 +22,17 @@ use rv3::RankVector;
 use DropMode;
 use Parameters;
 
+#[derive(Clone)]
+pub struct Tree {
+    // pool: mpsc::Sender<((usize, (RankTableSplitter,RankTableSplitter,Vec<usize>),Vec<f64>), mpsc::Sender<(usize,usize,f64,Vec<usize>)>)>,
+    feature_pool: mpsc::Sender<FeatureMessage>,
+    pub root: Node,
+    dropout: DropMode,
+    weights: Option<Vec<f64>>,
+    size_limit: usize,
+    pub report_address: String,
+}
+
 impl<'a> Tree {
 
     pub fn prototype_tree(inputs:&Vec<Vec<f64>>,outputs:&Vec<Vec<f64>>,sample_names:&[String],input_features: &[String],output_features:&[String], feature_weight_option: Option<Vec<f64>>, parameters: Arc<Parameters> ,report_address: String) -> Tree {
@@ -181,8 +192,15 @@ impl<'a> Tree {
             size_limit: self.size_limit,
             report_address: address_string,
         }
+
     }
 
+    pub fn derive_to_specified_pool(&self, samples:usize,input_features:usize,output_features:usize,iteration: usize, pool: mpsc::Sender<FeatureMessage>) -> Tree {
+        let mut new_tree = self.derive_from_prototype(samples, input_features, output_features, iteration);
+        new_tree.root.set_pool(&pool);
+        new_tree.feature_pool = pool;
+        new_tree
+    }
 
     pub fn nodes(&self) -> Vec<&Node> {
         self.root.crawl_children()
@@ -263,18 +281,6 @@ impl<'a> Tree {
     }
 
 }
-
-#[derive(Clone)]
-pub struct Tree {
-    // pool: mpsc::Sender<((usize, (RankTableSplitter,RankTableSplitter,Vec<usize>),Vec<f64>), mpsc::Sender<(usize,usize,f64,Vec<usize>)>)>,
-    feature_pool: mpsc::Sender<FeatureMessage>,
-    pub root: Node,
-    dropout: DropMode,
-    weights: Option<Vec<f64>>,
-    size_limit: usize,
-    pub report_address: String,
-}
-
 
 
 pub fn grow_branches(target:&mut Node, size_limit:usize,report_address:&str,level:usize) {
