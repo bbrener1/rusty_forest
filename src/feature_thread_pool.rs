@@ -7,6 +7,8 @@ use std::sync::mpsc;
 use std::sync::Mutex;
 use std::sync::mpsc::Receiver;
 use std::sync::mpsc::Sender;
+use std::sync::mpsc::SyncSender;
+use std::sync::mpsc::sync_channel;
 
 use std::thread;
 
