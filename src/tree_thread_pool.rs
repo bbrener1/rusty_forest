@@ -51,7 +51,7 @@ impl TreeThreadPool{
 
         let prototype = prototype.pool_switch_clone(processors);
 
-        for i in 0..(processors/5) {
+        for i in 0..(processors/20) {
 
                 println!("Spawning tree pool worker");
                 workers.push(Worker::new(i,prototype.clone(),samples_per_tree,input_features,output_features, worker_receiver_channel.clone()))
