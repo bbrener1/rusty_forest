@@ -95,7 +95,7 @@ pub enum SplitMessage {
 
 fn compute (prot_table: Arc<RankTable>, draw_order: Vec<usize> , drop_set: HashSet<usize>,weights: Vec<f64>, pool: Sender<FeatureMessage>) -> Option<(usize,usize,f64)> {
 
-    println!("Computing in split thread pool");
+    // println!("Computing in split thread pool");
 
     prot_table.parallel_split_order_min(&draw_order,&drop_set,Some(&weights),pool)
 

@@ -93,8 +93,8 @@ impl Node {
         let mut minimum_receivers = Vec::with_capacity(self.input_features().len());
 
         let reference_table = Arc::new(replace(&mut self.output_table,RankTable::empty()));
-
-        println!("Starting to split");
+        //
+        // println!("Starting to split");
 
         for input_feature in self.input_features().clone().into_iter() {
 
@@ -107,8 +107,8 @@ impl Node {
             if let Some(input_index) = reference_table.feature_index(&input_feature) {
                 weights[*input_index] = 0.;
             }
-
-            println!("Passed to thread pool");
+            //
+            // println!("Passed to thread pool");
 
             self.split_thread_pool.send(SplitMessage::Message((reference_table.clone(),draw_order,drop_set,weights),tx));
 
@@ -117,8 +117,8 @@ impl Node {
         };
 
         let mut minima = Vec::with_capacity(self.input_features().len());
-
-        println!("Receiving");
+        //
+        // println!("Receiving");
 
         for (input_feature,receiver) in minimum_receivers.into_iter() {
             if let Some((split_index,split_sample_index,split_dispersion)) = receiver.recv().expect("Split thread pool error") {
@@ -128,7 +128,7 @@ impl Node {
 
         replace(&mut self.output_table, Arc::try_unwrap(reference_table).expect("Couldn't unwrap the reference table"));
 
-        println!("Replaced");
+        // println!("Replaced");
 
         let (best_feature,split_index,split_sample_index,split_dispersion) = minima.iter().min_by(|a,b| (a.3).partial_cmp(&b.3).unwrap_or(Ordering::Greater)).unwrap().clone();
 
