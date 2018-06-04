@@ -112,7 +112,7 @@ impl Node {
 
             self.split_thread_pool.send(SplitMessage::Message((reference_table.clone(),draw_order,drop_set,weights),tx));
 
-            minimum_receivers.push((input_feature.clone(),rx));
+            minimum_receivers.push((input_feature,rx));
 
         };
 
@@ -146,7 +146,7 @@ impl Node {
         //     panic!("Edge split")
         // }
 
-        let split_sample_index = split_order.0[split_index];
+        assert_eq!(split_sample_index,split_order.0[split_index]);
 
         let split_value = self.input_table.feature_fetch(&best_feature,split_sample_index);
 
