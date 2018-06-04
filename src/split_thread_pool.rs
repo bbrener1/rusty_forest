@@ -36,9 +36,9 @@ impl SplitThreadPool{
 
         let mut workers = Vec::with_capacity(processors);
 
-        for i in 0..((processors/5).max(1)) {
+        for i in 0..((processors/4).max(1)) {
 
-            workers.push(Worker::new(i,5.min(processors),worker_receiver_channel.clone()))
+            workers.push(Worker::new(i,4.min(processors),worker_receiver_channel.clone()))
 
         }
 
