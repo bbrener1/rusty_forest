@@ -339,9 +339,13 @@ impl RankTable {
                 NormMode::L2 => l2_minimum(&disp_mtx, feature_weights.unwrap_or(&vec![1.;self.feature_names.len()])),
             } {
 
+                // println!("Raw dispersion: {}", raw_split_dispersion);
+
                 let split_sample_index = draw_order[split_index];
 
-                let minimum = (split_index,split_sample_index,raw_split_dispersion * ((self.sample_names.len() - draw_order.len()) as f64));
+                let minimum = (split_index,split_sample_index,raw_split_dispersion * ((self.sample_names.len() - draw_order.len() + 1) as f64));
+
+                // println!("Minimum: {:?}", minimum);
 
                 Some(minimum)
 
