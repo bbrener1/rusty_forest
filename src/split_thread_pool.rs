@@ -24,7 +24,7 @@ use rv3::Node;
 use SplitMode;
 
 impl SplitThreadPool{
-    pub fn new(processors: usize, feature_thread_pool: Sender<FeatureMessage>) -> Sender<SplitMessage> {
+    pub fn new(processors: usize) -> Sender<SplitMessage> {
 
         if processors < 1 {
             panic!("Warning, no processors were allocated to the pool, quitting!");
@@ -38,7 +38,7 @@ impl SplitThreadPool{
 
         for i in 0..((processors/5).max(1)) {
 
-            workers.push(Worker::new(i,feature_thread_pool.clone(),worker_receiver_channel.clone()))
+            workers.push(Worker::new(i,5.min(processors),worker_receiver_channel.clone()))
 
         }
 
@@ -61,10 +61,11 @@ pub struct SplitThreadPool {
 
 impl Worker{
 
-    pub fn new(id:usize,pool: Sender<FeatureMessage>, channel:Arc<Mutex<Receiver<SplitMessage>>>) -> Worker {
+    pub fn new(id:usize, pool_limit:usize, channel:Arc<Mutex<Receiver<SplitMessage>>>) -> Worker {
         Worker{
             id: id,
             thread: std::thread::spawn(move || {
+                let mut pool = FeatureThreadPool::new(5.min(pool_limit));
                 loop{
                     let message_option = channel.lock().unwrap().recv().ok();
                     if let Some(message) = message_option {
@@ -72,7 +73,10 @@ impl Worker{
                             SplitMessage::Message((prot_table,draw_order,drop_set,weights),sender) => {
                                 sender.send(compute(prot_table,draw_order,drop_set,weights,pool.clone())).expect("Failed to send feature result");
                             },
-                            SplitMessage::Terminate => { break }
+                            SplitMessage::Terminate => {
+                                FeatureThreadPool::terminate(&mut pool);
+                                break
+                            }
                         }
                     }
                 }
