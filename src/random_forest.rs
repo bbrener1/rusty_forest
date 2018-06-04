@@ -17,8 +17,9 @@ use PredictionMode;
 use DropMode;
 use Parameters;
 use TreeBackups;
+use feature_thread_pool::FeatureThreadPool;
 use split_thread_pool::SplitThreadPool;
-use tree_thread_pool::TreeThreadPool;
+// use tree_thread_pool::TreeThreadPool;
 use std::sync::mpsc::sync_channel;
 use std::sync::Arc;
 // use predictor::predict;
@@ -54,31 +55,45 @@ impl Forest {
 
         if let Some(ref prototype) = self.prototype_tree {
 
-            let mut tree_receivers = Vec::with_capacity(self.size);
+            // let mut tree_receivers = Vec::with_capacity(self.size);
+            //
+            // let mut tree_pool = TreeThreadPool::new(self.prototype_tree.as_ref().unwrap(), parameters );
+            //
+            // for tree in 1..self.size+1 {
+            //
+            //     let (tx,rx) = mpsc::channel();
+            //
+            //     tree_pool.send((tree,tx));
+            //
+            //     tree_receivers.push(rx);
+            //
+            // }
+            //
+            // for receiver in tree_receivers {
+            //     println!("Unwrapping tree");
+            //     let new_tree = receiver.recv().unwrap();
+            //     new_tree.serialize_compact();
+            //     if remember {
+            //         self.predictive_trees.push(new_tree);
+            //     }
+            //
+            // }
+            //
+            // TreeThreadPool::terminate(&mut tree_pool);
 
-            let mut tree_pool = TreeThreadPool::new(self.prototype_tree.as_ref().unwrap(), parameters );
+            let samples_per_tree = parameters.sample_subsample.unwrap_or(1);
+            let input_features = parameters.input_features.unwrap_or(1);
+            let output_features = parameters.output_features.unwrap_or(1);
 
-            for tree in 1..self.size+1 {
+            for i in 1..self.size+1 {
 
-                let (tx,rx) = mpsc::channel();
+                let mut tree = self.prototype_tree.as_ref().expect("No prototype tree!").derive_from_prototype(samples_per_tree,input_features,output_features,i);
+                tree.grow_branches();
 
-                tree_pool.send((tree,tx));
-
-                tree_receivers.push(rx);
-
-            }
-
-            for receiver in tree_receivers {
-                println!("Unwrapping tree");
-                let new_tree = receiver.recv().unwrap();
-                new_tree.serialize_compact();
                 if remember {
-                    self.predictive_trees.push(new_tree);
+                    self.predictive_trees.push(tree.strip_consume());
                 }
-
             }
-
-            TreeThreadPool::terminate(&mut tree_pool);
 
         }
         else {
@@ -91,7 +106,10 @@ impl Forest {
 
         let mut predictive_trees: Vec<PredictiveTree>;
 
-        let feature_pool = SplitThreadPool::new(processor_option.unwrap_or(1));
+        let processor_limit = processor_option.unwrap_or(1);
+
+        let feature_thread_pool = FeatureThreadPool::new((processor_limit - (processor_limit/5)).max(1));
+        let split_thread_pool = SplitThreadPool::new(processor_limit,feature_thread_pool);
 
 
         match tree_locations {
@@ -140,7 +158,10 @@ impl Forest {
 
         let mut trees: Vec<Tree>;
 
-        let split_thread_pool = SplitThreadPool::new(processor_option.unwrap_or(1));
+        let processor_limit = processor_option.unwrap_or(1);
+
+        let feature_thread_pool = FeatureThreadPool::new((processor_limit - (processor_limit/5)).max(1));
+        let split_thread_pool = SplitThreadPool::new(processor_limit,feature_thread_pool);
 
         match tree_locations {
             TreeBackups::File(location) => {

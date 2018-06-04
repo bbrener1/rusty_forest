@@ -16,6 +16,7 @@ extern crate rand;
 use node::Node;
 use node::NodeWrapper;
 use node::StrippedNode;
+use feature_thread_pool::FeatureThreadPool;
 use split_thread_pool::SplitThreadPool;
 use split_thread_pool::SplitMessage;
 use rv3::RankVector;
@@ -37,7 +38,9 @@ impl<'a> Tree {
 
     pub fn prototype_tree(inputs:&Vec<Vec<f64>>,outputs:&Vec<Vec<f64>>,sample_names:&[String],input_features: &[String],output_features:&[String], feature_weight_option: Option<Vec<f64>>, parameters: Arc<Parameters> ,report_address: String) -> Tree {
         // let pool = ThreadPool::new(processor_limit);
-        let split_thread_pool = SplitThreadPool::new(parameters.processor_limit.unwrap_or(1));
+        let processor_limit = parameters.processor_limit.unwrap_or(1);
+        let feature_thread_pool = FeatureThreadPool::new((processor_limit - (processor_limit/5)).max(1));
+        let split_thread_pool = SplitThreadPool::new(processor_limit,feature_thread_pool);
         // let mut root = Node::root(counts,feature_names,sample_names,input_features,output_features,pool.clone());
         let root = Node::feature_root(inputs,outputs,input_features,output_features,sample_names, parameters.clone() , feature_weight_option.clone() ,split_thread_pool.clone());
         let weights = feature_weight_option;
@@ -54,10 +57,11 @@ impl<'a> Tree {
     }
 
     pub fn pool_switch_clone(&self,processor_limit:usize) -> Tree {
-        let new_pool = SplitThreadPool::new(processor_limit);
+        let new_feature_thread_pool = FeatureThreadPool::new((processor_limit - (processor_limit/5)).max(1));
+        let new_split_thread_pool = SplitThreadPool::new((processor_limit/5).max(1),new_feature_thread_pool);
         let mut new_tree = self.clone();
-        new_tree.root.set_pool(&new_pool);
-        new_tree.split_thread_pool = new_pool;
+        new_tree.root.set_pool(&new_split_thread_pool);
+        new_tree.split_thread_pool = new_split_thread_pool;
         new_tree
     }
 

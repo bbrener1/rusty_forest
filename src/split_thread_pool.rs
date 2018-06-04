@@ -24,9 +24,7 @@ use rv3::Node;
 use SplitMode;
 
 impl SplitThreadPool{
-    pub fn new(processors: usize) -> Sender<SplitMessage> {
-
-        let pool = FeatureThreadPool::new(processors-(processors/5));
+    pub fn new(processors: usize, feature_thread_pool: Sender<FeatureMessage>) -> Sender<SplitMessage> {
 
         if processors < 1 {
             panic!("Warning, no processors were allocated to the pool, quitting!");
@@ -40,7 +38,7 @@ impl SplitThreadPool{
 
         for i in 0..((processors/5).max(1)) {
 
-            workers.push(Worker::new(i,pool.clone(),worker_receiver_channel.clone()))
+            workers.push(Worker::new(i,feature_thread_pool.clone(),worker_receiver_channel.clone()))
 
         }
 
@@ -72,13 +70,9 @@ impl Worker{
                     if let Some(message) = message_option {
                         match message {
                             SplitMessage::Message((prot_table,draw_order,drop_set,weights),sender) => {
-
                                 sender.send(compute(prot_table,draw_order,drop_set,weights,pool.clone())).expect("Failed to send feature result");
                             },
-                            SplitMessage::Terminate => {
-                                FeatureThreadPool::terminate(&mut pool.clone());
-                                break
-                            }
+                            SplitMessage::Terminate => { break }
                         }
                     }
                 }
@@ -96,10 +90,12 @@ struct Worker {
 
 pub enum SplitMessage {
     Message((Arc<RankTable>,Vec<usize>,HashSet<usize>,Vec<f64>), mpsc::Sender<Option<(usize,usize,f64)>>),
-    Terminate
+    Terminate,
 }
 
 fn compute (prot_table: Arc<RankTable>, draw_order: Vec<usize> , drop_set: HashSet<usize>,weights: Vec<f64>, pool: Sender<FeatureMessage>) -> Option<(usize,usize,f64)> {
+
+    println!("Computing in split thread pool");
 
     prot_table.parallel_split_order_min(&draw_order,&drop_set,Some(&weights),pool)
 

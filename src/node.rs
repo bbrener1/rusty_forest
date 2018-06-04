@@ -94,6 +94,7 @@ impl Node {
 
         let reference_table = Arc::new(replace(&mut self.output_table,RankTable::empty()));
 
+        println!("Starting to split");
 
         for input_feature in self.input_features().clone().into_iter() {
 
@@ -103,9 +104,11 @@ impl Node {
 
             let mut weights = self.feature_weights.clone();
 
-            if let Some(input_index) = self.output_table.feature_index(&input_feature) {
+            if let Some(input_index) = reference_table.feature_index(&input_feature) {
                 weights[*input_index] = 0.;
             }
+
+            println!("Passed to thread pool");
 
             self.split_thread_pool.send(SplitMessage::Message((reference_table.clone(),draw_order,drop_set,weights),tx));
 
@@ -115,13 +118,19 @@ impl Node {
 
         let mut minima = Vec::with_capacity(self.input_features().len());
 
+        println!("Receiving");
+
         for (input_feature,receiver) in minimum_receivers.into_iter() {
             if let Some((split_index,split_sample_index,split_dispersion)) = receiver.recv().expect("Split thread pool error") {
                 minima.push((input_feature,split_index,split_sample_index,split_dispersion))
             }
         }
 
-        let (best_feature,split_sample_index,split_index,split_dispersion) = minima.iter().min_by(|a,b| (a.3).partial_cmp(&b.3).unwrap_or(Ordering::Greater)).unwrap().clone();
+        replace(&mut self.output_table, Arc::try_unwrap(reference_table).expect("Couldn't unwrap the reference table"));
+
+        println!("Replaced");
+
+        let (best_feature,split_index,split_sample_index,split_dispersion) = minima.iter().min_by(|a,b| (a.3).partial_cmp(&b.3).unwrap_or(Ordering::Greater)).unwrap().clone();
 
         let split_order = self.input_table.sort_by_feature(&best_feature);
 
@@ -845,21 +854,21 @@ mod node_testing {
 
     #[test]
     fn node_test_trivial_trivial() {
-        let mut root = Node::feature_root(&vec![], &vec![], &vec![][..], &vec![][..], &vec![][..], blank_parameter(), None, SplitThreadPool::new(1));
+        let mut root = Node::feature_root(&vec![], &vec![], &vec![][..], &vec![][..], &vec![][..], blank_parameter(), None, SplitThreadPool::new(1,FeatureThreadPool::new(1)));
         root.mads();
         root.medians();
     }
 
     #[test]
     fn node_test_trivial() {
-        let mut root = Node::feature_root(&vec![vec![]],&vec![vec![]], &vec!["one".to_string()][..], &vec!["a".to_string()][..], &vec!["1".to_string()][..],blank_parameter(),None, SplitThreadPool::new(1));
+        let mut root = Node::feature_root(&vec![vec![]],&vec![vec![]], &vec!["one".to_string()][..], &vec!["a".to_string()][..], &vec!["1".to_string()][..],blank_parameter(),None, SplitThreadPool::new(1,FeatureThreadPool::new(1)));
         root.mads();
         root.medians();
     }
 
     #[test]
     fn node_test_simple() {
-        let mut root = Node::feature_root(&vec![vec![10.,-3.,0.,5.,-2.,-1.,15.,20.]],&vec![vec![10.,-3.,0.,5.,-2.,-1.,15.,20.]], &vec!["one".to_string()],&vec!["two".to_string()], &(0..8).map(|x| x.to_string()).collect::<Vec<String>>()[..],blank_parameter(), None, SplitThreadPool::new(1));
+        let mut root = Node::feature_root(&vec![vec![10.,-3.,0.,5.,-2.,-1.,15.,20.]],&vec![vec![10.,-3.,0.,5.,-2.,-1.,15.,20.]], &vec!["one".to_string()],&vec!["two".to_string()], &(0..8).map(|x| x.to_string()).collect::<Vec<String>>()[..],blank_parameter(), None, SplitThreadPool::new(1,FeatureThreadPool::new(1)));
 
         root.feature_parallel_derive();
 
