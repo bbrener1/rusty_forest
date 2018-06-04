@@ -89,9 +89,10 @@ impl Forest {
 
                 let mut tree = self.prototype_tree.as_ref().expect("No prototype tree!").derive_from_prototype(samples_per_tree,input_features,output_features,i);
                 tree.grow_branches();
-
+                let compact_tree = tree.strip_consume();
+                compact_tree.serialize_compact();
                 if remember {
-                    self.predictive_trees.push(tree.strip_consume());
+                    self.predictive_trees.push(compact_tree);
                 }
             }
 
