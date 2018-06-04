@@ -17,7 +17,7 @@ use PredictionMode;
 use DropMode;
 use Parameters;
 use TreeBackups;
-use feature_thread_pool::FeatureThreadPool;
+use split_thread_pool::SplitThreadPool;
 use tree_thread_pool::TreeThreadPool;
 use std::sync::mpsc::sync_channel;
 use std::sync::Arc;
@@ -91,7 +91,7 @@ impl Forest {
 
         let mut predictive_trees: Vec<PredictiveTree>;
 
-        let feature_pool = FeatureThreadPool::new(processor_option.unwrap_or(1));
+        let feature_pool = SplitThreadPool::new(processor_option.unwrap_or(1));
 
 
         match tree_locations {
@@ -140,7 +140,7 @@ impl Forest {
 
         let mut trees: Vec<Tree>;
 
-        let feature_pool = FeatureThreadPool::new(processor_option.unwrap_or(1));
+        let split_thread_pool = SplitThreadPool::new(processor_option.unwrap_or(1));
 
         match tree_locations {
             TreeBackups::File(location) => {
@@ -148,13 +148,13 @@ impl Forest {
                 let mut tree_locations: Vec<String> = io::BufReader::new(&tree_file).lines().map(|x| x.expect("Tree location error!")).collect();
                 trees = Vec::with_capacity(tree_locations.len());
                 for loc in tree_locations {
-                    trees.push(Tree::reload(&loc,feature_pool.clone(),1,"".to_string())?);
+                    trees.push(Tree::reload(&loc,split_thread_pool.clone(),1,"".to_string())?);
                 }
             }
             TreeBackups::Vector(tree_locations) => {
                 trees = Vec::with_capacity(tree_locations.len());
                 for loc in tree_locations {
-                    trees.push(Tree::reload(&loc,feature_pool.clone(),1,"".to_string())?);
+                    trees.push(Tree::reload(&loc,split_thread_pool.clone(),1,"".to_string())?);
                 }
             }
             TreeBackups::Trees(backup_trees) => {

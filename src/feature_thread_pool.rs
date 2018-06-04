@@ -89,11 +89,11 @@ struct Worker {
 
 
 pub enum FeatureMessage {
-    Message((RankVector<Vec<Node>>,Arc<Vec<usize>>,Arc<HashSet<usize>>,SplitMode), mpsc::Sender<(Vec<f64>,RankVector<Vec<Node>>)>),
+    Message((Arc<RankVector<Vec<Node>>>,Arc<Vec<usize>>,Arc<HashSet<usize>>,SplitMode), mpsc::Sender<Vec<f64>>),
     Terminate
 }
 
-fn compute (prot_vector: RankVector<Vec<Node>> , draw_order: Arc<Vec<usize>> , drop_set: Arc<HashSet<usize>>, split_mode:SplitMode, local_vector: &mut RankVector<SmallVec<[Node;1024]>>) -> (Vec<f64>,RankVector<Vec<Node>>) {
+fn compute (prot_vector: Arc<RankVector<Vec<Node>>> , draw_order: Arc<Vec<usize>> , drop_set: Arc<HashSet<usize>>, split_mode:SplitMode, local_vector: &mut RankVector<SmallVec<[Node;1024]>>) -> Vec<f64> {
 
     local_vector.clone_from_prototype(&prot_vector);
 
@@ -106,6 +106,6 @@ fn compute (prot_vector: RankVector<Vec<Node>> , draw_order: Arc<Vec<usize>> , d
 
     // println!("parallel: {:?}", result);
 
-    (result,prot_vector)
+    result
 
 }

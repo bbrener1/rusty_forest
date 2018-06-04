@@ -16,8 +16,8 @@ extern crate rand;
 use node::Node;
 use node::NodeWrapper;
 use node::StrippedNode;
-use feature_thread_pool::FeatureThreadPool;
-use feature_thread_pool::FeatureMessage;
+use split_thread_pool::SplitThreadPool;
+use split_thread_pool::SplitMessage;
 use rv3::RankVector;
 use DropMode;
 use Parameters;
@@ -25,7 +25,7 @@ use Parameters;
 #[derive(Clone)]
 pub struct Tree {
     // pool: mpsc::Sender<((usize, (RankTableSplitter,RankTableSplitter,Vec<usize>),Vec<f64>), mpsc::Sender<(usize,usize,f64,Vec<usize>)>)>,
-    feature_pool: mpsc::Sender<FeatureMessage>,
+    split_thread_pool: mpsc::Sender<SplitMessage>,
     pub root: Node,
     dropout: DropMode,
     weights: Option<Vec<f64>>,
@@ -37,14 +37,14 @@ impl<'a> Tree {
 
     pub fn prototype_tree(inputs:&Vec<Vec<f64>>,outputs:&Vec<Vec<f64>>,sample_names:&[String],input_features: &[String],output_features:&[String], feature_weight_option: Option<Vec<f64>>, parameters: Arc<Parameters> ,report_address: String) -> Tree {
         // let pool = ThreadPool::new(processor_limit);
-        let feature_pool = FeatureThreadPool::new(parameters.processor_limit.unwrap_or(1));
+        let split_thread_pool = SplitThreadPool::new(parameters.processor_limit.unwrap_or(1));
         // let mut root = Node::root(counts,feature_names,sample_names,input_features,output_features,pool.clone());
-        let root = Node::feature_root(inputs,outputs,input_features,output_features,sample_names, parameters.clone() , feature_weight_option.clone() ,feature_pool.clone());
+        let root = Node::feature_root(inputs,outputs,input_features,output_features,sample_names, parameters.clone() , feature_weight_option.clone() ,split_thread_pool.clone());
         let weights = feature_weight_option;
 
         Tree{
             // pool: pool,
-            feature_pool: feature_pool,
+            split_thread_pool: split_thread_pool,
             root: root,
             dropout: parameters.dropout.clone().unwrap_or(DropMode::Zeros),
             weights: weights,
@@ -54,10 +54,10 @@ impl<'a> Tree {
     }
 
     pub fn pool_switch_clone(&self,processor_limit:usize) -> Tree {
-        let new_pool = FeatureThreadPool::new(processor_limit);
+        let new_pool = SplitThreadPool::new(processor_limit);
         let mut new_tree = self.clone();
         new_tree.root.set_pool(&new_pool);
-        new_tree.feature_pool = new_pool;
+        new_tree.split_thread_pool = new_pool;
         new_tree
     }
 
@@ -115,7 +115,7 @@ impl<'a> Tree {
         }
     }
 
-    pub fn reload(location: &str,feature_pool: mpsc::Sender<FeatureMessage>, size_limit: usize , report_address: String) -> Result<Tree,Error> {
+    pub fn reload(location: &str,feature_pool: mpsc::Sender<SplitMessage>, size_limit: usize , report_address: String) -> Result<Tree,Error> {
 
         println!("Reloading!");
 
@@ -134,7 +134,7 @@ impl<'a> Tree {
         println!("Finished recursive unwrapping and obtained a Node tree");
 
         Ok(Tree {
-            feature_pool: feature_pool,
+            split_thread_pool: feature_pool,
             dropout: root.dropout(),
             root: root,
             weights: None,
@@ -160,7 +160,7 @@ impl<'a> Tree {
         address_string.pop();
 
         Tree{
-            feature_pool: self.feature_pool.clone(),
+            split_thread_pool: self.split_thread_pool.clone(),
             root: new_root,
             dropout: self.dropout,
             weights: self.weights.clone(),
@@ -185,7 +185,7 @@ impl<'a> Tree {
 
         Tree{
             // pool: self.pool.clone(),
-            feature_pool: self.feature_pool.clone(),
+            split_thread_pool: self.split_thread_pool.clone(),
             root: new_root,
             dropout: self.dropout,
             weights: self.weights.clone(),
@@ -195,10 +195,10 @@ impl<'a> Tree {
 
     }
 
-    pub fn derive_to_specified_pool(&self, samples:usize,input_features:usize,output_features:usize,iteration: usize, pool: mpsc::Sender<FeatureMessage>) -> Tree {
+    pub fn derive_to_specified_pool(&self, samples:usize,input_features:usize,output_features:usize,iteration: usize, pool: mpsc::Sender<SplitMessage>) -> Tree {
         let mut new_tree = self.derive_from_prototype(samples, input_features, output_features, iteration);
         new_tree.root.set_pool(&pool);
-        new_tree.feature_pool = pool;
+        new_tree.split_thread_pool = pool;
         new_tree
     }
 
@@ -277,7 +277,7 @@ impl<'a> Tree {
     }
 
     pub fn terminate_pool(&mut self) {
-        FeatureThreadPool::terminate(&mut self.feature_pool);
+        SplitThreadPool::terminate(&mut self.split_thread_pool);
     }
 
 }

@@ -36,6 +36,7 @@ mod tree_thread_pool;
 mod random_forest;
 mod predictor;
 mod shuffler;
+mod split_thread_pool;
 mod compact_predictor;
 mod boosted_forest;
 mod boosted_tree_thread_pool;

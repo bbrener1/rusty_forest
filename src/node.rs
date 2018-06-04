@@ -4,19 +4,45 @@ use std::cmp::PartialOrd;
 use std::cmp::Ordering;
 use std::sync::mpsc;
 use std::f64;
+use std::mem::replace;
 use serde_json;
 
 
 extern crate rand;
 use rank_table::RankTable;
-use feature_thread_pool::FeatureMessage;
+use rank_table::RankTableWrapper;
+use split_thread_pool::SplitMessage;
 use DropMode;
 use Parameters;
 
+
+#[derive(Clone)]
+pub struct Node {
+
+    // pool: mpsc::Sender<((usize,(RankTableSplitter,RankTableSplitter,Vec<usize>),Vec<f64>),mpsc::Sender<(usize,usize,f64,Vec<usize>)>)>,
+    split_thread_pool: mpsc::Sender<SplitMessage>,
+
+    input_table: RankTable,
+    output_table: RankTable,
+    dropout: DropMode,
+
+    pub parent_id: String,
+    pub id: String,
+    pub children: Vec<Node>,
+
+    feature: Option<String>,
+    split: Option<f64>,
+
+    pub medians: Vec<f64>,
+    pub feature_weights: Vec<f64>,
+    pub dispersions: Vec<f64>,
+    pub local_gains: Option<Vec<f64>>,
+    pub absolute_gains: Option<Vec<f64>>
+}
+
 impl Node {
 
-
-    pub fn feature_root<'a>(input_counts:&Vec<Vec<f64>>,output_counts:&Vec<Vec<f64>>,input_feature_names:&'a[String],output_feature_names:&'a[String],sample_names:&'a[String], parameters: Arc<Parameters> , feature_weight_option: Option<Vec<f64>>, feature_pool: mpsc::Sender<FeatureMessage>) -> Node {
+    pub fn feature_root<'a>(input_counts:&Vec<Vec<f64>>,output_counts:&Vec<Vec<f64>>,input_feature_names:&'a[String],output_feature_names:&'a[String],sample_names:&'a[String], parameters: Arc<Parameters> , feature_weight_option: Option<Vec<f64>>, split_thread_pool: mpsc::Sender<SplitMessage>) -> Node {
 
         let input_table = RankTable::new(input_counts,&input_feature_names,&sample_names,parameters.clone());
 
@@ -31,7 +57,7 @@ impl Node {
         let local_gains = vec![0.;dispersions.len()];
 
         let new_node = Node {
-            feature_pool: feature_pool,
+            split_thread_pool: split_thread_pool,
 
             input_table: input_table,
             output_table: output_table,
@@ -64,33 +90,36 @@ impl Node {
             panic!("Tried to split with no input features");
         };
 
-        let mut minima = Vec::with_capacity(self.input_features().len());
+        let mut minimum_receivers = Vec::with_capacity(self.input_features().len());
+
+        let reference_table = Arc::new(replace(&mut self.output_table,RankTable::empty()));
+
 
         for input_feature in self.input_features().clone().into_iter() {
 
-            let draw_order = self.input_table.sort_by_feature(&input_feature);
+            let (tx,rx) = mpsc::channel();
 
-            let mut saved_weight = 0.;
+            let (draw_order,drop_set) = self.input_table.sort_by_feature(&input_feature);
 
-            if let Some(input_index) = self.output_table.feature_index(&input_feature) {
-                saved_weight = self.feature_weights[*input_index];
-                self.feature_weights[*input_index] = 0.;
-            }
-
-            if let Some((split_index,split_dispersion)) = self.output_table.parallel_split_order_min(&draw_order.0,&draw_order.1,Some(&self.feature_weights),self.feature_pool.clone()) {
-
-                let split_sample_index = draw_order.0[split_index];
-
-                minima.push((input_feature.clone(),split_sample_index,split_index,split_dispersion));
-
-            }
+            let mut weights = self.feature_weights.clone();
 
             if let Some(input_index) = self.output_table.feature_index(&input_feature) {
-                self.feature_weights[*input_index] = saved_weight;
+                weights[*input_index] = 0.;
             }
 
+            self.split_thread_pool.send(SplitMessage::Message((reference_table.clone(),draw_order,drop_set,weights),tx));
+
+            minimum_receivers.push((input_feature.clone(),rx));
 
         };
+
+        let mut minima = Vec::with_capacity(self.input_features().len());
+
+        for (input_feature,receiver) in minimum_receivers.into_iter() {
+            if let Some((split_index,split_sample_index,split_dispersion)) = receiver.recv().expect("Split thread pool error") {
+                minima.push((input_feature,split_index,split_sample_index,split_dispersion))
+            }
+        }
 
         let (best_feature,split_sample_index,split_index,split_dispersion) = minima.iter().min_by(|a,b| (a.3).partial_cmp(&b.3).unwrap_or(Ordering::Greater)).unwrap().clone();
 
@@ -189,7 +218,7 @@ impl Node {
 
             let child = Node {
                 // pool: self.pool.clone(),
-                feature_pool: self.feature_pool.clone(),
+                split_thread_pool: self.split_thread_pool.clone(),
 
                 input_table: new_input_table,
                 output_table: new_output_table,
@@ -226,7 +255,7 @@ impl Node {
 
         let child = Node {
             // pool: self.pool.clone(),
-            feature_pool: self.feature_pool.clone(),
+            split_thread_pool: self.split_thread_pool.clone(),
 
             input_table: new_input_table,
             output_table: new_output_table,
@@ -348,8 +377,8 @@ impl Node {
         self.feature_weights = weights;
     }
 
-    pub fn set_pool(&mut self, pool: &mpsc::Sender<FeatureMessage>) {
-        self.feature_pool = pool.clone()
+    pub fn set_pool(&mut self, pool: &mpsc::Sender<SplitMessage>) {
+        self.split_thread_pool = pool.clone()
     }
 
     pub fn wrap_consume(self) -> NodeWrapper {
@@ -363,8 +392,8 @@ impl Node {
         }
 
         NodeWrapper {
-            input_table: self.input_table,
-            output_table: self.output_table,
+            input_table: self.input_table.wrap_consume(),
+            output_table: self.output_table.wrap_consume(),
             dropout: self.dropout,
 
             parent_id: self.parent_id,
@@ -636,36 +665,13 @@ impl Node {
 
 }
 
-#[derive(Clone)]
-pub struct Node {
-
-    // pool: mpsc::Sender<((usize,(RankTableSplitter,RankTableSplitter,Vec<usize>),Vec<f64>),mpsc::Sender<(usize,usize,f64,Vec<usize>)>)>,
-    feature_pool: mpsc::Sender<FeatureMessage>,
-
-    input_table: RankTable,
-    output_table: RankTable,
-    dropout: DropMode,
-
-    pub parent_id: String,
-    pub id: String,
-    pub children: Vec<Node>,
-
-    feature: Option<String>,
-    split: Option<f64>,
-
-    pub medians: Vec<f64>,
-    pub feature_weights: Vec<f64>,
-    pub dispersions: Vec<f64>,
-    pub local_gains: Option<Vec<f64>>,
-    pub absolute_gains: Option<Vec<f64>>
-}
 
 impl NodeWrapper {
     pub fn to_string(self) -> String {
         serde_json::to_string(&self).unwrap()
     }
 
-    pub fn unwrap(self,feature_pool: mpsc::Sender<FeatureMessage>) -> Node {
+    pub fn unwrap(self,split_thread_pool: mpsc::Sender<SplitMessage>) -> Node {
         let mut children: Vec<Node> = Vec::with_capacity(self.children.len());
         for child in self.children {
             // println!("#######################################\n");
@@ -675,17 +681,17 @@ impl NodeWrapper {
             // println!("{}", child);
             // children.push(serde_json::from_str::<NodeWrapper>(&child).unwrap().unwrap(feature_pool.clone()));
             // println!("Unwrapped child");
-            children.push(child.unwrap(feature_pool.clone()));
+            children.push(child.unwrap(split_thread_pool.clone()));
         }
 
         println!("Recursive unwrap finished!");
 
         Node {
 
-            feature_pool: feature_pool,
+            split_thread_pool: split_thread_pool,
 
-            input_table: self.input_table,
-            output_table: self.output_table,
+            input_table: self.input_table.unwrap(),
+            output_table: self.output_table.unwrap(),
             dropout: self.dropout,
 
             parent_id: self.parent_id,
@@ -709,8 +715,8 @@ impl NodeWrapper {
 #[derive(Serialize,Deserialize)]
 pub struct NodeWrapper {
 
-    pub input_table: RankTable,
-    pub output_table: RankTable,
+    pub input_table: RankTableWrapper,
+    pub output_table: RankTableWrapper,
     pub dropout: DropMode,
 
     pub parent_id: String,
@@ -826,6 +832,7 @@ mod node_testing {
 
     use super::*;
     use feature_thread_pool::FeatureThreadPool;
+    use split_thread_pool::SplitThreadPool;
 
     fn blank_parameter() -> Arc<Parameters> {
         let mut parameters = Parameters::empty();
@@ -838,21 +845,21 @@ mod node_testing {
 
     #[test]
     fn node_test_trivial_trivial() {
-        let mut root = Node::feature_root(&vec![], &vec![], &vec![][..], &vec![][..], &vec![][..], blank_parameter(), None, FeatureThreadPool::new(1));
+        let mut root = Node::feature_root(&vec![], &vec![], &vec![][..], &vec![][..], &vec![][..], blank_parameter(), None, SplitThreadPool::new(1));
         root.mads();
         root.medians();
     }
 
     #[test]
     fn node_test_trivial() {
-        let mut root = Node::feature_root(&vec![vec![]],&vec![vec![]], &vec!["one".to_string()][..], &vec!["a".to_string()][..], &vec!["1".to_string()][..],blank_parameter(),None, FeatureThreadPool::new(1));
+        let mut root = Node::feature_root(&vec![vec![]],&vec![vec![]], &vec!["one".to_string()][..], &vec!["a".to_string()][..], &vec!["1".to_string()][..],blank_parameter(),None, SplitThreadPool::new(1));
         root.mads();
         root.medians();
     }
 
     #[test]
     fn node_test_simple() {
-        let mut root = Node::feature_root(&vec![vec![10.,-3.,0.,5.,-2.,-1.,15.,20.]],&vec![vec![10.,-3.,0.,5.,-2.,-1.,15.,20.]], &vec!["one".to_string()],&vec!["two".to_string()], &(0..8).map(|x| x.to_string()).collect::<Vec<String>>()[..],blank_parameter(), None, FeatureThreadPool::new(1));
+        let mut root = Node::feature_root(&vec![vec![10.,-3.,0.,5.,-2.,-1.,15.,20.]],&vec![vec![10.,-3.,0.,5.,-2.,-1.,15.,20.]], &vec!["one".to_string()],&vec!["two".to_string()], &(0..8).map(|x| x.to_string()).collect::<Vec<String>>()[..],blank_parameter(), None, SplitThreadPool::new(1));
 
         root.feature_parallel_derive();
 

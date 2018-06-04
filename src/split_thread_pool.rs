@@ -16,14 +16,19 @@ extern crate rand;
 
 use smallvec::SmallVec;
 
+use rank_table::RankTable;
+use feature_thread_pool::FeatureThreadPool;
+use feature_thread_pool::FeatureMessage;
 use rv3::RankVector;
 use rv3::Node;
 use SplitMode;
 
 impl SplitThreadPool{
-    pub fn new(size: usize) -> Sender<FeatureMessage> {
+    pub fn new(processors: usize) -> Sender<SplitMessage> {
 
-        if size < 1 {
+        let pool = FeatureThreadPool::new(processors-(processors/5));
+
+        if processors < 1 {
             panic!("Warning, no processors were allocated to the pool, quitting!");
         }
 
@@ -31,48 +36,49 @@ impl SplitThreadPool{
 
         let worker_receiver_channel = Arc::new(Mutex::new(rx));
 
-        let mut workers = Vec::with_capacity(size);
+        let mut workers = Vec::with_capacity(processors);
 
-        for i in 0..size {
+        for i in 0..((processors/5).max(1)) {
 
-            workers.push(Worker::new(i,worker_receiver_channel.clone()))
+            workers.push(Worker::new(i,pool.clone(),worker_receiver_channel.clone()))
 
         }
 
         tx
     }
 
-    pub fn terminate(channel: &mut Sender<FeatureMessage>) {
-        while let Ok(()) = channel.send(FeatureMessage::Terminate) {};
+    pub fn terminate(channel: &mut Sender<SplitMessage>) {
+        while let Ok(()) = channel.send(SplitMessage::Terminate) {};
     }
 
 }
 
 
-pub struct FeatureThreadPool {
+pub struct SplitThreadPool {
     workers: Vec<Worker>,
-    worker_receiver_channel: Arc<Mutex<Receiver<FeatureMessage>>>,
-    sender: Sender<FeatureMessage>
+    worker_receiver_channel: Arc<Mutex<Receiver<SplitMessage>>>,
+    sender: Sender<SplitMessage>
 }
 
 
 impl Worker{
 
-    pub fn new(id:usize,channel:Arc<Mutex<Receiver<FeatureMessage>>>) -> Worker {
+    pub fn new(id:usize,pool: Sender<FeatureMessage>, channel:Arc<Mutex<Receiver<SplitMessage>>>) -> Worker {
         Worker{
             id: id,
             thread: std::thread::spawn(move || {
-
-                let mut local_vector = RankVector::<SmallVec<[Node;1024]>>::empty_sv();
-
                 loop{
                     let message_option = channel.lock().unwrap().recv().ok();
                     if let Some(message) = message_option {
                         match message {
-                            FeatureMessage::Message((vector,draw_order,drop_set,split_mode),sender) => {
-                                sender.send(compute(vector,draw_order,drop_set,split_mode,&mut local_vector)).expect("Failed to send feature result");
+                            SplitMessage::Message((prot_table,draw_order,drop_set,weights),sender) => {
+
+                                sender.send(compute(prot_table,draw_order,drop_set,weights,pool.clone())).expect("Failed to send feature result");
                             },
-                            FeatureMessage::Terminate => break
+                            SplitMessage::Terminate => {
+                                FeatureThreadPool::terminate(&mut pool.clone());
+                                break
+                            }
                         }
                     }
                 }
@@ -80,7 +86,7 @@ impl Worker{
         }
     }
 }
-s
+
 struct Worker {
     id: usize,
     thread: thread::JoinHandle<()>,
@@ -89,23 +95,13 @@ struct Worker {
 
 
 pub enum SplitMessage {
-    Message((RankVector<Vec<Node>>,Arc<Vec<usize>>,Arc<HashSet<usize>>,SplitMode), mpsc::Sender<(Vec<f64>,RankVector<Vec<Node>>)>),
+    Message((Arc<RankTable>,Vec<usize>,HashSet<usize>,Vec<f64>), mpsc::Sender<Option<(usize,usize,f64)>>),
     Terminate
 }
 
-fn compute (prot_vector: RankVector<Vec<Node>> , draw_order: Arc<Vec<usize>> , drop_set: Arc<HashSet<usize>>, split_mode:SplitMode, local_vector: &mut RankVector<SmallVec<[Node;1024]>>) -> (Vec<f64>,RankVector<Vec<Node>>) {
+fn compute (prot_table: Arc<RankTable>, draw_order: Vec<usize> , drop_set: HashSet<usize>,weights: Vec<f64>, pool: Sender<FeatureMessage>) -> Option<(usize,usize,f64)> {
 
-    local_vector.clone_from_prototype(&prot_vector);
-
-    let result = match split_mode {
-        SplitMode::Cov => local_vector.ordered_covs(&draw_order,&drop_set),
-        SplitMode::MAD => local_vector.ordered_mads(&draw_order,&drop_set),
-        SplitMode::CovSquared => local_vector.ordered_covs(&draw_order,&drop_set),
-        SplitMode::MADSquared => local_vector.ordered_mads(&draw_order,&drop_set),
-    };
+    prot_table.parallel_split_order_min(&draw_order,&drop_set,Some(&weights),pool)
 
     // println!("parallel: {:?}", result);
-
-    (result,prot_vector)
-
 }
