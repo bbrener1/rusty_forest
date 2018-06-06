@@ -1,4 +1,4 @@
-use rand::Rng;
+use rand::{Rng,ThreadRng};
 use std::iter::repeat;
 use std::collections::HashSet;
 use std::collections::HashMap;
@@ -208,7 +208,12 @@ impl BoostedForest {
         let mut input_features = Vec::with_capacity(input_draws);
 
         for _ in 0..input_draws {
+            println!("weights: {:?},{:?}", input_feature_weights,output_feature_weights);
+
             let feature_index = weighted_sampling(1, &self.features(), &input_feature_weights, false).1[0];
+
+            println!("fi:{}", feature_index);
+
             input_feature_weights =
                 input_feature_weights
                 .iter()
@@ -229,6 +234,9 @@ impl BoostedForest {
         let mut output_features = Vec::with_capacity(output_draws);
 
         for _ in 0..output_draws {
+
+            println!("weights: {:?},{:?}", input_feature_weights,output_feature_weights);
+
             let feature_index = weighted_sampling(1, &self.features(), &output_feature_weights, false).1[0];
 
             println!("fi:{}", feature_index);
@@ -343,7 +351,24 @@ impl BoostedForest {
 
 }
 
+pub fn weighted_choice(weights: &Vec<(usize,f64)>, weight_sum: f64, rng: &mut ThreadRng) -> usize {
 
+    let choice = rng.gen::<f64>() * weight_sum;
+
+    let mut descending_weight = weight_sum;
+
+    for (i,(_,element)) in weights.iter().enumerate() {
+        descending_weight -= *element;
+        // println!("descending:{}",descending_weight);
+        if choice > descending_weight {
+            // println!("choice:{}",choice);
+
+            return i
+        }
+    }
+
+    0
+}
 
 pub fn weighted_sampling<T: Clone>(draws: usize, samples: &Vec<T>, weights: &Vec<f64>,replacement:bool) -> (Vec<T>,Vec<usize>) {
 
@@ -399,54 +424,23 @@ pub fn weighted_sampling<T: Clone>(draws: usize, samples: &Vec<T>, weights: &Vec
     else {
 
         let mut local_weights: Vec<(usize,f64)> = weights.iter().cloned().enumerate().collect();
-        // println!("weight debug: {}", local_weights.len());
-        // println!("weights: {:?}", local_weights.iter().take(10).collect::<Vec<&(usize,f64)>>());
-        let mut maximum_weight = local_weights.iter().max_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Greater)).map(|x| x.clone()).unwrap_or((0,0.));
 
-        // println!("draws:{}",draws);
+        // println!("sum: {}", weight_sum);
+        // println!("choices: {:?}", weighted_choices);
 
-        for i in 0..draws {
+        for _ in 0..draws {
 
-            // if i%1000 == 0 {
-            //     if i > 0 {
-            //         println!("{}",i);
-            //     }
-            // }
+            let i = weighted_choice(&local_weights, weight_sum, &mut rng);
 
-            let mut accumulator = 0.;
+            let drawn_index = local_weights[i].0;
 
-            let mut random_index = rng.gen_range::<usize>(0,local_weights.len());
-            let mut current_draw = local_weights[random_index];
+            drawn_samples.push(samples[drawn_index].clone());
+            drawn_indecies.push(drawn_index);
 
-            // println!("max:{:?}", maximum_weight);
-
-            while accumulator < maximum_weight.1 {
-                random_index = rng.gen_range::<usize>(0,local_weights.len());
-                current_draw = local_weights[random_index];
-                accumulator += current_draw.1;
-                // println!("acc:{}",accumulator);
-                // println!("curr: {:?}", current_draw);
-            }
-
-            local_weights.swap_remove(random_index);
-
-            // println!("loc: {:?}", local_weights);
-
-            if maximum_weight.0 == current_draw.0 {
-                maximum_weight = local_weights.iter().max_by(|a,b| a.partial_cmp(&b).unwrap_or(Ordering::Greater)).map(|x| x.clone()).unwrap_or((0,0.));
-            }
-
-            weight_sum -= current_draw.1;
-
-            if weight_sum == 0. {
-                panic!("No weighted samples remaining");
-            }
-
-            drawn_indecies.push(current_draw.0);
-            drawn_samples.push(samples[current_draw.0].clone());
-
-
+            local_weights.swap_remove(i);
         }
+
+
 
     }
 
@@ -576,3 +570,53 @@ mod raw_vector_tests {
     // }
 
 }
+
+
+// let mut local_weights: Vec<(usize,f64)> = weights.iter().cloned().enumerate().collect();
+// // println!("weight debug: {}", local_weights.len());
+// // println!("weights: {:?}", local_weights.iter().take(10).collect::<Vec<&(usize,f64)>>());
+// let mut maximum_weight = local_weights.iter().max_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Greater)).map(|x| x.clone()).unwrap_or((0,0.));
+//
+// // println!("draws:{}",draws);
+//
+// for i in 0..draws {
+//
+//     // if i%1000 == 0 {
+//     //     if i > 0 {
+//     //         println!("{}",i);
+//     //     }
+//     // }
+//     if weight_sum == 0. {
+//         panic!("No weighted samples remaining");
+//     }
+//
+//     let mut accumulator = 0.;
+//
+//     let mut random_index = rng.gen_range::<usize>(0,local_weights.len());
+//     let mut current_draw = local_weights[random_index];
+//
+//     // println!("max:{:?}", maximum_weight);
+//
+//     while accumulator < maximum_weight.1 {
+//         random_index = rng.gen_range::<usize>(0,local_weights.len());
+//         current_draw = local_weights[random_index];
+//         accumulator += current_draw.1;
+//         // println!("acc:{}",accumulator);
+//         // println!("curr: {:?}", current_draw);
+//     }
+//
+//     local_weights.swap_remove(random_index);
+//
+//     // println!("loc: {:?}", local_weights);
+//
+//     if maximum_weight.0 == current_draw.0 {
+//         maximum_weight = local_weights.iter().max_by(|a,b| a.partial_cmp(&b).unwrap_or(Ordering::Greater)).map(|x| x.clone()).unwrap_or((0,0.));
+//     }
+//
+//     weight_sum -= current_draw.1;
+//
+//     drawn_indecies.push(current_draw.0);
+//     drawn_samples.push(samples[current_draw.0].clone());
+//
+//
+// }

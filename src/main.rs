@@ -43,6 +43,7 @@ mod boosted_tree_thread_pool;
 mod additive_booster;
 mod rv2;
 mod rv3;
+mod sampling_thread_pool;
 // mod rv4;
 
 use tree::PredictiveTree;
