@@ -340,7 +340,7 @@ pub fn weighted_sampling<T: Clone>(draws: usize, samples: &Vec<T>, weights: &Vec
 
     let mut rng = thread_rng();
 
-    println!("Weighted sampling, draws, weights: {},{}", draws, weights.len());
+    // println!("Weighted sampling, draws, weights: {},{}", draws, weights.len());
 
     let mut exclusion_set: HashSet<usize> = HashSet::new();
 
@@ -350,7 +350,7 @@ pub fn weighted_sampling<T: Clone>(draws: usize, samples: &Vec<T>, weights: &Vec
     let mut weight_sum: f64 = weights.iter().sum();
 
     // println!("Initiated sampling");
-    println!("weights:{:?}", weights);
+    // println!("weights:{:?}", weights);
 
     if replacement {
 
@@ -367,7 +367,7 @@ pub fn weighted_sampling<T: Clone>(draws: usize, samples: &Vec<T>, weights: &Vec
             // println!("descending:{}",descending_weight);
             while let Some(choice) = weighted_choices.pop() {
                 if choice > descending_weight {
-                    println!("choice:{}",choice);
+                    // println!("choice:{}",choice);
 
                     if weighted_choices.len()%1000 == 0 {
                         if weighted_choices.len() > 0 {
@@ -441,7 +441,7 @@ pub fn weighted_sampling<T: Clone>(draws: usize, samples: &Vec<T>, weights: &Vec
 
     }
 
-    println!("drawn: {:?}",drawn_indecies);
+    // println!("drawn: {:?}",drawn_indecies);
 
     (drawn_samples,drawn_indecies)
 
@@ -449,8 +449,8 @@ pub fn weighted_sampling<T: Clone>(draws: usize, samples: &Vec<T>, weights: &Vec
 
 pub fn incomplete_correlation_matrix(values:Vec<Vec<(&String,f64)>>,map:HashMap<String,usize>) -> Vec<Vec<f64>> {
 
-    println!("{:?}",values);
-    println!("{:?}",map);
+    // println!("{:?}",values);
+    // println!("{:?}",map);
 
 
     let mut mtx: Vec<Vec<Option<f64>>> = vec![vec![None; map.len()];values.len()];
@@ -461,7 +461,7 @@ pub fn incomplete_correlation_matrix(values:Vec<Vec<(&String,f64)>>,map:HashMap<
         }
     }
 
-    println!("{:?}",mtx);
+    // println!("{:?}",mtx);
 
     let mtx_t = matrix_flip(&mtx);
 
@@ -495,7 +495,7 @@ pub fn incomplete_correlation_matrix(values:Vec<Vec<(&String,f64)>>,map:HashMap<
 
     }
 
-    println!("{:?}", correlations);
+    // println!("{:?}", correlations);
 
     correlations
 
