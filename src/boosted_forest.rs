@@ -98,13 +98,15 @@ impl BoostedForest {
 
         for i in 0..self.epochs {
 
+            let report_string = &[self.report_string.clone(),format!(".{}",i)].join("");
+
             self.grow_epoch(parameters.clone(), i);
 
-            let epoch_predictions = self.compact_predict(&self.counts, &self.feature_map(), parameters.clone(), &[self.report_string.clone(),format!(".{}",i)].join(""))?;
+            let epoch_predictions = self.compact_predict(&self.counts, &self.feature_map(), parameters.clone(), report_string)?;
 
             self.error_matrix = sub_matrix(&self.counts, &matrix_flip(&epoch_predictions));
 
-            self.update_similarity();
+            self.update_similarity(report_string)?;
 
             // println!("Error matrix dimensions:{:?}",mtx_dim(&self.error_matrix));
 
@@ -318,7 +320,7 @@ impl BoostedForest {
         &self.sample_names
     }
 
-    fn update_similarity(&mut self) {
+    fn update_similarity(&mut self,report_address:&str) -> Result<(),Error> {
 
         let nodes: Vec<&StrippedNode> = self.predictive_trees.iter().flat_map(|x| x.crawl_nodes()).collect();
 
@@ -328,8 +330,12 @@ impl BoostedForest {
 
         self.feature_similarity_matrix = incomplete_correlation_matrix(local_gains, feature_map);
 
+        let mut similarity_dump = OpenOptions::new().create(true).append(true).open([report_address,".similarity"].join("")).unwrap();
+        similarity_dump.write(&tsv_format(&self.feature_similarity_matrix).as_bytes())?;
+        similarity_dump.write(b"\n")?;
         println!("similarity: {:?}", self.feature_similarity_matrix);
 
+        Ok(())
     }
 
 }
