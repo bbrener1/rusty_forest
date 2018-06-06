@@ -333,7 +333,7 @@ impl BoostedForest {
         let mut similarity_dump = OpenOptions::new().create(true).append(true).open([report_address,".similarity"].join("")).unwrap();
         similarity_dump.write(&tsv_format(&self.feature_similarity_matrix).as_bytes())?;
         similarity_dump.write(b"\n")?;
-        println!("similarity: {:?}", self.feature_similarity_matrix);
+        // println!("similarity: {:?}", self.feature_similarity_matrix);
 
         Ok(())
     }
