@@ -153,7 +153,7 @@ impl Node {
         self.feature = Some(best_feature.clone());
         self.split = Some(split_value.clone());
 
-        println!("Best split: {:?}", (best_feature.clone(),split_index, split_value,split_dispersion));
+        // println!("Best split: {:?}", (best_feature.clone(),split_index, split_value,split_dispersion));
 
         // println!("{:?}",self.output_table.full_ordered_values());
         // println!("{:?}",self.medians());
@@ -166,8 +166,8 @@ impl Node {
 
     pub fn feature_parallel_derive(&mut self) -> Option<()> {
 
-        println!("Feature parallel derive:");
-        println!("{},{},{},{}", self.input_features().len(),self.output_features().len(),self.input_table.samples().len(),self.output_table.samples().len());
+        // println!("Feature parallel derive:");
+        // println!("{},{},{},{}", self.input_features().len(),self.output_features().len(),self.input_table.samples().len(),self.output_table.samples().len());
 
         if let Some((feature,_dispersion,split_value, left_indecies,right_indecies)) = self.feature_parallel_best_split() {
             let mut left_child_id = self.id.clone();
@@ -175,22 +175,22 @@ impl Node {
             left_child_id.push_str(&format!("!F{}:S{}L",feature,split_value));
             right_child_id.push_str(&format!("!F{}:S{}R",feature,split_value));
 
-            println!("{:?}",&left_indecies);
-            println!("{:?}",&right_indecies);
+            // println!("{:?}",&left_indecies);
+            // println!("{:?}",&right_indecies);
 
             let left_child = self.derive(&left_indecies, &left_child_id);
             let right_child = self.derive(&right_indecies, &right_child_id);
             // println!("{:?}",left_child.samples());
             // println!("{:?}", right_child.samples());
 
-            self.report(false);
-            left_child.report(false);
-            right_child.report(false);
+            // self.report(false);
+            // left_child.report(false);
+            // right_child.report(false);
 
             self.children.push(left_child);
             self.children.push(right_child);
 
-            println!("Derived children!");
+            // println!("Derived children!");
 
             Some(())
         }

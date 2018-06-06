@@ -30,13 +30,13 @@ impl BoostedTreeThreadPool{
 
         let mut workers = Vec::with_capacity(processors);
 
-        if processors > 11 {
-            for i in 0..(processors/11) {
+        if processors > 30 {
+            for i in 0..(processors/30) {
 
                 println!("Spawning tree pool worker");
-                println!("Prototype tree has {} threads", processors/(processors/11) - 1);
+                println!("Prototype tree has {} threads", processors/(processors/30) - 1);
 
-                workers.push(Worker::new(i,prototype.pool_switch_clone(processors/(processors/11) - 1 ),worker_receiver_channel.clone()))
+                workers.push(Worker::new(i,prototype.pool_switch_clone(processors/(processors/30) - 1 ),worker_receiver_channel.clone()))
 
             }
         }

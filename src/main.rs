@@ -851,24 +851,22 @@ fn argmin(in_vec: &Vec<f64>) -> (usize,f64) {
 
 
 
-fn matrix_flip(in_mat: &Vec<Vec<f64>>) -> Vec<Vec<f64>> {
+fn matrix_flip<T:Clone>(in_mat: &Vec<Vec<T>>) -> Vec<Vec<T>> {
 
-    let mut out = Vec::new();
+    let dim = mtx_dim(in_mat);
 
-    for _ in in_mat.get(0).unwrap_or(&vec![]).iter() {
-        out.push(vec![in_mat[0][0];in_mat.len()]);
-    }
+    let mut out = vec![Vec::with_capacity(dim.0);dim.1];
 
     for (i,iv) in in_mat.iter().enumerate() {
         for (j,jv) in iv.iter().enumerate() {
-            out[j][i] = *jv;
+            out[j].push(jv.clone());
         }
     }
 
     out
 }
 
-fn mtx_dim(in_mat: &Vec<Vec<f64>>) -> (usize,usize) {
+fn mtx_dim<T>(in_mat: &Vec<Vec<T>>) -> (usize,usize) {
     (in_mat.len(),in_mat.get(0).unwrap_or(&vec![]).len())
 }
 
@@ -1036,28 +1034,57 @@ fn median(input: &Vec<f64>) -> (usize,f64) {
     (index,value)
 }
 
+fn mean(input: &Vec<f64>) -> f64 {
+    input.iter().sum::<f64>() / (input.len() as f64)
+}
+
 fn covariance(vec1:&Vec<f64>,vec2:&Vec<f64>) -> f64 {
 
     if vec1.len() != vec2.len() {
         panic!("Tried to compute covariance for unequal length vectors: {}, {}",vec1.len(),vec2.len());
     }
 
-    let mean1: f64 = vec1.iter().sum::<f64>() / (vec1.len() as f64);
-    let mean2: f64 = vec2.iter().sum::<f64>() / (vec2.len() as f64);
+    let mean1: f64 = mean(vec1);
+    let mean2: f64 = mean(vec1);
 
     let covariance = vec1.iter().zip(vec2.iter()).map(|(x,y)| (x - mean1) * (y - mean2)).sum::<f64>() / (vec1.len() as f64 - 1.);
 
-    covariance
+    if covariance.is_nan() {0.} else {covariance}
 
+}
+
+pub fn std_dev(input: &Vec<f64>) -> f64 {
+
+    let mean = mean(input);
+
+    let std_dev = (input.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / (input.len() as f64 - 1.).max(1.)).sqrt();
+
+    if std_dev.is_nan() {0.} else {std_dev}
 }
 
 fn pearsonr(vec1:&Vec<f64>,vec2:&Vec<f64>) -> f64 {
 
     if vec1.len() != vec2.len() {
-        panic!("Tried to compute covariance for unequal length vectors: {}, {}",vec1.len(),vec2.len());
+        panic!("Tried to compute correlation for unequal length vectors: {}, {}",vec1.len(),vec2.len());
     }
 
-    0.
+    let mean1: f64 = mean(vec1);
+    let mean2: f64 = mean(vec2);
+
+    let dev1: Vec<f64> = vec1.iter().map(|x| (x - mean1)).collect();
+    let dev2: Vec<f64> = vec2.iter().map(|x| (x - mean2)).collect();
+
+    let covariance = dev1.iter().zip(dev2.iter()).map(|(x,y)| x * y).sum::<f64>() / (vec1.len() as f64 - 1.);
+
+    let std_dev1 = (dev1.iter().map(|x| x.powi(2)).sum::<f64>() / (vec1.len() as f64 - 1.).max(1.)).sqrt();
+    let std_dev2 = (dev2.iter().map(|x| x.powi(2)).sum::<f64>() / (vec2.len() as f64 - 1.).max(1.)).sqrt();
+
+    // println!("{},{}", std_dev1,std_dev2);
+
+    let r = covariance / (std_dev1*std_dev2);
+
+    if r.is_nan() {0.} else {r}
+
 }
 
 mod manual_testing {
@@ -1106,6 +1133,36 @@ pub mod primary_testing {
     #[should_panic]
     fn test_command_wrong() {
         Command::parse("abc");
+    }
+
+    #[test]
+    fn test_matrix_flip() {
+        let mtx1 = vec![
+            vec![0,1,2],
+            vec![3,4,5],
+            vec![6,7,8]
+        ];
+
+        let mtx2 = vec![
+            vec![0,3,6],
+            vec![1,4,7],
+            vec![2,5,8]
+        ];
+
+        assert_eq!(matrix_flip(&mtx1),mtx2);
+
+    }
+
+    #[test]
+    fn test_pearsonr() {
+        let vec1 = vec![1.,2.,3.,4.,5.];
+        let vec2 = vec![2.,3.,4.,5.,6.];
+
+        println!("{:?}",pearsonr(&vec1,&vec2));
+
+        if (pearsonr(&vec1,&vec2)-1.) > 0.00001 {
+            panic!("Correlation error")
+        }
     }
 
     // #[test]

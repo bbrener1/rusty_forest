@@ -39,9 +39,9 @@ impl TreeThreadPool{
             for i in 0..(processors/20) {
 
                 println!("Spawning tree pool worker");
-                println!("Prototype tree has {} threads", processors/(processors/20));
+                println!("Prototype tree has {} threads", processors/(processors/30));
 
-                workers.push(Worker::new(i,prototype.pool_switch_clone(processors/(processors/20)),samples_per_tree,input_features,output_features, worker_receiver_channel.clone()))
+                workers.push(Worker::new(i,prototype.pool_switch_clone(processors/(processors/30)),samples_per_tree,input_features,output_features, worker_receiver_channel.clone()))
 
             }
         }

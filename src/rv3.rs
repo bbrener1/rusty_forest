@@ -641,6 +641,19 @@ impl<T: Borrow<[Node]> + BorrowMut<[Node]> + Index<usize,Output=Node> + IndexMut
         }
     }
 
+    fn cov(&self) -> Option<f64> {
+
+        let median = self.median();
+        let mad = self.mad();
+
+        if self.len() < 2 || self.median() == 0. {
+            None
+        }
+        else {
+            Some(mad/median)
+        }
+    }
+
     #[inline]
     pub fn left_to_right(&self) -> Vec<usize> {
         GRVCrawler::new(self, self.nodes[self.raw_len()].next).take(self.len()).collect()

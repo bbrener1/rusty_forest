@@ -14,6 +14,7 @@ use rank_table::RankTable;
 use tree::PredictiveTree;
 use boosted_tree_thread_pool::BoostedTreeThreadPool;
 use boosted_tree_thread_pool::BoostedMessage;
+use node::StrippedNode;
 use std::sync::mpsc;
 use DropMode;
 use PredictionMode;
@@ -22,6 +23,7 @@ use sub_matrix;
 use mtx_dim;
 use tsv_format;
 use Parameters;
+use pearsonr;
 
 pub struct BoostedForest {
     leaf_size: usize,
@@ -61,8 +63,8 @@ impl BoostedForest {
 
         let sample_names = parameters.sample_names.clone().unwrap_or((0..dimensions.1).map(|x| x.to_string()).collect());
 
-        let feature_similarity_matrix = vec![vec![0.;dimensions.0];dimensions.0];
-        let cell_coocurrence_matrix = vec![vec![0.;dimensions.1];dimensions.1];
+        let feature_similarity_matrix = vec![vec![1.;dimensions.0];dimensions.0];
+        let cell_coocurrence_matrix = vec![vec![1.;dimensions.1];dimensions.1];
 
         let report_string = format!("{}.0",report_address).to_string();
 
@@ -102,7 +104,9 @@ impl BoostedForest {
 
             self.error_matrix = sub_matrix(&self.counts, &matrix_flip(&epoch_predictions));
 
-            println!("Error matrix dimensions:{:?}",mtx_dim(&self.error_matrix));
+            self.update_similarity();
+
+            // println!("Error matrix dimensions:{:?}",mtx_dim(&self.error_matrix));
 
         }
 
@@ -201,8 +205,8 @@ impl BoostedForest {
 
         let mut input_features = Vec::with_capacity(input_draws);
 
-        for i in 0..input_draws {
-            let feature_index = weighted_sampling(1, &self.features(), &input_feature_weights, false).1[0];
+        for _ in 0..input_draws {
+            let feature_index = weighted_sampling(1, &self.features(), &input_feature_weights, true).1[0];
             input_feature_weights =
                 input_feature_weights
                 .iter()
@@ -220,7 +224,25 @@ impl BoostedForest {
 
         println!("Inputs drawn");
 
-        let output_features = weighted_sampling(output_draws, &self.features(), &output_feature_weights, false).0.iter().cloned().collect();
+        let mut output_features = Vec::with_capacity(output_draws);
+
+        for _ in 0..output_draws {
+            let feature_index = weighted_sampling(1, &self.features(), &output_feature_weights, true).1[0];
+            output_feature_weights =
+                output_feature_weights
+                .iter()
+                .zip(
+                    self.feature_similarity_matrix[feature_index]
+                    .iter()
+                )
+                .map(|(x,y)| x * (1. + (y.abs()/2.)))
+                .collect();
+            output_feature_weights[feature_index] = 0.;
+
+            output_features.push(self.features()[feature_index].clone())
+        }
+
+        // let output_features = weighted_sampling(output_draws, &self.features(), &output_feature_weights, false).0.iter().cloned().collect();
 
         println!("Outputs drawn");
 
@@ -296,6 +318,20 @@ impl BoostedForest {
         &self.sample_names
     }
 
+    fn update_similarity(&mut self) {
+
+        let nodes: Vec<&StrippedNode> = self.predictive_trees.iter().flat_map(|x| x.crawl_nodes()).collect();
+
+        let feature_map = self.feature_map();
+
+        let local_gains: Vec<Vec<(&String,f64)>> = nodes.iter().map(|node| node.features().iter().zip(node.local_gains.as_ref().unwrap_or(&vec![]).iter().cloned()).collect()).collect();
+
+        self.feature_similarity_matrix = incomplete_correlation_matrix(local_gains, feature_map);
+
+        println!("similarity: {:?}", self.feature_similarity_matrix);
+
+    }
+
 }
 
 
@@ -314,18 +350,24 @@ pub fn weighted_sampling<T: Clone>(draws: usize, samples: &Vec<T>, weights: &Vec
     let mut weight_sum: f64 = weights.iter().sum();
 
     // println!("Initiated sampling");
+    println!("weights:{:?}", weights);
 
     if replacement {
 
         let mut weighted_choices: Vec<f64> = (0..draws).map(|_| rng.gen_range::<f64>(0.,weight_sum)).collect();
         weighted_choices.sort_unstable_by(|a,b| a.partial_cmp(&b).unwrap_or(Ordering::Greater));
 
+        // println!("sum: {}", weight_sum);
+        // println!("choices: {:?}", weighted_choices);
+
         let mut descending_weight = weight_sum;
 
-        for element in weights.iter().rev() {
+        for (i,element) in weights.iter().enumerate() {
             descending_weight -= *element;
+            // println!("descending:{}",descending_weight);
             while let Some(choice) = weighted_choices.pop() {
                 if choice > descending_weight {
+                    println!("choice:{}",choice);
 
                     if weighted_choices.len()%1000 == 0 {
                         if weighted_choices.len() > 0 {
@@ -333,7 +375,8 @@ pub fn weighted_sampling<T: Clone>(draws: usize, samples: &Vec<T>, weights: &Vec
                         }
                     }
 
-                    drawn_indecies.push(weighted_choices.len());
+                    drawn_indecies.push(i);
+                    drawn_samples.push(samples[i].clone());
                 }
                 else {
                     weighted_choices.push(choice);
@@ -366,14 +409,19 @@ pub fn weighted_sampling<T: Clone>(draws: usize, samples: &Vec<T>, weights: &Vec
             let mut random_index = rng.gen_range::<usize>(0,local_weights.len());
             let mut current_draw = local_weights[random_index];
 
-            while accumulator <= maximum_weight.1 {
-                // println!("acc:{}",accumulator);
-                accumulator += current_draw.1;
+            // println!("max:{:?}", maximum_weight);
+
+            while accumulator < maximum_weight.1 {
                 random_index = rng.gen_range::<usize>(0,local_weights.len());
                 current_draw = local_weights[random_index];
+                accumulator += current_draw.1;
+                // println!("acc:{}",accumulator);
+                // println!("curr: {:?}", current_draw);
             }
 
             local_weights.swap_remove(random_index);
+
+            // println!("loc: {:?}", local_weights);
 
             if maximum_weight.0 == current_draw.0 {
                 maximum_weight = local_weights.iter().max_by(|a,b| a.partial_cmp(&b).unwrap_or(Ordering::Greater)).map(|x| x.clone()).unwrap_or((0,0.));
@@ -393,54 +441,129 @@ pub fn weighted_sampling<T: Clone>(draws: usize, samples: &Vec<T>, weights: &Vec
 
     }
 
+    println!("drawn: {:?}",drawn_indecies);
+
     (drawn_samples,drawn_indecies)
 
 }
 
-// pub fn weighted_sampling<'a,T>(draws: usize, samples: &'a Vec<T>, weights: &Vec<f64>,replacement:bool) -> (Vec<&'a T>,Vec<usize>) {
-//
-//     let mut rng = thread_rng();
-//
-//     let mut exclusion_set: HashSet<usize> = HashSet::new();
-//
-//     let mut drawn_samples = Vec::with_capacity(draws);
-//     let mut drawn_indecies = Vec::with_capacity(draws);
-//
-//     if replacement {
-//
-//         for i in 0..draws {
-//
-//             let weighted_choice = rng.gen_range::<f64>(0.,weights.iter().sum());
-//
-//             let (index,sum) = weights.iter().enumerate().fold( (0,0.), |mut acc,x| {if acc.1 <= weighted_choice {acc.0 = x.0}; (acc.0,acc.1 + x.1) });
-//
-//             drawn_samples.push(&samples[index]);
-//             drawn_indecies.push(index);
-//         }
-//
-//     }
-//
-//     else {
-//
-//         let mut local_samples: Vec<&T> = samples.iter().collect();
-//         let mut local_weights: Vec<&f64> = weights.iter().collect();
-//
-//         for i in 0..draws {
-//
-//             let weighted_choice = rng.gen_range::<f64>(0.,local_weights.iter().cloned().sum());
-//
-//             let (index,sum) = local_weights.iter().enumerate().fold( (0,0.), |mut acc,x| {if acc.1 <= weighted_choice {acc.0 = x.0}; (acc.0, acc.1 + *x.1) });
-//
-//             drawn_samples.push(local_samples[index]);
-//             drawn_indecies.push(index);
-//
-//             local_samples.remove(index);
-//             local_weights.remove(index);
-//         }
-//
-//     }
-//
-//
-//     (drawn_samples,drawn_indecies)
-//
-// }
+pub fn incomplete_correlation_matrix(values:Vec<Vec<(&String,f64)>>,map:HashMap<String,usize>) -> Vec<Vec<f64>> {
+
+    println!("{:?}",values);
+    println!("{:?}",map);
+
+
+    let mut mtx: Vec<Vec<Option<f64>>> = vec![vec![None; map.len()];values.len()];
+
+    for (i, top_vector) in values.iter().enumerate() {
+        for (feature,value) in top_vector {
+            mtx[i][map[*feature]] = Some(*value);
+        }
+    }
+
+    println!("{:?}",mtx);
+
+    let mtx_t = matrix_flip(&mtx);
+
+    // println!("{:?}",mtx_t);
+
+    let features: Vec<&String> = map.keys().collect();
+
+    let mut correlations = vec![vec![1.;features.len()];features.len()];
+
+    for f1 in &features {
+        for f2 in &features {
+            let pairs: Vec<(f64,f64)> = mtx_t[map[*f1]].iter()
+            .zip(mtx_t[map[*f2]].iter())
+            .filter_map(|(f1vo,f2vo)| {
+                if let (Some(f1v),Some(f2v)) = (f1vo,f2vo) {
+                    Some((*f1v,*f2v))
+                }
+                else { None }
+            })
+            .collect();
+
+            // println!("f1: {}, f2: {}",f1,f2);
+            let (f1v,f2v): (Vec<f64>,Vec<f64>) = pairs.into_iter().unzip();
+            // println!("{:?},{:?}", f1v,f2v);
+
+            correlations[map[*f1]][map[*f2]] = pearsonr(&f1v,&f2v);
+
+            // println!("{:?}",pearsonr(&f1v,&f2v))
+        }
+
+
+    }
+
+    println!("{:?}", correlations);
+
+    correlations
+
+}
+
+
+#[cfg(test)]
+mod raw_vector_tests {
+
+    use super::*;
+
+    #[test]
+    fn test_weighted_sampling_with_replacement() {
+
+        let samples = &vec!["a","b","c","d","e","f","g","h","i","j"];
+
+        let weights =  &vec![1.,2.,3.,4.,5.,6.,7.,8.,9.,10.];
+
+        let mut draws: Vec<&str> = Vec::with_capacity(999);
+
+        for _ in 0..333 {
+            draws.extend(weighted_sampling(3, samples, weights, true).0.iter());
+        }
+
+        println!("{:?}",draws);
+
+        panic!();
+
+    }
+
+    #[test]
+    fn test_weighted_sampling_without_replacement() {
+
+        let samples = &vec!["a","b","c","d","e","f","g","h","i","j"];
+
+        let weights =  &vec![1.,2.,3.,4.,5.,6.,7.,8.,9.,10.];
+
+        let mut draws: Vec<&str> = Vec::with_capacity(999);
+
+        for _ in 0..333 {
+            draws.extend(weighted_sampling(3, samples, weights, false).0.iter());
+        }
+
+        println!("{:?}",draws);
+
+        panic!();
+
+    }
+
+
+    // #[test]
+    // fn test_incomplete_similarity_matrix() {
+    //
+    //     let mtx = vec![
+    //         vec![("a",1.),("b",2.),("d",5.)],
+    //         vec![("b",2.),("c",3.),("d",5.)],
+    //         vec![("a",2.),("b",4.),("c",5.),("d",5.)]
+    //     ];
+    //
+    //     println!("mtx:");
+    //     println!("{:?}",mtx);
+    //
+    //     let map: HashMap<String,usize> = vec![("a",0),("b",1),("c",2),("d",3)].iter().map(|(f,i)| (f.to_string(),*i)).collect();
+    //
+    //     println!("{:?}" , incomplete_correlation_matrix(mtx, map));
+    //
+    //     panic!()
+    //
+    // }
+
+}
