@@ -287,7 +287,7 @@ impl BoostedForest {
 
         println!("Error cells drawn");
 
-        let mut output_feature_weights = vec![0.;self.features().len()];
+        let mut output_feature_weights = vec![1.;self.features().len()];
 
         for (j,cell) in error_cells.iter().enumerate() {
             output_feature_weights[cell.0] += 1.;
