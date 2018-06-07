@@ -425,10 +425,11 @@ pub fn weighted_sampling<T: Clone>(draws: usize, samples: &Vec<T>, weights: &Vec
 
         let mut local_weights: Vec<(usize,f64)> = weights.iter().cloned().enumerate().collect();
 
-        // println!("sum: {}", weight_sum);
-        // println!("choices: {:?}", weighted_choices);
+        println!("sum: {}", weight_sum);
 
         for _ in 0..draws {
+
+            println!("sum: {}", weight_sum);
 
             let i = weighted_choice(&local_weights, weight_sum, &mut rng);
 
