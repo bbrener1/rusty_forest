@@ -425,29 +425,54 @@ pub fn weighted_sampling<T: Clone>(draws: usize, samples: &Vec<T>, weights: &Vec
 
     else {
 
-        let mut local_weights: Vec<(usize,f64)> = weights.iter().cloned().enumerate().collect();
 
-        // println!("sum: {}", weight_sum);
+        let mut local_weights: Vec<(usize,f64)> = weights.iter().cloned().enumerate().collect();
+        // println!("weight debug: {}", local_weights.len());
+        // println!("weights: {:?}", local_weights.iter().take(10).collect::<Vec<&(usize,f64)>>());
+        let mut maximum_weight = local_weights.iter().max_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Greater)).map(|x| x.clone()).unwrap_or((0,0.));
+        maximum_weight = (maximum_weight.0,maximum_weight.1 * 2.);
 
         for i in 0..draws {
 
-            if i%100 == 0 {
-                println!("{}: {}", i, weight_sum);
+            // if i%1000 == 0 {
+            //     if i > 0 {
+            //         println!("{}",i);
+            //     }
+            // }
+            if weight_sum == 0. {
+                panic!("No weighted samples remaining");
             }
 
-            let draw = weighted_choice(&local_weights, weight_sum, &mut rng);
+            let mut accumulator = 0.;
 
-            let drawn_index = local_weights[draw].0;
+            let mut random_index = rng.gen_range::<usize>(0,local_weights.len());
+            let mut current_draw = local_weights[random_index];
 
-            drawn_samples.push(samples[drawn_index].clone());
-            drawn_indecies.push(drawn_index);
+            // println!("max:{:?}", maximum_weight);
 
-            weight_sum -= local_weights[draw].1;
+            while accumulator < maximum_weight.1 {
+                random_index = rng.gen_range::<usize>(0,local_weights.len());
+                current_draw = local_weights[random_index];
+                accumulator += current_draw.1;
+                // println!("acc:{}",accumulator);
+                // println!("curr: {:?}", current_draw);
+            }
 
-            local_weights.swap_remove(draw);
+            local_weights.swap_remove(random_index);
+
+            // println!("loc: {:?}", local_weights);
+
+            if maximum_weight.0 == current_draw.0 {
+                maximum_weight = local_weights.iter().max_by(|a,b| a.partial_cmp(&b).unwrap_or(Ordering::Greater)).map(|x| x.clone()).unwrap_or((0,0.));
+            }
+
+            weight_sum -= current_draw.1;
+
+            drawn_indecies.push(current_draw.0);
+            drawn_samples.push(samples[current_draw.0].clone());
+
+
         }
-
-
 
     }
 
@@ -555,6 +580,24 @@ mod raw_vector_tests {
 
     }
 
+    #[test]
+    fn test_weighted_sampling_without_replacement_subtle() {
+
+        let samples = &vec!["a","b","c"];
+
+        let weights =  &vec![40.,50.,25.];
+
+        let mut draws: Vec<&str> = Vec::with_capacity(1000);
+
+        for _ in 0..1000 {
+            draws.extend(weighted_sampling(1, samples, weights, false).0.iter());
+        }
+
+        println!("{:?}",draws);
+
+        panic!();
+
+    }
 
     // #[test]
     // fn test_incomplete_similarity_matrix() {
