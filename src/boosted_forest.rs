@@ -271,6 +271,8 @@ impl BoostedForest {
         println!("Flattened the cells");
         println!("{}", flattened_cells.len());
 
+        println!("Drawing {}", draws);
+
         let picks = weighted_sampling(draws, &flattened_cells, &flattened_cells.iter().map(|x| x.2.abs()).collect(), false).0;
 
         println!("Done drawing cells");
@@ -425,22 +427,24 @@ pub fn weighted_sampling<T: Clone>(draws: usize, samples: &Vec<T>, weights: &Vec
 
         let mut local_weights: Vec<(usize,f64)> = weights.iter().cloned().enumerate().collect();
 
-        println!("sum: {}", weight_sum);
+        // println!("sum: {}", weight_sum);
 
-        for _ in 0..draws {
+        for i in 0..draws {
 
-            println!("sum: {}", weight_sum);
+            if i%100 == 0 {
+                println!("{}: {}", i, weight_sum);
+            }
 
-            let i = weighted_choice(&local_weights, weight_sum, &mut rng);
+            let draw = weighted_choice(&local_weights, weight_sum, &mut rng);
 
-            let drawn_index = local_weights[i].0;
+            let drawn_index = local_weights[draw].0;
 
             drawn_samples.push(samples[drawn_index].clone());
             drawn_indecies.push(drawn_index);
 
-            weight_sum -= local_weights[i].1;
+            weight_sum -= local_weights[draw].1;
 
-            local_weights.swap_remove(i);
+            local_weights.swap_remove(draw);
         }
 
 
