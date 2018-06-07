@@ -437,6 +437,8 @@ pub fn weighted_sampling<T: Clone>(draws: usize, samples: &Vec<T>, weights: &Vec
             drawn_samples.push(samples[drawn_index].clone());
             drawn_indecies.push(drawn_index);
 
+            weight_sum -= local_weights[i].1;
+
             local_weights.swap_remove(i);
         }
 
