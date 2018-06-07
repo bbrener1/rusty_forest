@@ -203,16 +203,16 @@ impl BoostedForest {
         ///
 
         println!("Drawing features");
-        println!("{},{}",input_draws,output_draws);
+        // println!("{},{}",input_draws,output_draws);
 
         let mut input_features = Vec::with_capacity(input_draws);
 
         for _ in 0..input_draws {
-            println!("weights: {:?},{:?}", input_feature_weights,output_feature_weights);
+            // println!("weights: {:?},{:?}", input_feature_weights,output_feature_weights);
 
             let feature_index = weighted_sampling(1, &self.features(), &input_feature_weights, false).1[0];
 
-            println!("fi:{}", feature_index);
+            // println!("fi:{}", feature_index);
 
             input_feature_weights =
                 input_feature_weights
@@ -235,11 +235,11 @@ impl BoostedForest {
 
         for _ in 0..output_draws {
 
-            println!("weights: {:?},{:?}", input_feature_weights,output_feature_weights);
+            // println!("weights: {:?},{:?}", input_feature_weights,output_feature_weights);
 
             let feature_index = weighted_sampling(1, &self.features(), &output_feature_weights, false).1[0];
 
-            println!("fi:{}", feature_index);
+            // println!("fi:{}", feature_index);
 
             output_feature_weights =
                 output_feature_weights
