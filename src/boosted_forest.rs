@@ -20,6 +20,7 @@ use DropMode;
 use PredictionMode;
 use matrix_flip;
 use sub_matrix;
+use mean;
 use mtx_dim;
 use tsv_format;
 use Parameters;
@@ -82,7 +83,7 @@ impl BoostedForest {
 
             feature_similarity_matrix: feature_similarity_matrix,
             cell_coocurrence_matrix: cell_coocurrence_matrix,
-            error_matrix: counts.clone(),
+            error_matrix: error_matrix,
 
             predictive_trees: Vec::new(),
             dimensions: dimensions,
@@ -276,7 +277,7 @@ impl BoostedForest {
                     self.feature_similarity_matrix[feature_index]
                     .iter()
                 )
-                .map(|(x,y)| x * (1. + (y.abs()/2.)))
+                .map(|(x,y)| x * (1. + (y/2.)))
                 .collect();
             output_feature_weights[feature_index] = 0.;
 
@@ -548,6 +549,29 @@ pub fn incomplete_correlation_matrix(values:Vec<Vec<(&String,f64)>>,map:HashMap<
     let mtx_t = matrix_flip(&mtx);
 
     // println!("{:?}",mtx_t);
+
+    let means: Vec<f64> = mtx_t.iter()
+        .map(|feature| {
+            mean(&feature.iter()
+                .filter_map(|sample| { *sample })
+                .collect()
+            )})
+        .collect();
+
+    let deviations: Vec<Vec<Option<f64>>> =
+        mtx_t.iter()
+        .enumerate()
+        .map(|(i,feature)| {
+            feature.iter()
+                .map(|opt| {
+                    opt.map(|sample| {
+                        sample - means[i]
+                    })
+                })
+                .collect()
+        })
+        .collect();
+
 
     let features: Vec<&String> = map.keys().collect();
 
