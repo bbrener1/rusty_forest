@@ -1054,6 +1054,16 @@ fn covariance(vec1:&Vec<f64>,vec2:&Vec<f64>) -> f64 {
 
 }
 
+pub fn variance(input: &Vec<f64>) -> f64 {
+
+    let mean = mean(input);
+
+    let var = input.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / (input.len() as f64 - 1.).max(1.);
+
+    if var.is_nan() {0.} else {var}
+}
+
+
 pub fn std_dev(input: &Vec<f64>) -> f64 {
 
     let mean = mean(input);

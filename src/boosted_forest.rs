@@ -21,6 +21,7 @@ use PredictionMode;
 use matrix_flip;
 use sub_matrix;
 use mean;
+use variance;
 use mtx_dim;
 use tsv_format;
 use Parameters;
@@ -558,6 +559,14 @@ pub fn incomplete_correlation_matrix(values:Vec<Vec<(&String,f64)>>,map:HashMap<
             )})
         .collect();
 
+    let variances: Vec<f64> = mtx_t.iter()
+        .map(|feature| {
+            variance(&feature.iter()
+                .filter_map(|sample| { *sample })
+                .collect()
+            )})
+        .collect();
+
     let deviations: Vec<Vec<Option<f64>>> =
         mtx_t.iter()
         .enumerate()
@@ -579,27 +588,58 @@ pub fn incomplete_correlation_matrix(values:Vec<Vec<(&String,f64)>>,map:HashMap<
 
     for f1 in &features {
         for f2 in &features {
-            let pairs: Vec<(f64,f64)> = mtx_t[map[*f1]].iter()
-            .zip(mtx_t[map[*f2]].iter())
-            .filter_map(|(f1vo,f2vo)| {
-                if let (Some(f1v),Some(f2v)) = (f1vo,f2vo) {
-                    Some((*f1v,*f2v))
-                }
-                else { None }
-            })
-            .collect();
 
+            let f1i = map[*f1];
+            let f2i = map[*f2];
+
+            let deviation_multiplied_mean: f64 = mean(
+                &deviations[f1i].iter()
+                    .zip(deviations[f2i].iter())
+                    .filter_map(|(f1do,f2do)| {
+                        if let (Some(f1d),Some(f2d)) = (f1do,f2do) {
+                            Some(*f1d * *f2d)
+                        }
+                        else { None }
+                    })
+                    .collect()
+            );
             // println!("f1: {}, f2: {}",f1,f2);
-            let (f1v,f2v): (Vec<f64>,Vec<f64>) = pairs.into_iter().unzip();
             // println!("{:?},{:?}", f1v,f2v);
 
-            correlations[map[*f1]][map[*f2]] = pearsonr(&f1v,&f2v);
+            let correlation = deviation_multiplied_mean / (variances[f1i] * variances[f2i]);
+
+
+            correlations[f1i][f2i] = correlation;
 
             // println!("{:?}",pearsonr(&f1v,&f2v))
         }
 
 
     }
+
+    // for f1 in &features {
+    //     for f2 in &features {
+    //         let pairs: Vec<(f64,f64)> = mtx_t[map[*f1]].iter()
+    //         .zip(mtx_t[map[*f2]].iter())
+    //         .filter_map(|(f1vo,f2vo)| {
+    //             if let (Some(f1v),Some(f2v)) = (f1vo,f2vo) {
+    //                 Some((*f1v,*f2v))
+    //             }
+    //             else { None }
+    //         })
+    //         .collect();
+    //
+    //         // println!("f1: {}, f2: {}",f1,f2);
+    //         let (f1v,f2v): (Vec<f64>,Vec<f64>) = pairs.into_iter().unzip();
+    //         // println!("{:?},{:?}", f1v,f2v);
+    //
+    //         correlations[map[*f1]][map[*f2]] = pearsonr(&f1v,&f2v);
+    //
+    //         // println!("{:?}",pearsonr(&f1v,&f2v))
+    //     }
+    //
+    //
+    // }
     //
     // println!("{:?}", correlations);
 
