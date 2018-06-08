@@ -19,7 +19,7 @@ use tree::PredictiveTree;
 use predict_thread_pool::PredictThreadPool;
 use predict_thread_pool::PredictionMessage;
 
-pub fn compact_predict(trees: &Vec<PredictiveTree>, counts: &Vec<Vec<f64>>, features: &HashMap<String,usize>, parameters: Arc<Parameters>) -> Vec<Vec<f64>> {
+pub fn compact_predict(trees: &[PredictiveTree], counts: &Vec<Vec<f64>>, features: &HashMap<String,usize>, parameters: Arc<Parameters>) -> Vec<Vec<f64>> {
     let mut predictions: Vec<Vec<f64>> = Vec::with_capacity(counts.len());
     let feature_intervals: Vec<Vec<(f64,f64,f64)>> = Vec::with_capacity(features.len());
     // println!("Predicting");

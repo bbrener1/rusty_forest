@@ -100,9 +100,11 @@ impl BoostedForest {
 
             let report_string = &[self.report_string.clone(),format!(".{}",i)].join("");
 
-            self.grow_epoch(parameters.clone(), i);
+            self.grow_epoch(parameters.clone(), report_string, i);
 
             let epoch_predictions = self.compact_predict(&self.counts, &self.feature_map(), parameters.clone(), report_string)?;
+
+            self.epoch_predict(&self.counts, &self.feature_map(), parameters.clone(), report_string)?;
 
             self.error_matrix = sub_matrix(&self.counts, &matrix_flip(&epoch_predictions));
 
@@ -115,7 +117,7 @@ impl BoostedForest {
         Ok(())
     }
 
-    pub fn grow_epoch (&mut self, parameters: Arc<Parameters> ,epoch:usize) {
+    pub fn grow_epoch (&mut self, parameters: Arc<Parameters>, report_string: &str ,epoch:usize) {
 
         println!("Initializing an epoch");
 
@@ -125,7 +127,7 @@ impl BoostedForest {
         let input_features_per_tree = parameters.input_features.unwrap_or(1);
         let samples_per_tree = parameters.sample_subsample.unwrap_or(1);
 
-        let (input_feature_weights, output_feature_weights, sample_weights) = self.draw_weights(output_features_per_tree * samples_per_tree);
+        let (input_feature_weights, output_feature_weights, sample_weights) = self.draw_weights(report_string);
 
         println!("Weights drawn");
 
@@ -166,6 +168,30 @@ impl BoostedForest {
 
     }
 
+    pub fn epoch_predict(&self,counts:&Vec<Vec<f64>>,feature_map: &HashMap<String,usize>,parameters: Arc<Parameters>,report_address: &str) -> Result<Vec<Vec<f64>>,Error> {
+
+        println!("Predicting:");
+
+        let predictions = compact_predict(&self.predictive_trees[self.predictive_trees.len().checked_sub(self.epoch_duration).unwrap_or(0)..],&matrix_flip(counts),feature_map,parameters);
+
+        let mut prediction_dump = OpenOptions::new().create(true).append(true).open([report_address,".e_prediction"].join("")).unwrap();
+        prediction_dump.write(&tsv_format(&predictions).as_bytes())?;
+        prediction_dump.write(b"\n")?;
+
+        let mut truth_dump = OpenOptions::new().create(true).append(true).open([report_address,".e_prediction_truth"].join("")).unwrap();
+        truth_dump.write(&tsv_format(&matrix_flip(&self.counts)).as_bytes())?;
+        truth_dump.write(b"\n")?;
+
+        let mut header_vec = vec!["";feature_map.len()];
+        for (f,i) in feature_map { header_vec[*i] = f; };
+        let header = tsv_format(&vec![header_vec]);
+
+        let mut prediction_header = OpenOptions::new().create(true).append(true).open([report_address,".e_prediction_header"].join("")).unwrap();
+        prediction_header.write(&header.as_bytes())?;
+        prediction_header.write(b"\n")?;
+
+        Ok(predictions)
+    }
 
     pub fn compact_predict(&self,counts:&Vec<Vec<f64>>,feature_map: &HashMap<String,usize>,parameters: Arc<Parameters>,report_address: &str) -> Result<Vec<Vec<f64>>,Error> {
 
@@ -281,7 +307,7 @@ impl BoostedForest {
     }
 
 
-    pub fn draw_weights(&self,cells:usize) -> (Vec<f64>,Vec<f64>,Vec<f64>) {
+    pub fn draw_weights(&self,report_address: &str) -> (Vec<f64>,Vec<f64>,Vec<f64>) {
 
         // println!("Drawing weights");
         //
@@ -295,11 +321,11 @@ impl BoostedForest {
         //     output_feature_weights[cell.0] += 1.;
         // };
 
-        let mut output_feature_weights = self.error_matrix.iter().map(|x| x.iter().map(|y| y.abs()).sum()).collect();
+        let mut output_feature_weights: Vec<f64> = self.error_matrix.iter().map(|x| x.iter().map(|y| y.abs()).sum()).collect();
 
         println!("Output feature weights drawn");
 
-        let input_feature_weights = {
+        let input_feature_weights: Vec<f64> = {
             self.counts
                 .iter()
                 .map(|x| x
@@ -319,9 +345,21 @@ impl BoostedForest {
 
         println!("Input feature weights drawn");
 
-        let sample_weights = matrix_flip(&self.error_matrix).iter().map(|x| x.iter().map(|y| y.abs()).sum()).collect();
+        let sample_weights: Vec<f64> = matrix_flip(&self.error_matrix).iter().map(|x| x.iter().map(|y| y.abs()).sum::<f64>()).collect();
 
         println!("Sample weights drawn");
+
+        let mut i_weight_dump = OpenOptions::new().create(true).append(true).open([report_address,".i_weights"].join("")).unwrap();
+        i_weight_dump.write(&tsv_format(&vec![input_feature_weights.clone()]).as_bytes()).expect("weight_reporting_error");
+        i_weight_dump.write(b"\n").expect("weight reporting error");
+
+        let mut o_weight_dump = OpenOptions::new().create(true).append(true).open([report_address,".o_weights"].join("")).unwrap();
+        o_weight_dump.write(&tsv_format(&vec![output_feature_weights.clone()]).as_bytes()).expect("weight reporting error");
+        o_weight_dump.write(b"\n").expect("weight reporting error");
+
+        let mut s_weight_dump = OpenOptions::new().create(true).append(true).open([report_address,".s_weights"].join("")).unwrap();
+        s_weight_dump.write(&tsv_format(&vec![sample_weights.clone()]).as_bytes()).expect("weight reporting error");
+        s_weight_dump.write(b"\n").expect("weight reporting error");
 
         (input_feature_weights,output_feature_weights,sample_weights)
 
@@ -342,6 +380,8 @@ impl BoostedForest {
         let feature_map = self.feature_map();
 
         let local_gains: Vec<Vec<(&String,f64)>> = nodes.iter().map(|node| node.features().iter().zip(node.local_gains.as_ref().unwrap_or(&vec![]).iter().cloned()).collect()).collect();
+
+        println!("{:?}",local_gains);
 
         self.feature_similarity_matrix = incomplete_correlation_matrix(local_gains, feature_map);
 
@@ -498,11 +538,11 @@ pub fn incomplete_correlation_matrix(values:Vec<Vec<(&String,f64)>>,map:HashMap<
         }
     }
 
-    // println!("{:?}",mtx);
+    println!("{:?}",mtx);
 
     let mtx_t = matrix_flip(&mtx);
 
-    // println!("{:?}",mtx_t);
+    println!("{:?}",mtx_t);
 
     let features: Vec<&String> = map.keys().collect();
 
@@ -520,9 +560,9 @@ pub fn incomplete_correlation_matrix(values:Vec<Vec<(&String,f64)>>,map:HashMap<
             })
             .collect();
 
-            // println!("f1: {}, f2: {}",f1,f2);
+            println!("f1: {}, f2: {}",f1,f2);
             let (f1v,f2v): (Vec<f64>,Vec<f64>) = pairs.into_iter().unzip();
-            // println!("{:?},{:?}", f1v,f2v);
+            println!("{:?},{:?}", f1v,f2v);
 
             correlations[map[*f1]][map[*f2]] = pearsonr(&f1v,&f2v);
 
@@ -532,7 +572,7 @@ pub fn incomplete_correlation_matrix(values:Vec<Vec<(&String,f64)>>,map:HashMap<
 
     }
 
-    // println!("{:?}", correlations);
+    println!("{:?}", correlations);
 
     correlations
 
