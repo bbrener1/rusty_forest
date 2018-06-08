@@ -68,7 +68,7 @@ impl BoostedForest {
         let feature_similarity_matrix = vec![vec![1.;dimensions.0];dimensions.0];
         let cell_coocurrence_matrix = vec![vec![1.;dimensions.1];dimensions.1];
 
-        let error_matrix = vec![vec![1.;dimensions.1];dimensions.1];
+        let error_matrix = vec![vec![1.;dimensions.1];dimensions.0];
 
         let report_string = format!("{}.0",report_address).to_string();
 
