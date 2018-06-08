@@ -66,6 +66,8 @@ impl BoostedForest {
         let feature_similarity_matrix = vec![vec![1.;dimensions.0];dimensions.0];
         let cell_coocurrence_matrix = vec![vec![1.;dimensions.1];dimensions.1];
 
+        let error_matrix = vec![vec![1.;dimensions.1];dimensions.1];q
+
         let report_string = format!("{}.0",report_address).to_string();
 
         let prototype_table = RankTable::new(&counts,&feature_names,&sample_names,parameters.clone());
@@ -381,7 +383,8 @@ impl BoostedForest {
 
         let local_gains: Vec<Vec<(&String,f64)>> = nodes.iter().map(|node| node.features().iter().zip(node.local_gains.as_ref().unwrap_or(&vec![]).iter().cloned()).collect()).collect();
 
-        println!("{:?}",local_gains);
+        // println!("{:?}",local_gains);
+        println!("Local gains gathered");
 
         self.feature_similarity_matrix = incomplete_correlation_matrix(local_gains, feature_map);
 
@@ -526,6 +529,8 @@ pub fn weighted_sampling<T: Clone>(draws: usize, samples: &Vec<T>, weights: &Vec
 
 pub fn incomplete_correlation_matrix(values:Vec<Vec<(&String,f64)>>,map:HashMap<String,usize>) -> Vec<Vec<f64>> {
 
+    println!("Computing incomplete matrix");
+
     // println!("{:?}",values);
     // println!("{:?}",map);
 
@@ -538,11 +543,11 @@ pub fn incomplete_correlation_matrix(values:Vec<Vec<(&String,f64)>>,map:HashMap<
         }
     }
 
-    println!("{:?}",mtx);
+    // println!("{:?}",mtx);
 
     let mtx_t = matrix_flip(&mtx);
 
-    println!("{:?}",mtx_t);
+    // println!("{:?}",mtx_t);
 
     let features: Vec<&String> = map.keys().collect();
 
@@ -560,9 +565,9 @@ pub fn incomplete_correlation_matrix(values:Vec<Vec<(&String,f64)>>,map:HashMap<
             })
             .collect();
 
-            println!("f1: {}, f2: {}",f1,f2);
+            // println!("f1: {}, f2: {}",f1,f2);
             let (f1v,f2v): (Vec<f64>,Vec<f64>) = pairs.into_iter().unzip();
-            println!("{:?},{:?}", f1v,f2v);
+            // println!("{:?},{:?}", f1v,f2v);
 
             correlations[map[*f1]][map[*f2]] = pearsonr(&f1v,&f2v);
 
@@ -571,8 +576,8 @@ pub fn incomplete_correlation_matrix(values:Vec<Vec<(&String,f64)>>,map:HashMap<
 
 
     }
-
-    println!("{:?}", correlations);
+    //
+    // println!("{:?}", correlations);
 
     correlations
 
