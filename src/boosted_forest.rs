@@ -21,7 +21,7 @@ use PredictionMode;
 use matrix_flip;
 use sub_matrix;
 use mean;
-use variance;
+use std_dev;
 use mtx_dim;
 use tsv_format;
 use Parameters;
@@ -558,14 +558,14 @@ pub fn incomplete_correlation_matrix(values:Vec<Vec<(&String,f64)>>,map:HashMap<
                 .collect()
             )})
         .collect();
-
-    let variances: Vec<f64> = mtx_t.iter()
-        .map(|feature| {
-            variance(&feature.iter()
-                .filter_map(|sample| { *sample })
-                .collect()
-            )})
-        .collect();
+    //
+    // let variances: Vec<f64> = mtx_t.iter()
+    //     .map(|feature| {
+    //         variance(&feature.iter()
+    //             .filter_map(|sample| { *sample })
+    //             .collect()
+    //         )})
+    //     .collect();
 
     let deviations: Vec<Vec<Option<f64>>> =
         mtx_t.iter()
@@ -592,21 +592,29 @@ pub fn incomplete_correlation_matrix(values:Vec<Vec<(&String,f64)>>,map:HashMap<
             let f1i = map[*f1];
             let f2i = map[*f2];
 
-            let deviation_multiplied_mean: f64 = mean(
-                &deviations[f1i].iter()
-                    .zip(deviations[f2i].iter())
-                    .filter_map(|(f1do,f2do)| {
-                        if let (Some(f1d),Some(f2d)) = (f1do,f2do) {
-                            Some(*f1d * *f2d)
-                        }
-                        else { None }
-                    })
-                    .collect()
-            );
-            // println!("f1: {}, f2: {}",f1,f2);
-            // println!("{:?},{:?}", f1v,f2v);
+            let mut deviation_multiplied_sum = 0.;
+            let mut f1v = Vec::with_capacity(mtx.len());
+            let mut f2v = Vec::with_capacity(mtx.len());
 
-            let correlation = deviation_multiplied_mean / (variances[f1i] * variances[f2i]);
+            for f1do in &deviations[f1i] {
+                for f2do in &deviations[f2i] {
+                    if let (Some(f1d),Some(f2d)) = (f1do,f2do) {
+
+                        deviation_multiplied_sum += f1d*f2d;
+
+                        f1v.push(*f1d);
+                        f2v.push(*f2d);
+                    }
+                }
+            }
+
+            let deviation_multiplied_mean: f64 = deviation_multiplied_sum/(f1v.len() as f64);
+
+            let f1std = std_dev(&f1v);
+            let f2std = std_dev(&f2v);
+
+
+            let correlation = deviation_multiplied_mean / (f1std * f2std);
 
 
             correlations[f1i][f2i] = correlation;
@@ -616,6 +624,38 @@ pub fn incomplete_correlation_matrix(values:Vec<Vec<(&String,f64)>>,map:HashMap<
 
 
     }
+
+
+    // for f1 in &features {
+    //     for f2 in &features {
+    //
+    //         let f1i = map[*f1];
+    //         let f2i = map[*f2];
+    //
+    //         let deviation_multiplied_mean: f64 = mean(
+    //             &deviations[f1i].iter()
+    //                 .zip(deviations[f2i].iter())
+    //                 .filter_map(|(f1do,f2do)| {
+    //                     if let (Some(f1d),Some(f2d)) = (f1do,f2do) {
+    //                         Some(*f1d * *f2d)
+    //                     }
+    //                     else { None }
+    //                 })
+    //                 .collect()
+    //         );
+    //         // println!("f1: {}, f2: {}",f1,f2);
+    //         // println!("{:?},{:?}", f1v,f2v);
+    //
+    //         let correlation = deviation_multiplied_mean / (variances[f1i] * variances[f2i]);
+    //
+    //
+    //         correlations[f1i][f2i] = correlation;
+    //
+    //         // println!("{:?}",pearsonr(&f1v,&f2v))
+    //     }
+    //
+    //
+    // }
 
     // for f1 in &features {
     //     for f2 in &features {
