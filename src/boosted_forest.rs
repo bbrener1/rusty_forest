@@ -551,37 +551,6 @@ pub fn incomplete_correlation_matrix(values:Vec<Vec<(&String,f64)>>,map:HashMap<
 
     // println!("{:?}",mtx_t);
 
-    let means: Vec<f64> = mtx_t.iter()
-        .map(|feature| {
-            mean(&feature.iter()
-                .filter_map(|sample| { *sample })
-                .collect()
-            )})
-        .collect();
-    //
-    // let variances: Vec<f64> = mtx_t.iter()
-    //     .map(|feature| {
-    //         variance(&feature.iter()
-    //             .filter_map(|sample| { *sample })
-    //             .collect()
-    //         )})
-    //     .collect();
-
-    let deviations: Vec<Vec<Option<f64>>> =
-        mtx_t.iter()
-        .enumerate()
-        .map(|(i,feature)| {
-            feature.iter()
-                .map(|opt| {
-                    opt.map(|sample| {
-                        sample - means[i]
-                    })
-                })
-                .collect()
-        })
-        .collect();
-
-
     let features: Vec<&String> = map.keys().collect();
 
     let mut correlations = vec![vec![1.;features.len()];features.len()];
@@ -592,33 +561,54 @@ pub fn incomplete_correlation_matrix(values:Vec<Vec<(&String,f64)>>,map:HashMap<
             let f1i = map[*f1];
             let f2i = map[*f2];
 
-            let mut deviation_multiplied_sum = 0.;
+            let mut multiplied_sum = 0.;
+            let mut f1s = 0.;
+            let mut f2s = 0.;
             let mut f1ss = 0.;
             let mut f2ss = 0.;
-            let mut overlap = 0.;
+            let mut len = 0.;
 
-            for f1do in &deviations[f1i] {
-                for f2do in &deviations[f2i] {
-                    if let (Some(f1d),Some(f2d)) = (f1do,f2do) {
+            for (f1vo,f2vo) in mtx_t[f1i].iter().zip(mtx_t[f2i].iter()) {
+                if let (Some(f1v),Some(f2v)) = (f1vo,f2vo) {
 
-                        deviation_multiplied_sum += f1d*f2d;
+                    println!("values:");
 
-                        f1ss += f1d.powi(2);
-                        f2ss += f2d.powi(2);
+                    println!("{:?}", (f1v,f2v));
 
-                        overlap += 1.;
-                    }
+                    multiplied_sum += f1v*f2v;
+
+                    println!("{:?}", f1v * f2v);
+
+
+                    f1s += f1v;
+                    f2s += f2v;
+
+                    f1ss += f1v.powi(2);
+                    f2ss += f2v.powi(2);
+
+                    println!("{:?}", f1ss * f2ss);
+
+                    len += 1.;
                 }
             }
 
-            let deviation_multiplied_mean: f64 = deviation_multiplied_sum/overlap;
+            println!("{:?}", (multiplied_sum,f1s,f2s,f1ss,f2ss,len));
 
-            let f1std = f1ss / (overlap - 1.).max(1.);
-            let f2std = f2ss / (overlap - 1.).max(1.);
+            let product_expectation = multiplied_sum/len;
+            let f1e = f1s/len;
+            let f2e = f2s/len;
 
+            println!("prod exp:{:?}", product_expectation);
+            println!("exp: {:?},{:?}", f1e,f2e);
 
-            let correlation = deviation_multiplied_mean / (f1std * f2std);
+            let f1std = (f1ss/len - f1e.powi(2)).sqrt();
+            let f2std = (f2ss/len - f2e.powi(2)).sqrt();
 
+            println!("{:?}",(f1std,f2std));
+
+            let correlation = (product_expectation - (f1e * f2e)) / (f1std * f2std);
+
+            println!("{}",correlation);
 
             correlations[f1i][f2i] = correlation;
 
