@@ -571,13 +571,13 @@ pub fn incomplete_correlation_matrix(values:Vec<Vec<(&String,f64)>>,map:HashMap<
             for (f1vo,f2vo) in mtx_t[f1i].iter().zip(mtx_t[f2i].iter()) {
                 if let (Some(f1v),Some(f2v)) = (f1vo,f2vo) {
 
-                    println!("values:");
-
-                    println!("{:?}", (f1v,f2v));
+                    // println!("values:");
+                    //
+                    // println!("{:?}", (f1v,f2v));
 
                     multiplied_sum += f1v*f2v;
 
-                    println!("{:?}", f1v * f2v);
+                    // println!("{:?}", f1v * f2v);
 
 
                     f1s += f1v;
@@ -586,29 +586,29 @@ pub fn incomplete_correlation_matrix(values:Vec<Vec<(&String,f64)>>,map:HashMap<
                     f1ss += f1v.powi(2);
                     f2ss += f2v.powi(2);
 
-                    println!("{:?}", f1ss * f2ss);
+                    // println!("{:?}", f1ss * f2ss);
 
                     len += 1.;
                 }
             }
 
-            println!("{:?}", (multiplied_sum,f1s,f2s,f1ss,f2ss,len));
+            // println!("{:?}", (multiplied_sum,f1s,f2s,f1ss,f2ss,len));
 
             let product_expectation = multiplied_sum/len;
             let f1e = f1s/len;
             let f2e = f2s/len;
 
-            println!("prod exp:{:?}", product_expectation);
-            println!("exp: {:?},{:?}", f1e,f2e);
+            // println!("prod exp:{:?}", product_expectation);
+            // println!("exp: {:?},{:?}", f1e,f2e);
 
             let f1std = (f1ss/len - f1e.powi(2)).sqrt();
             let f2std = (f2ss/len - f2e.powi(2)).sqrt();
 
-            println!("{:?}",(f1std,f2std));
+            // println!("{:?}",(f1std,f2std));
 
             let correlation = (product_expectation - (f1e * f2e)) / (f1std * f2std);
 
-            println!("{}",correlation);
+            // println!("{}",correlation);
 
             correlations[f1i][f2i] = correlation;
 
