@@ -593,8 +593,9 @@ pub fn incomplete_correlation_matrix(values:Vec<Vec<(&String,f64)>>,map:HashMap<
             let f2i = map[*f2];
 
             let mut deviation_multiplied_sum = 0.;
-            let mut f1v = Vec::with_capacity(mtx.len());
-            let mut f2v = Vec::with_capacity(mtx.len());
+            let mut f1ss = 0.;
+            let mut f2ss = 0.;
+            let mut overlap = 0.;
 
             for f1do in &deviations[f1i] {
                 for f2do in &deviations[f2i] {
@@ -602,16 +603,18 @@ pub fn incomplete_correlation_matrix(values:Vec<Vec<(&String,f64)>>,map:HashMap<
 
                         deviation_multiplied_sum += f1d*f2d;
 
-                        f1v.push(*f1d);
-                        f2v.push(*f2d);
+                        f1ss += f1d.powi(2);
+                        f2ss += f2d.powi(2);
+
+                        overlap += 1.;
                     }
                 }
             }
 
-            let deviation_multiplied_mean: f64 = deviation_multiplied_sum/(f1v.len() as f64);
+            let deviation_multiplied_mean: f64 = deviation_multiplied_sum/overlap;
 
-            let f1std = std_dev(&f1v);
-            let f2std = std_dev(&f2v);
+            let f1std = f1ss / (overlap - 1.).max(1.);
+            let f2std = f2ss / (overlap - 1.).max(1.);
 
 
             let correlation = deviation_multiplied_mean / (f1std * f2std);
