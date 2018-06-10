@@ -251,7 +251,7 @@ impl BoostedForest {
                     self.feature_similarity_matrix[feature_index]
                     .iter()
                 )
-                .map(|(x,y)| x * (1. + (y/2.)))
+                .map(|(x,y)| x * (1. + y))
                 .collect();
             input_feature_weights[feature_index] = 0.;
             output_feature_weights[feature_index] = 0.;
@@ -606,9 +606,13 @@ pub fn incomplete_correlation_matrix(values:Vec<Vec<(&String,f64)>>,map:HashMap<
 
             // println!("{:?}",(f1std,f2std));
 
-            let correlation = (product_expectation - (f1e * f2e)) / (f1std * f2std);
+            let mut correlation = (product_expectation - (f1e * f2e)) / (f1std * f2std);
 
             // println!("{}",correlation);
+
+            if correlation.is_nan() {
+                correlation = 0.;
+            }
 
             correlations[f1i][f2i] = correlation;
 
