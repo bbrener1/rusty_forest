@@ -325,7 +325,9 @@ impl BoostedForest {
         //     output_feature_weights[cell.0] += 1.;
         // };
 
-        let mut output_feature_weights: Vec<f64> = self.error_matrix.iter().map(|x| x.iter().map(|y| y.abs()).sum()).collect();
+        // let mut output_feature_weights: Vec<f64> = self.error_matrix.iter().map(|x| x.iter().map(|y| y.abs()).sum()).collect();
+
+        let mut output_feature_weights = vec![1.;self.dimensions.0];
 
         println!("Output feature weights drawn");
 
@@ -349,7 +351,9 @@ impl BoostedForest {
 
         println!("Input feature weights drawn");
 
-        let sample_weights: Vec<f64> = matrix_flip(&self.error_matrix).iter().map(|x| x.iter().map(|y| y.abs()).sum::<f64>()).collect();
+        let mut sample_weights = vec![1.; self.dimensions.1];
+
+        // let sample_weights: Vec<f64> = matrix_flip(&self.error_matrix).iter().map(|x| x.iter().map(|y| y.abs()).sum::<f64>()).collect();
 
         println!("Sample weights drawn");
 
