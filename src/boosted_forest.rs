@@ -251,7 +251,7 @@ impl BoostedForest {
                     self.feature_similarity_matrix[feature_index]
                     .iter()
                 )
-                .map(|(x,y)| x * (1. + y))
+                .map(|(x,y)| x * (1. - y))
                 .collect();
             input_feature_weights[feature_index] = 0.;
             output_feature_weights[feature_index] = 0.;
@@ -278,7 +278,7 @@ impl BoostedForest {
                     self.feature_similarity_matrix[feature_index]
                     .iter()
                 )
-                .map(|(x,y)| x * (1. + (y/2.)))
+                .map(|(x,y)| x * (1. + y))
                 .collect();
             output_feature_weights[feature_index] = 0.;
 
