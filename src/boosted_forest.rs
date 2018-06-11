@@ -251,7 +251,7 @@ impl BoostedForest {
                     self.feature_similarity_matrix[feature_index]
                     .iter()
                 )
-                .map(|(x,y)| x * (1. - (y/2.)))
+                .map(|(x,y)| x * (1. - (y/5.)))
                 .collect();
             input_feature_weights[feature_index] = 0.;
             output_feature_weights[feature_index] = 0.;
@@ -331,23 +331,25 @@ impl BoostedForest {
 
         println!("Output feature weights drawn: {}", output_feature_weights.len());
 
-        let input_feature_weights: Vec<f64> = {
-            self.counts
-                .iter()
-                .map(|x| x
-                    .iter()
-                    .map(|y| {
-                        match self.dropout {
-                            DropMode::Zeros => if *y == 0. {0.} else {1.},
-                            DropMode::NaNs => if y.is_nan() {0.} else {1.},
-                            DropMode::No => 1.,
-                        }
+        let mut input_feature_weights = vec![1.;self.dimensions.0];
 
-                    })
-                    .sum()
-                )
-                .collect::<Vec<f64>>()
-            };
+        // let input_feature_weights: Vec<f64> = {
+        //     self.counts
+        //         .iter()
+        //         .map(|x| x
+        //             .iter()
+        //             .map(|y| {
+        //                 match self.dropout {
+        //                     DropMode::Zeros => if *y == 0. {0.} else {1.},
+        //                     DropMode::NaNs => if y.is_nan() {0.} else {1.},
+        //                     DropMode::No => 1.,
+        //                 }
+        //
+        //             })
+        //             .sum()
+        //         )
+        //         .collect::<Vec<f64>>()
+        //     };
 
         println!("Input feature weights drawn: {}", input_feature_weights.len());
 
