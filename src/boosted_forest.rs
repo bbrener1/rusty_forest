@@ -389,12 +389,16 @@ impl BoostedForest {
 
         let feature_map = self.feature_map();
 
-        let local_gains: Vec<Vec<(&String,f64)>> = nodes.iter().map(|node| node.features().iter().zip(node.local_gains.as_ref().unwrap_or(&vec![]).iter().cloned()).collect()).collect();
+        // let local_gains: Vec<Vec<(&String,f64)>> = nodes.iter().map(|node| node.features().iter().zip(node.local_gains.as_ref().unwrap_or(&vec![]).iter().cloned()).collect()).collect();
+
+        let absolute_gains: Vec<Vec<(&String,f64)>> = nodes.iter().map(|node| node.features().iter().zip(node.absolute_gains.as_ref().unwrap_or(&vec![]).iter().cloned()).collect()).collect();
 
         // println!("{:?}",local_gains);
-        println!("Local gains gathered");
+        // println!("Local gains gathered");
+        println!("Absolute gains gathered");
 
-        self.feature_similarity_matrix = incomplete_correlation_matrix(local_gains, feature_map);
+
+        self.feature_similarity_matrix = incomplete_correlation_matrix(absolute_gains, feature_map);
 
         let mut similarity_dump = OpenOptions::new().create(true).append(true).open([report_address,".similarity"].join("")).unwrap();
         similarity_dump.write(&tsv_format(&self.feature_similarity_matrix).as_bytes())?;
