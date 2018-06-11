@@ -108,7 +108,7 @@ impl BoostedForest {
 
             let epoch_predictions = self.compact_predict(&self.counts, &self.feature_map(), parameters.clone(), report_string)?;
 
-            self.epoch_predict(&self.counts, &self.feature_map(), parameters.clone(), report_string)?;
+            self.predict_epoch(i,&self.counts, &self.feature_map(), parameters.clone(), report_string)?;
 
             self.error_matrix = sub_matrix(&self.counts, &matrix_flip(&epoch_predictions));
 
@@ -172,17 +172,19 @@ impl BoostedForest {
 
     }
 
-    pub fn epoch_predict(&self,counts:&Vec<Vec<f64>>,feature_map: &HashMap<String,usize>,parameters: Arc<Parameters>,report_address: &str) -> Result<Vec<Vec<f64>>,Error> {
+    pub fn predict_epoch(&self,epoch:usize,counts:&Vec<Vec<f64>>,feature_map: &HashMap<String,usize>,parameters: Arc<Parameters>,report_address: &str) -> Result<Vec<Vec<f64>>,Error> {
 
-        println!("Predicting:");
+        println!("Predicting epoch: {}", epoch);
 
-        let predictions = compact_predict(&self.predictive_trees[self.predictive_trees.len().checked_sub(self.epoch_duration).unwrap_or(0)..],&matrix_flip(counts),feature_map,parameters);
+        let trees = (epoch*self.epoch_duration,((epoch+1)*self.epoch_duration)-1);
 
-        let mut prediction_dump = OpenOptions::new().create(true).append(true).open([report_address,".e_prediction"].join("")).unwrap();
+        let predictions = compact_predict(&self.predictive_trees[trees.0..trees.1],&matrix_flip(counts),feature_map,parameters);
+
+        let mut prediction_dump = OpenOptions::new().create(true).append(true).open([report_address,&format!(".{}",epoch),".e_prediction"].join("")).unwrap();
         prediction_dump.write(&tsv_format(&predictions).as_bytes())?;
         prediction_dump.write(b"\n")?;
 
-        let mut truth_dump = OpenOptions::new().create(true).append(true).open([report_address,".e_prediction_truth"].join("")).unwrap();
+        let mut truth_dump = OpenOptions::new().create(true).append(true).open([report_address,&format!(".{}",epoch),".e_prediction_truth"].join("")).unwrap();
         truth_dump.write(&tsv_format(&matrix_flip(&self.counts)).as_bytes())?;
         truth_dump.write(b"\n")?;
 
@@ -190,7 +192,7 @@ impl BoostedForest {
         for (f,i) in feature_map { header_vec[*i] = f; };
         let header = tsv_format(&vec![header_vec]);
 
-        let mut prediction_header = OpenOptions::new().create(true).append(true).open([report_address,".e_prediction_header"].join("")).unwrap();
+        let mut prediction_header = OpenOptions::new().create(true).append(true).open([report_address,&format!(".{}",epoch),".e_prediction_header"].join("")).unwrap();
         prediction_header.write(&header.as_bytes())?;
         prediction_header.write(b"\n")?;
 
@@ -278,7 +280,7 @@ impl BoostedForest {
                     self.feature_similarity_matrix[feature_index]
                     .iter()
                 )
-                .map(|(x,y)| x * (1. + y/2.))
+                .map(|(x,y)| x * (1. - y/2.))
                 .collect();
             output_feature_weights[feature_index] = 0.;
 
