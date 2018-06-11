@@ -65,8 +65,8 @@ impl BoostedForest {
 
         let sample_names = parameters.sample_names.clone().unwrap_or((0..dimensions.1).map(|x| x.to_string()).collect());
 
-        let feature_similarity_matrix = vec![vec![1.;dimensions.0];dimensions.0];
-        let cell_coocurrence_matrix = vec![vec![1.;dimensions.1];dimensions.1];
+        let feature_similarity_matrix = vec![vec![0.;dimensions.0];dimensions.0];
+        let cell_coocurrence_matrix = vec![vec![0.;dimensions.1];dimensions.1];
 
         let error_matrix = vec![vec![1.;dimensions.1];dimensions.0];
 
@@ -251,7 +251,7 @@ impl BoostedForest {
                     self.feature_similarity_matrix[feature_index]
                     .iter()
                 )
-                .map(|(x,y)| x * (1. - (y/2)))
+                .map(|(x,y)| x * (1. - (y/2.)))
                 .collect();
             input_feature_weights[feature_index] = 0.;
             output_feature_weights[feature_index] = 0.;
