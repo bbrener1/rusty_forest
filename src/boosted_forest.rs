@@ -327,9 +327,9 @@ impl BoostedForest {
 
         // let mut output_feature_weights: Vec<f64> = self.error_matrix.iter().map(|x| x.iter().map(|y| y.abs()).sum()).collect();
 
-        let mut output_feature_weights = vec![1.;self.dimensions.0];
+        let mut output_feature_weights = vec![1.;self.dimensions.1];
 
-        println!("Output feature weights drawn");
+        println!("Output feature weights drawn: {}", output_feature_weights.len());
 
         let input_feature_weights: Vec<f64> = {
             self.counts
@@ -349,13 +349,13 @@ impl BoostedForest {
                 .collect::<Vec<f64>>()
             };
 
-        println!("Input feature weights drawn");
+        println!("Input feature weights drawn: {}", input_feature_weights.len());
 
-        let mut sample_weights = vec![1.; self.dimensions.1];
+        let mut sample_weights = vec![1.; self.dimensions.0];
 
         // let sample_weights: Vec<f64> = matrix_flip(&self.error_matrix).iter().map(|x| x.iter().map(|y| y.abs()).sum::<f64>()).collect();
 
-        println!("Sample weights drawn");
+        println!("Sample weights drawn: {}", sample_weights.len());
 
         let mut i_weight_dump = OpenOptions::new().create(true).append(true).open([report_address,".i_weights"].join("")).unwrap();
         i_weight_dump.write(&tsv_format(&vec![input_feature_weights.clone()]).as_bytes()).expect("weight_reporting_error");
