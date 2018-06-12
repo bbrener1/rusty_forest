@@ -1,0 +1,18 @@
+Ultimate Project Goals:
+
+  -Find Gene Regulatory Relationships
+
+    - Gene X regulates gene Y
+  
+Goals of This Repository:
+
+  - Impute "expected" gene values
+
+  - Deduce gene interactions (Eg regression, secondary)
+  
+  - Given imputed values, find interactions "below the surface"
+  
+Secret Supra-Ultimate Project Goals:
+
+  - Understand differences in gene regulation in aged vs young cells
+  
