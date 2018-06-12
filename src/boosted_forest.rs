@@ -70,7 +70,7 @@ impl BoostedForest {
 
         let error_matrix = vec![vec![1.;dimensions.1];dimensions.0];
 
-        let report_string = format!("{}.0",report_address).to_string();
+        let report_string = format!("{}",report_address).to_string();
 
         let prototype_table = RankTable::new(&counts,&feature_names,&sample_names,parameters.clone());
 
