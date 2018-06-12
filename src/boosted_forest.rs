@@ -176,7 +176,7 @@ impl BoostedForest {
 
         println!("Predicting epoch: {}", epoch);
 
-        let trees = (epoch*self.epoch_duration,((epoch+1)*self.epoch_duration)-epoch);
+        let trees = (epoch*self.epoch_duration,((epoch+1)*self.epoch_duration)-(epoch+1));
 
         let predictions = compact_predict(&self.predictive_trees[trees.0..trees.1],&matrix_flip(counts),feature_map,parameters);
 
