@@ -112,7 +112,7 @@ impl BoostedForest {
 
             self.error_matrix = sub_matrix(&self.counts, &matrix_flip(&epoch_predictions));
 
-            // self.update_similarity(report_string)?;
+            self.update_similarity(report_string)?;
 
             // println!("Error matrix dimensions:{:?}",mtx_dim(&self.error_matrix));
 
@@ -273,17 +273,17 @@ impl BoostedForest {
 
             let feature_index = weighted_sampling(1, &self.features(), &output_feature_weights, false).1[0];
 
-            // println!("fi:{}", feature_index);
+            println!("fi:{}", feature_index);
 
-            // output_feature_weights =
-            //     output_feature_weights
-            //     .iter()
-            //     .zip(
-            //         self.feature_similarity_matrix[feature_index]
-            //         .iter()
-            //     )
-            //     .map(|(x,y)| x * (1. - y/2.))
-            //     .collect();
+            output_feature_weights =
+                output_feature_weights
+                .iter()
+                .zip(
+                    self.feature_similarity_matrix[feature_index]
+                    .iter()
+                )
+                .map(|(x,y)| x * (1. + y/2.))
+                .collect();
             output_feature_weights[feature_index] = 0.;
 
             output_features.push(self.features()[feature_index].clone())
