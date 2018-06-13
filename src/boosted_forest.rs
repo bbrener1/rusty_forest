@@ -273,7 +273,7 @@ impl BoostedForest {
 
             let feature_index = weighted_sampling(1, &self.features(), &output_feature_weights, false).1[0];
 
-            println!("fi:{}", feature_index);
+            // println!("fi:{}", feature_index);
 
             output_feature_weights =
                 output_feature_weights
