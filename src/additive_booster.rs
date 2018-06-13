@@ -151,9 +151,11 @@ impl AdditiveBooster {
 
             println!("Features drawn");
 
+            let output_scoring_weights = self.error_matrix.iter().map(|x| x.iter().sum::<f64>()).collect::<Vec<f64>>();
+
             let (tx,rx) = mpsc::channel();
 
-            thread_pool.send(BoostedMessage::Selections(i,input_features,output_features,samples,tx));
+            thread_pool.send(BoostedMessage::Selections(i,input_features,output_features,samples,output_scoring_weights,tx));
 
             tree_receivers.push(rx);
 

@@ -70,9 +70,10 @@ impl Worker{
                     let message_option = channel.lock().unwrap().recv().ok();
                     if let Some(message) = message_option {
                         match message {
-                            BoostedMessage::Selections(tree_iter,input_features,output_features,samples,sender) => {
+                            BoostedMessage::Selections(tree_iter,input_features,output_features,samples,feature_scoring_weights,sender) => {
                                 println!("Tree Pool: Request for tree: {}",tree_iter);
                                 println!("Tree Pool: Deriving {}", tree_iter);
+                                prototype.set_scoring_weights(feature_scoring_weights);
                                 let mut tree = prototype.derive_specified(&samples.iter().collect(),&input_features.iter().collect(),&output_features.iter().collect(),tree_iter);
                                 println!("Tree Pool: Growing {}", tree_iter);
                                 tree.grow_branches();
@@ -101,6 +102,6 @@ struct Worker {
 }
 
 pub enum BoostedMessage {
-    Selections(usize,Vec<String>,Vec<String>,Vec<String>,Sender<PredictiveTree>),
+    Selections(usize,Vec<String>,Vec<String>,Vec<String>,Vec<f64>,Sender<PredictiveTree>),
     Terminate
 }

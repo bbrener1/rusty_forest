@@ -204,6 +204,10 @@ impl<'a> Tree {
         new_tree
     }
 
+    pub fn set_scoring_weights(&mut self, weights: Vec<f64>) {
+        self.root.set_weights(weights);
+    }
+
     pub fn nodes(&self) -> Vec<&Node> {
         self.root.crawl_children()
     }

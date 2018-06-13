@@ -112,7 +112,7 @@ impl BoostedForest {
 
             self.error_matrix = sub_matrix(&self.counts, &matrix_flip(&epoch_predictions));
 
-            self.update_similarity(report_string)?;
+            // self.update_similarity(report_string)?;
 
             // println!("Error matrix dimensions:{:?}",mtx_dim(&self.error_matrix));
 
@@ -153,9 +153,11 @@ impl BoostedForest {
 
             println!("Features drawn");
 
+            let output_scoring_weights = self.error_matrix.iter().map(|x| x.iter().sum::<f64>()).collect::<Vec<f64>>();
+
             let (tx,rx) = mpsc::channel();
 
-            thread_pool.send(BoostedMessage::Selections(i,input_features,output_features,samples,tx));
+            thread_pool.send(BoostedMessage::Selections(i,input_features,output_features,samples,output_scoring_weights,tx));
 
             tree_receivers.push(rx);
 
@@ -246,15 +248,15 @@ impl BoostedForest {
 
             // println!("fi:{}", feature_index);
 
-            input_feature_weights =
-                input_feature_weights
-                .iter()
-                .zip(
-                    self.feature_similarity_matrix[feature_index]
-                    .iter()
-                )
-                .map(|(x,y)| x * (1. - (y/5.)))
-                .collect();
+            // input_feature_weights =
+            //     input_feature_weights
+            //     .iter()
+            //     .zip(
+            //         self.feature_similarity_matrix[feature_index]
+            //         .iter()
+            //     )
+            //     .map(|(x,y)| x * (1. - (y/5.)))
+            //     .collect();
             input_feature_weights[feature_index] = 0.;
             output_feature_weights[feature_index] = 0.;
 
@@ -273,15 +275,15 @@ impl BoostedForest {
 
             // println!("fi:{}", feature_index);
 
-            output_feature_weights =
-                output_feature_weights
-                .iter()
-                .zip(
-                    self.feature_similarity_matrix[feature_index]
-                    .iter()
-                )
-                .map(|(x,y)| x * (1. - y/2.))
-                .collect();
+            // output_feature_weights =
+            //     output_feature_weights
+            //     .iter()
+            //     .zip(
+            //         self.feature_similarity_matrix[feature_index]
+            //         .iter()
+            //     )
+            //     .map(|(x,y)| x * (1. - y/2.))
+            //     .collect();
             output_feature_weights[feature_index] = 0.;
 
             output_features.push(self.features()[feature_index].clone())
