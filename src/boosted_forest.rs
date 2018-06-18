@@ -50,6 +50,7 @@ pub struct BoostedForest {
     dimensions: (usize,usize),
     epoch_duration: usize,
     epochs: usize,
+    current_epoch:usize,
 
     prototype_rank_table: Option<RankTable>,
     prototype_tree: Option<Tree>,
@@ -99,6 +100,7 @@ impl BoostedForest {
             dimensions: dimensions,
             epoch_duration: parameters.epoch_duration.unwrap_or(1),
             epochs: parameters.epochs.unwrap_or(1),
+            current_epoch: 0,
             counts: counts.clone(),
             prototype_rank_table: Some(prototype_table),
             prototype_tree: None,
@@ -182,6 +184,8 @@ impl BoostedForest {
             self.predictive_trees.push(tree);
         }
 
+        self.current_epoch += 1;
+
         BoostedTreeThreadPool::terminate(&mut thread_pool);
         prototype_tree.terminate_pool();
 
@@ -221,7 +225,7 @@ impl BoostedForest {
         let predictions = match self.boost_mode {
             BoostMode::Additive => {
                 let mut epoch_sums = vec![vec![0.;self.dimensions.0];self.dimensions.1];
-                for epoch in 0..self.epochs {
+                for epoch in 0..self.current_epoch {
                     epoch_sums = add_mtx_ip(epoch_sums, &self.predict_epoch(epoch, counts, feature_map, parameters.clone(), report_address).expect("Failure predicting epoch"));
                 }
                 epoch_sums
