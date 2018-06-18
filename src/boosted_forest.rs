@@ -133,7 +133,7 @@ impl BoostedForest {
 
     pub fn grow_epoch (&mut self, parameters: Arc<Parameters>, report_string: &str ,epoch:usize) {
 
-        println!("Initializing an epoch");
+        println!("Initializing epoch {}", epoch);
 
         println!("Drawing weights");
 
