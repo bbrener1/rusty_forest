@@ -300,15 +300,15 @@ impl BoostedForest {
 
             // println!("fi:{}", feature_index);
 
-            output_feature_weights =
-                output_feature_weights
-                .iter()
-                .zip(
-                    self.feature_similarity_matrix[feature_index]
-                    .iter()
-                )
-                .map(|(x,y)| x * (1. + y/2.))
-                .collect();
+            // output_feature_weights =
+            //     output_feature_weights
+            //     .iter()
+            //     .zip(
+            //         self.feature_similarity_matrix[feature_index]
+            //         .iter()
+            //     )
+            //     .map(|(x,y)| x * (1. + y/2.))
+            //     .collect();
             output_feature_weights[feature_index] = 0.;
 
             output_features.push(self.features()[feature_index].clone())
