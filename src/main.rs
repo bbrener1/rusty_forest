@@ -40,7 +40,6 @@ mod split_thread_pool;
 mod compact_predictor;
 mod boosted_forest;
 mod boosted_tree_thread_pool;
-mod additive_booster;
 mod rv2;
 mod rv3;
 mod sampling_thread_pool;
@@ -49,7 +48,6 @@ mod sampling_thread_pool;
 use tree::PredictiveTree;
 use random_forest::Forest;
 use boosted_forest::BoostedForest;
-use additive_booster::AdditiveBooster;
 
 /// Author: Boris Brenerman
 /// Created: 2017 Academic Year, Johns Hopkins University, Department of Biology, Taylor Lab
@@ -220,19 +218,11 @@ fn gradient(args: Parameters) {
 
     let boost_mode = args.boost_mode.unwrap_or(BoostMode::Subsampling);
 
-    match boost_mode {
-        BoostMode::Additive => {
-            let mut forest = AdditiveBooster::initialize(&counts, arc_params.clone() , &report_address);
+    let mut forest = BoostedForest::initialize(&counts, arc_params.clone() , &report_address);
 
-            forest.additive_growth(arc_params.clone());
-            forest.compact_predict(&counts, &forest.feature_map(), arc_params , &report_address);
-        },
-        BoostMode::Subsampling => {
-            let mut forest = BoostedForest::initialize(&counts, arc_params.clone() , &report_address);
-            forest.grow_forest(arc_params.clone());
-            forest.compact_predict(&counts, &forest.feature_map(), arc_params, &report_address);
-        }
-    }
+    forest.grow_forest(arc_params.clone());
+
+    forest.compact_predict(&counts, &forest.feature_map(), arc_params, &report_address);
 
 }
 
@@ -599,7 +589,7 @@ impl Parameters {
 // Various modes that are included in Parameters, serving as control elements for program internals. Each mode can parse strings that represent alternative options for that mode. Enums were chosen because they compile down to extremely small memory footprint.
 
 
-#[derive(Clone,Debug)]
+#[derive(Clone,Copy,Debug)]
 pub enum BoostMode {
     Additive,
     Subsampling,
@@ -871,7 +861,7 @@ fn mtx_dim<T>(in_mat: &Vec<Vec<T>>) -> (usize,usize) {
     (in_mat.len(),in_mat.get(0).unwrap_or(&vec![]).len())
 }
 
-fn add_matrix(mat1: &Vec<Vec<f64>>,mat2:&Vec<Vec<f64>>) -> Vec<Vec<f64>> {
+fn add_mtx(mat1: &Vec<Vec<f64>>,mat2:&Vec<Vec<f64>>) -> Vec<Vec<f64>> {
 
     if mtx_dim(mat1) != mtx_dim(mat2) {
         panic!("Attempted to add matrices of unequal dimensions: {:?},{:?}", mtx_dim(mat1),mtx_dim(mat2));
@@ -891,7 +881,7 @@ fn add_matrix(mat1: &Vec<Vec<f64>>,mat2:&Vec<Vec<f64>>) -> Vec<Vec<f64>> {
 
 }
 
-fn sub_matrix(mat1: &Vec<Vec<f64>>,mat2:&Vec<Vec<f64>>) -> Vec<Vec<f64>> {
+fn sub_mtx(mat1: &Vec<Vec<f64>>,mat2:&Vec<Vec<f64>>) -> Vec<Vec<f64>> {
 
     if mtx_dim(mat1) != mtx_dim(mat2) {
         panic!("Attempted to subtract matrices of unequal dimensions: {:?},{:?}", mtx_dim(mat1),mtx_dim(mat2));

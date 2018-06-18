@@ -18,14 +18,17 @@ use node::StrippedNode;
 use std::sync::mpsc;
 use DropMode;
 use PredictionMode;
+use BoostMode;
 use matrix_flip;
-use sub_matrix;
+use sub_mtx;
 use mean;
 use std_dev;
 use mtx_dim;
+use add_mtx_ip;
 use tsv_format;
 use Parameters;
 use pearsonr;
+
 
 pub struct BoostedForest {
     leaf_size: usize,
@@ -53,6 +56,7 @@ pub struct BoostedForest {
 
     dropout: DropMode,
     prediction_mode: PredictionMode,
+    boost_mode: BoostMode,
 }
 
 impl BoostedForest {
@@ -68,7 +72,12 @@ impl BoostedForest {
         let feature_similarity_matrix = vec![vec![0.;dimensions.0];dimensions.0];
         let cell_coocurrence_matrix = vec![vec![0.;dimensions.1];dimensions.1];
 
-        let error_matrix = vec![vec![1.;dimensions.1];dimensions.0];
+        let error_matrix: Vec<Vec<f64>>;
+
+        match parameters.boost_mode.unwrap_or(BoostMode::Subsampling) {
+            BoostMode::Additive => error_matrix = counts.clone(),
+            BoostMode::Subsampling => error_matrix = vec![vec![1.;dimensions.1];dimensions.0],
+        }
 
         let report_string = format!("{}",report_address).to_string();
 
@@ -93,7 +102,8 @@ impl BoostedForest {
             counts: counts.clone(),
             prototype_rank_table: Some(prototype_table),
             prototype_tree: None,
-            dropout:parameters.dropout.unwrap_or(DropMode::Zeros),
+            boost_mode: parameters.boost_mode.unwrap_or(BoostMode::Subsampling),
+            dropout: parameters.dropout.unwrap_or(DropMode::Zeros),
             prediction_mode: parameters.prediction_mode.unwrap_or(PredictionMode::Truncate)
         }
     }
@@ -110,7 +120,7 @@ impl BoostedForest {
 
             self.predict_epoch(i,&self.counts, &self.feature_map(), parameters.clone(), report_string)?;
 
-            self.error_matrix = sub_matrix(&self.counts, &matrix_flip(&epoch_predictions));
+            self.error_matrix = sub_mtx(&self.counts, &matrix_flip(&epoch_predictions));
 
             self.update_similarity(report_string)?;
 
@@ -137,7 +147,10 @@ impl BoostedForest {
 
         let mut tree_receivers = Vec::with_capacity(self.epoch_duration);
 
-        let mut prototype_tree =  Tree::prototype_tree(&self.counts,&self.counts,&self.sample_names,&self.feature_names,&self.feature_names, Some(output_feature_weights.clone()), parameters, [self.report_string.clone(),format!(".{}.0",epoch)].join(""));
+        let mut prototype_tree = match self.boost_mode {
+            BoostMode::Additive => Tree::prototype_tree(&self.counts,&self.error_matrix,&self.sample_names,&self.feature_names,&self.feature_names, Some(output_feature_weights.clone()), parameters, [self.report_string.clone(),format!(".{}.0",epoch)].join("")),
+            BoostMode::Subsampling => Tree::prototype_tree(&self.counts,&self.counts,&self.sample_names,&self.feature_names,&self.feature_names, Some(output_feature_weights.clone()), parameters, [self.report_string.clone(),format!(".{}.0",epoch)].join("")),
+        };
 
         let mut thread_pool = BoostedTreeThreadPool::new(&prototype_tree,self.processor_limit);
 
@@ -205,7 +218,19 @@ impl BoostedForest {
 
         println!("Predicting:");
 
-        let predictions = compact_predict(&self.predictive_trees,&matrix_flip(counts),feature_map,parameters);
+        let predictions = match self.boost_mode {
+            BoostMode::Additive => {
+                let mut epoch_sums = vec![vec![0.;self.dimensions.1];self.dimensions.0];
+                for epoch in 0..self.epochs {
+                    epoch_sums = add_mtx_ip(epoch_sums, &self.predict_epoch(epoch, counts, feature_map, parameters.clone(), report_address).expect("Failure predicting epoch"));
+                }
+                epoch_sums
+            },
+            BoostMode::Subsampling => {
+                compact_predict(&self.predictive_trees,&matrix_flip(counts),feature_map,parameters.clone())
+            }
+
+        };
 
         let mut prediction_dump = OpenOptions::new().create(true).append(true).open([report_address,".prediction"].join("")).unwrap();
         prediction_dump.write(&tsv_format(&predictions).as_bytes())?;
