@@ -220,7 +220,7 @@ impl BoostedForest {
 
         let predictions = match self.boost_mode {
             BoostMode::Additive => {
-                let mut epoch_sums = vec![vec![0.;self.dimensions.1];self.dimensions.0];
+                let mut epoch_sums = vec![vec![0.;self.dimensions.0];self.dimensions.1];
                 for epoch in 0..self.epochs {
                     epoch_sums = add_mtx_ip(epoch_sums, &self.predict_epoch(epoch, counts, feature_map, parameters.clone(), report_address).expect("Failure predicting epoch"));
                 }
