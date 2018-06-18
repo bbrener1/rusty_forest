@@ -920,7 +920,7 @@ fn add_mtx_ip(mut mtx1: Vec<Vec<f64>>, mtx2: &Vec<Vec<f64>>) -> Vec<Vec<f64>> {
 fn sub_mtx_ip(mut mtx1: Vec<Vec<f64>>, mtx2: &Vec<Vec<f64>>) -> Vec<Vec<f64>> {
 
     if mtx_dim(&mtx1) != mtx_dim(&mtx2) {
-        panic!("Attempted to add matrices of unequal dimensions: {:?},{:?}", mtx_dim(&mtx1),mtx_dim(&mtx2));
+        panic!("Attempted to subtract matrices of unequal dimensions: {:?},{:?}", mtx_dim(&mtx1),mtx_dim(&mtx2));
     }
 
     let dim = mtx_dim(&mtx1);

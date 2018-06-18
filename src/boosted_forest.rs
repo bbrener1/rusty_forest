@@ -154,7 +154,7 @@ impl BoostedForest {
 
         let mut thread_pool = BoostedTreeThreadPool::new(&prototype_tree,self.processor_limit);
 
-        for i in 1..self.epoch_duration {
+        for i in 0..self.epoch_duration {
 
             println!("Tree {}", i);
 
@@ -189,9 +189,9 @@ impl BoostedForest {
 
     pub fn predict_epoch(&self,epoch:usize,counts:&Vec<Vec<f64>>,feature_map: &HashMap<String,usize>,parameters: Arc<Parameters>,report_address: &str) -> Result<Vec<Vec<f64>>,Error> {
 
-        println!("Predicting epoch: {}", epoch);
-
         let trees = (epoch*self.epoch_duration,((epoch+1)*self.epoch_duration)-(epoch+1));
+
+        println!("Predicting epoch: {}, trees: {}-{}", epoch,trees.0,trees.1);
 
         let predictions = compact_predict(&self.predictive_trees[trees.0..trees.1],&matrix_flip(counts),feature_map,parameters);
 
