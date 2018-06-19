@@ -82,7 +82,7 @@ impl RankTable {
             dropout:parameters.dropout.unwrap_or(DropMode::Zeros),
 
             norm_mode: parameters.norm_mode.unwrap_or(NormMode::L1),
-            split_mode: parameters.split_mode.unwrap_or(SplitMode::CovSquared),
+            split_mode: parameters.split_mode.unwrap_or(SplitMode::MAD),
         }
 
     }
@@ -100,7 +100,7 @@ impl RankTable {
             dropout:DropMode::No,
 
             norm_mode: NormMode::L1,
-            split_mode: SplitMode::CovSquared,
+            split_mode: SplitMode::MAD,
         }
 
     }

@@ -701,16 +701,14 @@ impl WeighingMode {
 
 #[derive(Serialize,Deserialize,Debug,Clone,Copy)]
 pub enum SplitMode {
-    Cov,
-    CovSquared,
     MAD,
-    MADSquared,
+    Variance,
 }
 
 impl SplitMode {
     pub fn read(input: &str) -> SplitMode {
         match input {
-            "c" | "cov" => SplitMode::Cov,
+            "v" | "var" | "variance" => SplitMode::Variance,
             "m" | "mad"  => SplitMode::MAD,
             _ => panic!("Not a valid split mode, choose cov or mad")
 

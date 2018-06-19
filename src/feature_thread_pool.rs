@@ -98,10 +98,8 @@ fn compute (prot_vector: Arc<RankVector<Vec<Node>>> , draw_order: Arc<Vec<usize>
     local_vector.clone_from_prototype(&prot_vector);
 
     let result = match split_mode {
-        SplitMode::Cov => local_vector.ordered_covs(&draw_order,&drop_set),
+        SplitMode::Variance => local_vector.ordered_variance(&draw_order,&drop_set),
         SplitMode::MAD => local_vector.ordered_mads(&draw_order,&drop_set),
-        SplitMode::CovSquared => local_vector.ordered_covs(&draw_order,&drop_set),
-        SplitMode::MADSquared => local_vector.ordered_mads(&draw_order,&drop_set),
     };
 
     // println!("parallel: {:?}", result);

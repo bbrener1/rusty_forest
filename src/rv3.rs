@@ -706,6 +706,31 @@ impl<T: Borrow<[Node]> + BorrowMut<[Node]> + Index<usize,Output=Node> + IndexMut
 
     }
 
+    pub fn ordered_variance(&mut self,draw_order: &Vec<usize>, drop_set: &HashSet<usize>) -> Vec<f64> {
+
+        // for dropped_sample in drop_set {
+        //     self.pop(*dropped_sample);
+        // }
+
+        let mut variances = Vec::with_capacity(draw_order.len());
+
+        let mut running_mean = 0.;
+        let mut running_square_sum = 0.;
+
+        for (i,draw) in draw_order.iter().rev().enumerate() {
+            let target = self.nodes[*draw].data;
+            let new_running_mean = running_mean + ((target - running_mean) / (i as f64 + 1.));
+            let new_running_square_sum = running_square_sum + (target - running_mean)*(target - new_running_mean);
+            running_mean = new_running_mean;
+            running_square_sum = new_running_square_sum;
+
+            variances.push(running_square_sum/(i as f64 + 1.));
+        };
+
+        variances.into_iter().rev().collect()
+
+    }
+
     pub fn ordered_mads(&mut self,draw_order: &Vec<usize>,drop_set: &HashSet<usize>) -> Vec<f64> {
 
         for dropped_sample in drop_set {
