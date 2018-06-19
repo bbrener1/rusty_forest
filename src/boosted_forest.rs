@@ -124,7 +124,7 @@ impl BoostedForest {
 
             self.error_matrix = sub_mtx(&self.counts, &matrix_flip(&epoch_predictions));
 
-            self.update_similarity(report_string)?;
+            // self.update_similarity(report_string)?;
 
             // println!("Error matrix dimensions:{:?}",mtx_dim(&self.error_matrix));
 
