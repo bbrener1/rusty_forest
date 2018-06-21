@@ -726,8 +726,8 @@ impl SplitMode {
         match input {
             "var" | "variance" => SplitMode::Variance,
             "mad"  => SplitMode::MAD,
-            "mixed" => SplitMode::Mixed,
-            _ => panic!("Not a valid split mode, choose cov or mad")
+            "mix" | "mixed" => SplitMode::Mixed,
+            _ => panic!("Not a valid split mode, choose var, mad, or mixed")
 
         }
     }
