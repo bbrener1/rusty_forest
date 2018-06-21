@@ -211,6 +211,10 @@ impl<'a> Tree {
         self.root.set_split_mode(split_mode);
     }
 
+    pub fn split_mode(&self) -> SplitMode {
+        self.root.split_mode()
+    }
+
     pub fn nodes(&self) -> Vec<&Node> {
         self.root.crawl_children()
     }

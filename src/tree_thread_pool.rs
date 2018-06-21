@@ -94,6 +94,7 @@ impl Worker{
                             _ => {}
                         };
                         println!("Tree Pool: Growing {}", tree_iter);
+                        println!("{:?}",tree.split_mode());
                         tree.grow_branches();
                         println!("Tree Pool: Sending {}", tree_iter);
                         let p_tree = tree.strip_consume();

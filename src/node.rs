@@ -395,6 +395,10 @@ impl Node {
         self.output_table.set_split_mode(split_mode);
     }
 
+    pub fn split_mode(&self) -> SplitMode {
+        self.output_table.split_mode()
+    }
+
     pub fn wrap_consume(self) -> NodeWrapper {
 
         // let mut children: Vec<String> = Vec::with_capacity(self.children.len());

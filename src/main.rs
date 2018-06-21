@@ -144,6 +144,8 @@ pub fn construct(args: Parameters) {
     println!("##############################################################################################################");
     println!("##############################################################################################################");
 
+    println!("Parsed parameters (Otherwise /function/ default)");
+    println!("{:?}", arc_params);
 
     let mut rnd_forest = random_forest::Forest::initialize(counts, arc_params.clone(), report_address);
 
@@ -174,6 +176,9 @@ pub fn predict(args: Parameters) {
     features = args.feature_names.unwrap_or((0..dimensions.1).map(|x| x.to_string()).collect());
     feature_map = features.iter().cloned().enumerate().map(|x| (x.1,x.0)).collect();
 
+    println!("Parsed parameters (Otherwise /function/ default)");
+    println!("{:?}", arc_params);
+
     let forest = Forest::compact_reconstitute(tree_backups, Some(features), None ,None, "./").expect("Forest reconstitution failed");
 
     let predictions = forest.compact_predict(&counts,&feature_map,arc_params, &args.report_address);
@@ -195,6 +200,8 @@ pub fn combined(mut args:Parameters) {
     println!("##############################################################################################################");
     println!("##############################################################################################################");
 
+    println!("Parsed parameters (Otherwise /function/ default)");
+    println!("{:?}", arc_params);
 
     let mut rnd_forest = random_forest::Forest::initialize(counts, arc_params.clone(), &report_address);
 
@@ -217,6 +224,9 @@ fn gradient(args: Parameters) {
     let report_address = args.report_address;
 
     let boost_mode = args.boost_mode.unwrap_or(BoostMode::Subsampling);
+
+    println!("Parsed parameters (Otherwise /function/ default)");
+    println!("{:?}", arc_params);
 
     let mut forest = BoostedForest::initialize(&counts, arc_params.clone() , &report_address);
 
