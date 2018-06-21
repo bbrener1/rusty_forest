@@ -393,6 +393,9 @@ impl Parameters {
                 "-m" | "-mode" | "-pm" | "-prediction_mode" | "-prediction" => {
                     arg_struct.prediction_mode = Some(PredictionMode::read(&args.next().expect("Error reading prediction mode")));
                 },
+                "-am" | "-averaging_mode" | "-averaging" => {
+                    arg_struct.averaging_mode = Some(AveragingMode::read(&args.next().expect("Error reading averaging mode")));
+                }
                 "-d" | "-drop" | "-dropout_mode" => {
                     arg_struct.dropout = Some(DropMode::read(&args.next().expect("Error reading dropout mode")));
                 },
