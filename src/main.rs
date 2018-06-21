@@ -706,13 +706,15 @@ impl WeighingMode {
 pub enum SplitMode {
     MAD,
     Variance,
+    Mixed,
 }
 
 impl SplitMode {
     pub fn read(input: &str) -> SplitMode {
         match input {
-            "v" | "var" | "variance" => SplitMode::Variance,
-            "m" | "mad"  => SplitMode::MAD,
+            "var" | "variance" => SplitMode::Variance,
+            "mad"  => SplitMode::MAD,
+            "mixed" => SplitMode::Mixed,
             _ => panic!("Not a valid split mode, choose cov or mad")
 
         }

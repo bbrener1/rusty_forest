@@ -14,6 +14,7 @@ use rank_table::RankTableWrapper;
 use split_thread_pool::SplitMessage;
 use DropMode;
 use Parameters;
+use SplitMode;
 
 
 #[derive(Clone)]
@@ -388,6 +389,10 @@ impl Node {
 
     pub fn set_pool(&mut self, pool: &mpsc::Sender<SplitMessage>) {
         self.split_thread_pool = pool.clone()
+    }
+
+    pub fn set_split_mode(&mut self, split_mode : SplitMode) {
+        self.output_table.set_split_mode(split_mode);
     }
 
     pub fn wrap_consume(self) -> NodeWrapper {

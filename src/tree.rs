@@ -16,10 +16,9 @@ extern crate rand;
 use node::Node;
 use node::NodeWrapper;
 use node::StrippedNode;
-use feature_thread_pool::FeatureThreadPool;
 use split_thread_pool::SplitThreadPool;
 use split_thread_pool::SplitMessage;
-use rv3::RankVector;
+use SplitMode;
 use DropMode;
 use Parameters;
 
@@ -206,6 +205,10 @@ impl<'a> Tree {
 
     pub fn set_scoring_weights(&mut self, weights: Vec<f64>) {
         self.root.set_weights(weights);
+    }
+
+    pub fn set_split_mode(&mut self, split_mode:SplitMode) {
+        self.root.set_split_mode(split_mode);
     }
 
     pub fn nodes(&self) -> Vec<&Node> {

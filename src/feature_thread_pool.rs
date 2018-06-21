@@ -100,6 +100,7 @@ fn compute (prot_vector: Arc<RankVector<Vec<Node>>> , draw_order: Arc<Vec<usize>
     let result = match split_mode {
         SplitMode::Variance => local_vector.ordered_variance(&draw_order,&drop_set),
         SplitMode::MAD => local_vector.ordered_mads(&draw_order,&drop_set),
+        SplitMode::Mixed => panic!("Mixed mode not a valid split setting for individual trees!"),
     };
 
     // println!("parallel: {:?}", result);

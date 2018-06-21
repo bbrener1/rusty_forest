@@ -167,6 +167,9 @@ impl RankTable {
         &self.sample_names[..]
     }
 
+    pub fn set_split_mode(&mut self, split_mode: SplitMode) {
+        self.split_mode = split_mode;
+    }
 
     pub fn derive(&self, indecies:&[usize]) -> RankTable {
 
