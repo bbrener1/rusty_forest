@@ -31,6 +31,34 @@ def main():
 #
 # features=prefix+"/testing/header.txt"
 
+def options(counts,command="combined",drop_mode="zeros",prediction_mode="branching",trees="1",leaves="1",in_features="1",out_features="1",feature_subsample="1",sample_subsample="1",processors="1",output_location="./working/temp",features=None,samples=None,reporting=None,prefix="./target/release/",split_mode="mad",norm_mode="l2",averaging_mode="stacking"):
+
+
+    command = [prefix+"forest_2",]
+
+    command.append(command)
+    command.extend(["-c",counts])
+    command.extend(["-d",drop_mode])
+    command.extend(["-m",prediction_mode])
+    command.extend(["-t",trees])
+    command.extend(["-l",leaves])
+    command.extend(["-p",processors])
+    command.extend(["-if",in_features])
+    command.extend(["-of",out_features])
+    command.extend(["-fs",feature_subsample])
+    command.extend(["-ss",sample_subsample])
+    command.extend(["-o",output_location])
+    command.extend(["-sm",split_mode])
+    command.extend(["-d",drop_mode])
+    command.extend(["-n",norm_mode])
+    command.extend(["-am", averaging_mode])
+
+    if features != None:
+        command.extend(["-f",features])
+
+    if samples != None:
+        command.extend(["-s",samples])
+
 
 def fit_predict(counts,drop_mode="zeros",prediction_mode="branching",trees="1",leaves="1",in_features="1",out_features="1",feature_subsample="1",sample_subsample="1",processors="1",output_location="./working/temp",features=None,samples=None,reporting=None):
 
