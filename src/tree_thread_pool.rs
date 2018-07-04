@@ -88,7 +88,7 @@ impl Worker{
                         let mut tree = prototype.derive_from_prototype(samples_per_tree,input_features,output_features,tree_iter);
                         match split_mode {
                             SplitMode::Mixed => {
-                                if rng.gen::<f32>() > 0.6 { tree.set_split_mode(SplitMode::MAD) }
+                                if rng.gen::<f32>() > 0.4 { tree.set_split_mode(SplitMode::MAD) }
                                 else { tree.set_split_mode(SplitMode::Variance) }
                             }
                             _ => {}
