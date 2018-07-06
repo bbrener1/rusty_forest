@@ -39,6 +39,7 @@ pub struct BoostedForest {
     sample_names: Vec<String>,
 
     feature_similarity_matrix: Vec<Vec<f64>>,
+    similarity_observation_matrix: Vec<Vec<usize>>,
     cell_coocurrence_matrix: Vec<Vec<f64>>,
 
     error_matrix: Vec<Vec<f64>>,
@@ -71,6 +72,7 @@ impl BoostedForest {
         let sample_names = parameters.sample_names.clone().unwrap_or((0..dimensions.1).map(|x| x.to_string()).collect());
 
         let feature_similarity_matrix = vec![vec![0.;dimensions.0];dimensions.0];
+        let similarity_observation_matrix = vec![vec![0;dimensions.0];dimensions.0];
         let cell_coocurrence_matrix = vec![vec![0.;dimensions.1];dimensions.1];
 
         let error_matrix: Vec<Vec<f64>>;
@@ -93,6 +95,7 @@ impl BoostedForest {
             sample_names: sample_names,
 
             feature_similarity_matrix: feature_similarity_matrix,
+            similarity_observation_matrix: similarity_observation_matrix,
             cell_coocurrence_matrix: cell_coocurrence_matrix,
             error_matrix: error_matrix,
 
@@ -418,20 +421,39 @@ impl BoostedForest {
 
     fn update_similarity(&mut self,report_address:&str) -> Result<(),Error> {
 
-        let nodes: Vec<&StrippedNode> = self.predictive_trees.iter().flat_map(|x| x.crawl_nodes()).collect();
+        // let nodes: Vec<&StrippedNode> = self.predictive_trees.iter().flat_map(|x| x.crawl_nodes()).collect();
 
         let feature_map = self.feature_map();
 
         // let local_gains: Vec<Vec<(&String,f64)>> = nodes.iter().map(|node| node.features().iter().zip(node.local_gains.as_ref().unwrap_or(&vec![]).iter().cloned()).collect()).collect();
 
-        let absolute_gains: Vec<Vec<(&String,f64)>> = nodes.iter().map(|node| node.features().iter().zip(node.absolute_gains.as_ref().unwrap_or(&vec![]).iter().cloned()).collect()).collect();
+        let mut heirarchal_absolute_gains = Vec::with_capacity(self.predictive_trees.len());
+
+        for tree in self.predictive_trees.iter() {
+            let tree_nodes = tree.crawl_to_leaves();
+            let tree_gains = tree_nodes.iter().map(|node| node.absolute_gains().as_ref().map(|node| node.clone()).unwrap_or(vec![])).collect();
+            heirarchal_absolute_gains.push((tree.root.features(),tree_gains));
+        }
+
+
+        // let absolute_gains: Vec<Vec<(&String,f64)>> = nodes.iter().map(|node| node.features().iter().zip(node.absolute_gains.as_ref().unwrap_or(&vec![]).iter().cloned()).collect()).collect();
 
         // println!("{:?}",local_gains);
         // println!("Local gains gathered");
         println!("Absolute gains gathered");
 
 
-        self.feature_similarity_matrix = incomplete_correlation_matrix(absolute_gains, feature_map);
+        let observed_correlations = observe_correlations(heirarchal_absolute_gains, feature_map);
+
+        println!("Updating similarities");
+
+        for (f1,f2,correlation) in observed_correlations {
+            let previous_correlation = self.feature_similarity_matrix[f1][f2];
+            self.feature_similarity_matrix[f1][f2] = ((previous_correlation * (self.similarity_observation_matrix[f1][f2] as f64)) + correlation) / ((self.similarity_observation_matrix[f1][f2] + 1) as f64);
+            self.similarity_observation_matrix[f1][f2] += 1;
+        }
+
+        // self.feature_similarity_matrix = incomplete_correlation_matrix(absolute_gains, feature_map);
 
         let mut similarity_dump = OpenOptions::new().create(true).append(true).open([report_address,".similarity"].join("")).unwrap();
         similarity_dump.write(&tsv_format(&self.feature_similarity_matrix).as_bytes())?;
@@ -572,160 +594,158 @@ pub fn weighted_sampling<T: Clone>(draws: usize, samples: &Vec<T>, weights: &Vec
 
 }
 
-pub fn incomplete_correlation_matrix(values:Vec<Vec<(&String,f64)>>,map:HashMap<String,usize>) -> Vec<Vec<f64>> {
+pub fn observe_correlations(local_gains: Vec<(&Vec<String>,Vec<Vec<f64>>)>, map: HashMap<String,usize>) -> Vec<(usize,usize,f64)> {
 
-    println!("Computing incomplete matrix");
+    println!("Observing correlations");
 
-    // println!("{:?}",values);
-    // println!("{:?}",map);
+    let mut correlations = Vec::with_capacity(map.len());
 
+    for (features, tree_nodes) in local_gains {
+        let mut feature_sums = vec![0.;features.len()];
+        let mut feature_square_sums = vec![0.;features.len()];
+        let mut multiplied_sums = vec![vec![0.;features.len()];features.len()];
 
-    let mut mtx: Vec<Vec<Option<f64>>> = vec![vec![None; map.len()];values.len()];
+        let len = tree_nodes.len() as f64;
 
-    for (i, top_vector) in values.iter().enumerate() {
-        for (feature,value) in top_vector {
-            mtx[i][map[*feature]] = Some(*value);
-        }
-    }
-
-    // println!("{:?}",mtx);
-
-    let mtx_t = matrix_flip(&mtx);
-
-    // println!("{:?}",mtx_t);
-
-    let features: Vec<&String> = map.keys().collect();
-
-    let mut correlations = vec![vec![1.;features.len()];features.len()];
-
-    for f1 in &features {
-        for f2 in &features {
-
-            let f1i = map[*f1];
-            let f2i = map[*f2];
-
-            let mut multiplied_sum = 0.;
-            let mut f1s = 0.;
-            let mut f2s = 0.;
-            let mut f1ss = 0.;
-            let mut f2ss = 0.;
-            let mut len = 0.;
-
-            for (f1vo,f2vo) in mtx_t[f1i].iter().zip(mtx_t[f2i].iter()) {
-                if let (Some(f1v),Some(f2v)) = (f1vo,f2vo) {
-
-                    // println!("values:");
-                    //
-                    // println!("{:?}", (f1v,f2v));
-
-                    multiplied_sum += f1v*f2v;
-
-                    // println!("{:?}", f1v * f2v);
-
-
-                    f1s += f1v;
-                    f2s += f2v;
-
-                    f1ss += f1v.powi(2);
-                    f2ss += f2v.powi(2);
-
-                    // println!("{:?}", f1ss * f2ss);
-
-                    len += 1.;
+        for node in tree_nodes {
+            for (i,feature_gain) in node.iter().enumerate() {
+                feature_sums[i] += feature_gain;
+                feature_square_sums[i] += feature_gain.powi(2);
+                for (j,second_feature_gain) in node.iter().enumerate() {
+                    multiplied_sums[i][j] += feature_gain * second_feature_gain;
                 }
             }
-
-            // println!("{:?}", (multiplied_sum,f1s,f2s,f1ss,f2ss,len));
-
-            let product_expectation = multiplied_sum/len;
-            let f1e = f1s/len;
-            let f2e = f2s/len;
-
-            // println!("prod exp:{:?}", product_expectation);
-            // println!("exp: {:?},{:?}", f1e,f2e);
-
-            let f1std = (f1ss/len - f1e.powi(2)).sqrt();
-            let f2std = (f2ss/len - f2e.powi(2)).sqrt();
-
-            // println!("{:?}",(f1std,f2std));
-
-            let mut correlation = (product_expectation - (f1e * f2e)) / (f1std * f2std);
-
-            // println!("{}",correlation);
-
-            if correlation.is_nan() {
-                correlation = 0.;
-            }
-
-            correlations[f1i][f2i] = correlation;
-
-            // println!("{:?}",pearsonr(&f1v,&f2v))
         }
 
+        for (i,f1) in features.iter().enumerate() {
+            for (j,f2) in features.iter().enumerate() {
+
+                let product_expectation = multiplied_sums[i][j]/len;
+
+                let f1e = feature_sums[i]/len;
+                let f2e = feature_sums[j]/len;
+
+                let f1std = (feature_square_sums[i]/len - f1e.powi(2)).sqrt();
+                let f2std = (feature_square_sums[j]/len - f2e.powi(2)).sqrt();
+
+                let mut correlation = (product_expectation - (f1e * f2e)) / (f1std * f2std);
+
+                // println!("{}",correlation);
+
+                if correlation.is_nan() {
+                    correlation = 0.;
+                }
+
+                correlations.push((map[f1],map[f2],correlation));
+            }
+        }
+
+        if correlations.len()%1000 == 0 {
+            println!("Observations: {}", correlations.len());
+        }
 
     }
-
-
-    // for f1 in &features {
-    //     for f2 in &features {
-    //
-    //         let f1i = map[*f1];
-    //         let f2i = map[*f2];
-    //
-    //         let deviation_multiplied_mean: f64 = mean(
-    //             &deviations[f1i].iter()
-    //                 .zip(deviations[f2i].iter())
-    //                 .filter_map(|(f1do,f2do)| {
-    //                     if let (Some(f1d),Some(f2d)) = (f1do,f2do) {
-    //                         Some(*f1d * *f2d)
-    //                     }
-    //                     else { None }
-    //                 })
-    //                 .collect()
-    //         );
-    //         // println!("f1: {}, f2: {}",f1,f2);
-    //         // println!("{:?},{:?}", f1v,f2v);
-    //
-    //         let correlation = deviation_multiplied_mean / (variances[f1i] * variances[f2i]);
-    //
-    //
-    //         correlations[f1i][f2i] = correlation;
-    //
-    //         // println!("{:?}",pearsonr(&f1v,&f2v))
-    //     }
-    //
-    //
-    // }
-
-    // for f1 in &features {
-    //     for f2 in &features {
-    //         let pairs: Vec<(f64,f64)> = mtx_t[map[*f1]].iter()
-    //         .zip(mtx_t[map[*f2]].iter())
-    //         .filter_map(|(f1vo,f2vo)| {
-    //             if let (Some(f1v),Some(f2v)) = (f1vo,f2vo) {
-    //                 Some((*f1v,*f2v))
-    //             }
-    //             else { None }
-    //         })
-    //         .collect();
-    //
-    //         // println!("f1: {}, f2: {}",f1,f2);
-    //         let (f1v,f2v): (Vec<f64>,Vec<f64>) = pairs.into_iter().unzip();
-    //         // println!("{:?},{:?}", f1v,f2v);
-    //
-    //         correlations[map[*f1]][map[*f2]] = pearsonr(&f1v,&f2v);
-    //
-    //         // println!("{:?}",pearsonr(&f1v,&f2v))
-    //     }
-    //
-    //
-    // }
-    //
-    // println!("{:?}", correlations);
 
     correlations
 
 }
+
+// pub fn incomplete_correlation_matrix(values:Vec<Vec<(&String,f64)>>,map:HashMap<String,usize>) -> Vec<Vec<f64>> {
+//
+//     println!("Computing incomplete matrix");
+//
+//     // println!("{:?}",values);
+//     // println!("{:?}",map);
+//
+//
+//     let mut mtx: Vec<Vec<Option<f64>>> = vec![vec![None; map.len()];values.len()];
+//
+//     for (i, top_vector) in values.iter().enumerate() {
+//         for (feature,value) in top_vector {
+//             mtx[i][map[*feature]] = Some(*value);
+//         }
+//     }
+//
+//     // println!("{:?}",mtx);
+//
+//     let mtx_t = matrix_flip(&mtx);
+//
+//     // println!("{:?}",mtx_t);
+//
+//     let features: Vec<&String> = map.keys().collect();
+//
+//     let mut correlations = vec![vec![1.;features.len()];features.len()];
+//
+//     for f1 in &features {
+//         for f2 in &features {
+//
+//             let f1i = map[*f1];
+//             let f2i = map[*f2];
+//
+//             let mut multiplied_sum = 0.;
+//             let mut f1s = 0.;
+//             let mut f2s = 0.;
+//             let mut f1ss = 0.;
+//             let mut f2ss = 0.;
+//             let mut len = 0.;
+//
+//             for (f1vo,f2vo) in mtx_t[f1i].iter().zip(mtx_t[f2i].iter()) {
+//                 if let (Some(f1v),Some(f2v)) = (f1vo,f2vo) {
+//
+//                     // println!("values:");
+//                     //
+//                     // println!("{:?}", (f1v,f2v));
+//
+//                     multiplied_sum += f1v*f2v;
+//
+//                     // println!("{:?}", f1v * f2v);
+//
+//
+//                     f1s += f1v;
+//                     f2s += f2v;
+//
+//                     f1ss += f1v.powi(2);
+//                     f2ss += f2v.powi(2);
+//
+//                     // println!("{:?}", f1ss * f2ss);
+//
+//                     len += 1.;
+//                 }
+//             }
+//
+//             // println!("{:?}", (multiplied_sum,f1s,f2s,f1ss,f2ss,len));
+//
+//             let product_expectation = multiplied_sum/len;
+//             let f1e = f1s/len;
+//             let f2e = f2s/len;
+//
+//             // println!("prod exp:{:?}", product_expectation);
+//             // println!("exp: {:?},{:?}", f1e,f2e);
+//
+//             let f1std = (f1ss/len - f1e.powi(2)).sqrt();
+//             let f2std = (f2ss/len - f2e.powi(2)).sqrt();
+//
+//             // println!("{:?}",(f1std,f2std));
+//
+//             let mut correlation = (product_expectation - (f1e * f2e)) / (f1std * f2std);
+//
+//             // println!("{}",correlation);
+//
+//             if correlation.is_nan() {
+//                 correlation = 0.;
+//             }
+//
+//             correlations[f1i][f2i] = correlation;
+//
+//             // println!("{:?}",pearsonr(&f1v,&f2v))
+//         }
+//
+//
+//     }
+//
+//     correlations
+//
+// }
 
 
 #[cfg(test)]
