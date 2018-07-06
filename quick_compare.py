@@ -16,6 +16,7 @@ print "Mean Feature Correlation:"
 correlations = []
 for i in range(truth.T.shape[0]):
     correlations.append(pearsonr(truth.T[i],pred.T[i])[0])
+print len(correlations)
 print np.mean(correlations)
 
 print "Mean Absolute Error"
