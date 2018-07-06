@@ -31,7 +31,7 @@ def main():
 #
 # features=prefix+"/testing/header.txt"
 
-def options(counts,command="combined",drop_mode="zeros",prediction_mode="branching",trees="1",leaves="1",in_features="1",out_features="1",feature_subsample="1",sample_subsample="1",processors="1",output_location="./working/temp",features=None,samples=None,reporting=None,prefix="./target/release/",split_mode="mad",norm_mode="l2",averaging_mode="stacking"):
+def construct_command(counts,command="combined",drop_mode="zeros",prediction_mode="branching",trees="1",leaves="1",in_features="1",out_features="1",feature_subsample="1",sample_subsample="1",processors="1",output_location="./working/temp",features=None,samples=None,reporting=None,prefix="./target/release/",split_mode="mad",norm_mode="l2",averaging_mode="stacking"):
 
 
     command = [prefix+"forest_2",]
@@ -58,6 +58,8 @@ def options(counts,command="combined",drop_mode="zeros",prediction_mode="branchi
 
     if samples != None:
         command.extend(["-s",samples])
+
+    sp.Popen(command,stdout=reporting)
 
 
 def fit_predict(counts,drop_mode="zeros",prediction_mode="branching",trees="1",leaves="1",in_features="1",out_features="1",feature_subsample="1",sample_subsample="1",processors="1",output_location="./working/temp",features=None,samples=None,reporting=None):
