@@ -700,6 +700,7 @@ pub enum WeighingMode {
     AbsGainSquared,
     AbsoluteDispersion,
     AbsDispSquared,
+    Flat,
 }
 
 impl WeighingMode {
@@ -709,6 +710,7 @@ impl WeighingMode {
             "gain_squared" | "gs" => WeighingMode::AbsGainSquared,
             "dispersion" | "d" => WeighingMode::AbsoluteDispersion,
             "dispersion_squared" | "ds" => WeighingMode::AbsDispSquared,
+            "flat" | "f" => WeighingMode::Flat,
             _ => panic!("Not a valid weighing mode, please pick from gain, gain_squared, dispersion, dispersion_squared")
         }
     }

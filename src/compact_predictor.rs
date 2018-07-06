@@ -54,7 +54,8 @@ pub fn compact_predict(trees: &[PredictiveTree], counts: &Vec<Vec<f64>>, feature
                     WeighingMode::AbsoluteGain => sample_prediction = average_leaves_gain(leaves, features),
                     WeighingMode::AbsGainSquared => sample_prediction = average_leaves_squared_gain(leaves, features),
                     WeighingMode::AbsoluteDispersion => sample_prediction = average_leaves_cov(leaves, features),
-                    WeighingMode::AbsDispSquared => sample_prediction = average_leaves_cov_squared(leaves, features)
+                    WeighingMode::AbsDispSquared => sample_prediction = average_leaves_cov_squared(leaves, features),
+                    WeighingMode::Flat => sample_prediction = average_leaves_flat(leaves,features)
                 }
             },
         }
@@ -135,6 +136,32 @@ pub fn average_leaves_squared_gain(nodes: Vec<Vec<&StrippedNode>>,features:&Hash
     for (feature,values) in predictions {
         let sum = values.iter().fold((0.,0.),|acc,x| (acc.0 + (x.0 * (x.1.max(0.).powi(2))), acc.1 + (x.1.max(0.).powi(2))));
         let mut mean = sum.0 / sum.1;
+        if mean.is_nan() {
+            mean = 0.;
+        }
+        agg_predictions[features[feature]] = mean;
+    }
+
+    agg_predictions
+
+}
+
+pub fn average_leaves_flat(nodes: Vec<Vec<&StrippedNode>>,features:&HashMap<String,usize>) -> Vec<f64> {
+
+    let flat_nodes: Vec<&StrippedNode> = nodes.into_iter().flat_map(|x| x).collect();
+
+    let mut predictions: HashMap<&String,Vec<(f64,f64)>> = HashMap::new();
+
+    for node in flat_nodes {
+        for (feature,(median,gain)) in node.features().iter().zip(node.medians().iter().zip(node.absolute_gains().as_ref().unwrap_or(&vec![]).iter())) {
+            predictions.entry(feature).or_insert(Vec::new()).push((*median,*gain));
+        }
+    }
+
+    let mut agg_predictions = vec![0.;features.len()];
+
+    for (feature,values) in predictions {
+        let mut mean = values.iter().fold(0.,|acc,x| acc + x.0) / values.len() as f64;
         if mean.is_nan() {
             mean = 0.;
         }
