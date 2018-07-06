@@ -19,4 +19,4 @@ for i in range(truth.T.shape[0]):
 print np.mean(correlations)
 
 print "Mean Absolute Error"
-print np.mean(np.abs(truth - pred).abs())
+print np.mean(np.abs(truth - pred))
