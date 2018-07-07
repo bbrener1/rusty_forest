@@ -421,6 +421,8 @@ impl BoostedForest {
 
     fn update_similarity(&mut self,report_address:&str) -> Result<(),Error> {
 
+        self.similarity_observation_matrix = vec![vec![0;self.dimensions.0];self.dimensions.0];
+
         // let nodes: Vec<&StrippedNode> = self.predictive_trees.iter().flat_map(|x| x.crawl_nodes()).collect();
 
         let feature_map = self.feature_map();
