@@ -641,6 +641,20 @@ impl<T: Borrow<[Node]> + BorrowMut<[Node]> + Index<usize,Output=Node> + IndexMut
         }
     }
 
+    pub fn mean(&self) -> f64 {
+        let sum:f64 = self.ordered_values().iter().sum();
+        sum/self.len() as f64
+    }
+
+    pub fn var(&self) -> f64 {
+        let values = self.ordered_values();
+        let len = self.len() as f64;
+        let sum:f64 = values.iter().sum();
+        let mean = sum/len;
+        let deviation_sum:f64 = values.iter().map(|x| (x - mean).powi(2)).sum();
+        deviation_sum/len
+    }
+
     fn cov(&self) -> Option<f64> {
 
         let median = self.median();
@@ -653,6 +667,7 @@ impl<T: Borrow<[Node]> + BorrowMut<[Node]> + Index<usize,Output=Node> + IndexMut
             Some(mad/median)
         }
     }
+
 
     #[inline]
     pub fn left_to_right(&self) -> Vec<usize> {
@@ -668,6 +683,7 @@ impl<T: Borrow<[Node]> + BorrowMut<[Node]> + Index<usize,Output=Node> + IndexMut
 
     pub fn full_values(&self) -> Vec<f64> {
         (0..self.raw_len()).map(|x| self.nodes[x].data).collect()
+        // self.nodes[0..self.raw_len()].map(|x| x.data).collect()
     }
 
     pub fn ordered_meds_mads(&mut self,draw_order: &Vec<usize>,drop_set: HashSet<usize>) -> Vec<(f64,f64)> {
@@ -1278,6 +1294,31 @@ mod rank_vector_tests {
         }
 
     }
+
+    #[test]
+    fn sequential_var_simple() {
+        let mut vector = RankVector::<Vec<Node>>::link(&vec![10.,-3.,0.,5.,-2.,-1.,15.,20.],);
+        vector.drop_f(0.);
+
+        let mut vm = vector.clone();
+
+
+        for draw in vector.draw_order() {
+            println!("{:?}",vm.ordered_values());
+            println!("Median:{},{}",vm.median(),slow_median(vm.ordered_values()));
+            println!("MAD:{},{}",vm.mad(),slow_mad(vm.ordered_values()));
+            println!("Boundaries:{:?}", vm.boundaries());
+            println!("{:?}",vm.pop(draw));
+            println!("{:?}",vm.ordered_values());
+            println!("Median:{},{}",vm.median(),slow_median(vm.ordered_values()));
+            println!("MAD:{},{}",vm.mad(),slow_mad(vm.ordered_values()));
+            println!("Boundaries:{:?}", vm.boundaries());
+            assert_eq!(vm.median(),slow_median(vm.ordered_values()));
+            assert_eq!(vm.mad(),slow_mad(vm.ordered_values()));
+        }
+
+    }
+
 
     // #[bench]
     // fn bench_rv3_ordered_values_vector(b: &mut Bencher) {

@@ -110,7 +110,12 @@ impl RankTable {
     }
 
     pub fn dispersions(&self) -> Vec<f64> {
-        self.meta_vector.iter().map(|x| x.mad()).collect()
+
+        match self.split_mode {
+            SplitMode::Variance => self.meta_vector.iter().map(|x| x.var()).collect(),
+            SplitMode::MAD => self.meta_vector.iter().map(|x| x.mad()).collect(),
+            SplitMode::Mixed => panic!("Mixed mode isn't a valid setting for dispersion calculation in individual trees")
+        }
     }
 
     pub fn covs(&self) -> Vec<f64> {

@@ -755,62 +755,62 @@ mod raw_vector_tests {
 
     use super::*;
 
-    #[test]
-    fn test_weighted_sampling_with_replacement() {
-
-        let samples = &vec!["a","b","c","d","e","f","g","h","i","j"];
-
-        let weights =  &vec![1.,2.,3.,4.,5.,6.,7.,8.,9.,10.];
-
-        let mut draws: Vec<&str> = Vec::with_capacity(999);
-
-        for _ in 0..333 {
-            draws.extend(weighted_sampling(3, samples, weights, true).0.iter());
-        }
-
-        println!("{:?}",draws);
-
-        panic!();
-
-    }
-
-    #[test]
-    fn test_weighted_sampling_without_replacement() {
-
-        let samples = &vec!["a","b","c","d","e","f","g","h","i","j"];
-
-        let weights =  &vec![1.,2.,3.,4.,5.,6.,7.,8.,9.,10.];
-
-        let mut draws: Vec<&str> = Vec::with_capacity(999);
-
-        for _ in 0..333 {
-            draws.extend(weighted_sampling(3, samples, weights, false).0.iter());
-        }
-
-        println!("{:?}",draws);
-
-        panic!();
-
-    }
-
-    #[test]
-    fn test_weighted_sampling_without_replacement_subtle() {
-
-        let samples = &vec!["a","b","c"];
-
-        let weights =  &vec![40.,50.,25.];
-
-        let mut draws: Vec<&str> = Vec::with_capacity(1000);
-
-        for _ in 0..1000 {
-            draws.extend(weighted_sampling(1, samples, weights, false).0.iter());
-        }
-
-        println!("{:?}",draws);
-
-        panic!();
-
-    }
+    // #[test]
+    // fn test_weighted_sampling_with_replacement() {
+    //
+    //     let samples = &vec!["a","b","c","d","e","f","g","h","i","j"];
+    //
+    //     let weights =  &vec![1.,2.,3.,4.,5.,6.,7.,8.,9.,10.];
+    //
+    //     let mut draws: Vec<&str> = Vec::with_capacity(999);
+    //
+    //     for _ in 0..333 {
+    //         draws.extend(weighted_sampling(3, samples, weights, true).0.iter());
+    //     }
+    //
+    //     println!("{:?}",draws);
+    //
+    //     panic!();
+    //
+    // }
+    //
+    // #[test]
+    // fn test_weighted_sampling_without_replacement() {
+    //
+    //     let samples = &vec!["a","b","c","d","e","f","g","h","i","j"];
+    //
+    //     let weights =  &vec![1.,2.,3.,4.,5.,6.,7.,8.,9.,10.];
+    //
+    //     let mut draws: Vec<&str> = Vec::with_capacity(999);
+    //
+    //     for _ in 0..333 {
+    //         draws.extend(weighted_sampling(3, samples, weights, false).0.iter());
+    //     }
+    //
+    //     println!("{:?}",draws);
+    //
+    //     panic!();
+    //
+    // }
+    //
+    // #[test]
+    // fn test_weighted_sampling_without_replacement_subtle() {
+    //
+    //     let samples = &vec!["a","b","c"];
+    //
+    //     let weights =  &vec![40.,50.,25.];
+    //
+    //     let mut draws: Vec<&str> = Vec::with_capacity(1000);
+    //
+    //     for _ in 0..1000 {
+    //         draws.extend(weighted_sampling(1, samples, weights, false).0.iter());
+    //     }
+    //
+    //     println!("{:?}",draws);
+    //
+    //     panic!();
+    //
+    // }
 
     // #[test]
     // fn test_incomplete_similarity_matrix() {
