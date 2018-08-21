@@ -641,11 +641,13 @@ impl<T: Borrow<[Node]> + BorrowMut<[Node]> + Index<usize,Output=Node> + IndexMut
         }
     }
 
+    #[inline]
     pub fn mean(&self) -> f64 {
         let sum:f64 = self.ordered_values().iter().sum();
         sum/self.len() as f64
     }
 
+    #[inline]
     pub fn var(&self) -> f64 {
         let values = self.ordered_values();
         let len = self.len() as f64;
@@ -655,6 +657,15 @@ impl<T: Borrow<[Node]> + BorrowMut<[Node]> + Index<usize,Output=Node> + IndexMut
         deviation_sum/len
     }
 
+    #[inline]
+    pub fn l2(&self) -> f64 {
+        let values = self.ordered_values();
+        let len = self.len() as f64;
+        let median = self.median();
+        values.iter().map(|x| (x - median).powi(2)).sum()
+    }
+
+    #[inline]
     fn cov(&self) -> Option<f64> {
 
         let median = self.median();
