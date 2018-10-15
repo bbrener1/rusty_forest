@@ -9,6 +9,7 @@ use std::cmp::Ordering;
 use std::sync::Arc;
 use compact_predictor::compact_predict;
 use rand::thread_rng;
+use rand::random;
 use tree::Tree;
 use rank_table::RankTable;
 use tree::PredictiveTree;
@@ -594,6 +595,26 @@ pub fn weighted_sampling<T: Clone>(draws: usize, samples: &Vec<T>, weights: &Vec
 
     (drawn_samples,drawn_indecies)
 
+}
+
+pub fn weighted_draw_without_replacement(draws: usize, weights: &Vec<f64>) -> Vec<usize> {
+    let mut rng = thread_rng();
+    let mut local_weights = weights.clone();
+    let mut weight_sum = weights.iter().sum::<f64>();
+    let mut draw_vec = Vec::with_capacity(draws);
+    for i in 0..draws {
+        let target = random::<f64>() * weight_sum;
+        let draw = local_weights.iter()
+            .enumerate()
+            .scan((0,0.),|acc,x| {acc.1 = acc.1 + *x.1; Some((x.0,acc.1))})
+            .find(|x| x.1 > target);
+        if let Some((index,_)) = draw {
+            draw_vec.push(index);
+            local_weights[index] = 0.;
+        }
+    }
+
+    draw_vec
 }
 
 pub fn observe_correlations(local_gains: Vec<(&Vec<String>,Vec<Vec<f64>>)>, map: HashMap<String,usize>) -> Vec<(usize,usize,f64)> {
