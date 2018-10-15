@@ -457,7 +457,7 @@ impl RankTable {
 
         for (i,(f_s,r_s)) in forward_dispersions.into_iter().zip(reverse_dispersions.into_iter()).enumerate() {
             for (j,(gf,gr)) in f_s.into_iter().zip(r_s.into_iter()).enumerate() {
-                covs[i][j] = (gf * ((len - i) as f64 / len as f64).powf(1.5)) + (gr * ((i+1) as f64/ len as f64).powf(1.5));
+                covs[i][j] = (gf * ((len - i) as f64 / len as f64).powi(1)) + (gr * ((i+1) as f64/ len as f64).powi(1));
             }
         }
 
