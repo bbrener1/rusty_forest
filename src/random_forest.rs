@@ -7,8 +7,8 @@ use std::io;
 use std::collections::HashMap;
 use std::sync::mpsc;
 
-use tree::Tree;
-use tree::PredictiveTree;
+use tree_v2::Tree;
+use tree_v2::PredictiveTree;
 
 extern crate rand;
 use rand::seq;
@@ -25,6 +25,9 @@ use std::sync::Arc;
 use compact_predictor::compact_predict;
 use matrix_flip;
 use tsv_format;
+use weigh_leaves::weigh_leaves;
+use node::StrippedNode;
+use compact_predictor::node_sample_encoding;
 
 impl Forest {
     pub fn initialize(counts: &Vec<Vec<f64>>, parameters: Arc<Parameters>, report_address:&str) -> Forest {
@@ -100,6 +103,14 @@ impl Forest {
             panic!("Attempted to generate a forest without a prototype tree. Are you trying to do predictions after reloading from compact backups?")
         }
 
+    }
+
+    pub fn set_leaf_weights(&mut self) {
+        let sample_header = self.sample_map();
+        let leaves = self.leaves();
+        let encoding = node_sample_encoding(&leaves,&sample_header);
+        let truth = &self.counts;
+        let leaf_weights = weigh_leaves(&leaves,&encoding,truth);
     }
 
     pub fn compact_reconstitute(tree_locations: TreeBackups, feature_option: Option<Vec<String>>,sample_option:Option<Vec<String>>,processor_option: Option<usize>, report_address:&str) -> Result<Forest,Error> {
@@ -236,6 +247,16 @@ impl Forest {
         &self.predictive_trees
     }
 
+    pub fn leaves(&self) -> Vec<&StrippedNode> {
+
+        let mut leaves = vec![];
+
+        for tree in &self.predictive_trees {
+            leaves.extend(tree.crawl_to_leaves());
+        }
+        leaves
+    }
+
     pub fn dimensions(&self) -> (usize,usize) {
         self.prototype_tree.as_ref().unwrap().dimensions()
     }
@@ -251,6 +272,11 @@ impl Forest {
     pub fn feature_map(&self) -> Option<HashMap<String,usize>> {
         self.output_features().map(|x| x.clone().into_iter().enumerate().map(|x| (x.1,x.0)).collect())
     }
+
+    pub fn sample_map(&self) -> HashMap<String,usize> {
+        self.prototype_tree.as_ref().unwrap().samples().iter().cloned().enumerate().map(|x| (x.1,x.0)).collect()
+    }
+
 
 }
 

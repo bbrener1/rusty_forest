@@ -12,8 +12,8 @@ extern crate rand;
 use rand::thread_rng;
 use rand::Rng;
 
-use tree::Tree;
-use tree::PredictiveTree;
+use tree_v2::Tree;
+use tree_v2::PredictiveTree;
 use Parameters;
 use SplitMode;
 

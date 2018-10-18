@@ -10,8 +10,8 @@ use std::thread;
 
 extern crate rand;
 
-use tree::Tree;
-use tree::PredictiveTree;
+use tree_v2::Tree;
+use tree_v2::PredictiveTree;
 
 impl BoostedTreeThreadPool{
     pub fn new(prototype:&Tree,processors: usize) -> Sender<BoostedMessage> {

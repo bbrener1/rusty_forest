@@ -5,6 +5,7 @@ use std::cmp::Ordering;
 use std::sync::mpsc;
 use std::f64;
 use std::mem::replace;
+use std::collections::HashMap;
 use serde_json;
 
 
@@ -13,6 +14,7 @@ use rank_table::RankTable;
 use rank_table::RankTableWrapper;
 use split_thread_pool::SplitMessage;
 use DropMode;
+use PredictionMode;
 use Parameters;
 use SplitMode;
 
@@ -843,7 +845,59 @@ impl StrippedNode {
         output
     }
 
+    pub fn predict_leaves(&self,vector: &Vec<f64>, header: &HashMap<String,usize>,drop_mode: &DropMode, prediction_mode:&PredictionMode) -> Vec<&StrippedNode> {
+
+        let mut leaves = vec![];
+
+        if let (&Some(ref feature),&Some(ref split)) = (self.feature(),self.split()) {
+            if *vector.get(*header.get(feature).unwrap_or(&(vector.len()+1))).unwrap_or(&drop_mode.cmp()) != drop_mode.cmp() {
+                if vector[header[feature]] > *split {
+                    leaves.extend(self.children[1].predict_leaves(vector, header, drop_mode, prediction_mode));
+                }
+                else {
+                    leaves.extend(self.children[0].predict_leaves(vector, header, drop_mode, prediction_mode));
+                }
+            }
+            else {
+                match prediction_mode {
+                    &PredictionMode::Branch => {
+                        // println!("Mode is branching");
+                        leaves.extend(self.children[1].predict_leaves(vector, header, drop_mode, prediction_mode));
+                        leaves.extend(self.children[0].predict_leaves(vector, header, drop_mode, prediction_mode));
+                        // println!("{}", leaves.len());
+                    },
+                    &PredictionMode::Truncate => {
+                        leaves.push(&self)
+                    },
+                    &PredictionMode::Abort => {},
+                    &PredictionMode::Auto => {
+                        leaves.extend(self.predict_leaves(vector, header, drop_mode, prediction_mode));
+                    }
+                }
+            }
+        }
+        else {
+            // println!("Found a leaf");
+            leaves.push(&self);
+        }
+
+        leaves
+
+    }
+
+    pub fn node_sample_encoding(&self,header: &HashMap<String,usize>) -> Vec<bool> {
+        let mut encoding = vec![false; header.len()];
+        for sample in self.samples() {
+            if let Some(sample_index) = header.get(sample) {
+                encoding[*sample_index] = true;
+            }
+        }
+        encoding
+    }
+
+
 }
+
 
 #[cfg(test)]
 mod node_testing {

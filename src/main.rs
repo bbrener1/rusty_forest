@@ -22,30 +22,31 @@ extern crate num_cpus;
 extern crate rand;
 extern crate time;
 extern crate smallvec;
+extern crate ndarray;
+extern crate ndarray_linalg;
+// extern crate openblas_src;
 // extern crate test;
 
 
-mod raw_vector;
-mod rank_vector;
 mod rank_table;
 mod node;
 mod tree;
+mod tree_v2;
 mod feature_thread_pool;
 mod predict_thread_pool;
 mod tree_thread_pool;
 mod random_forest;
-mod predictor;
 mod shuffler;
 mod split_thread_pool;
 mod compact_predictor;
 mod boosted_forest;
 mod boosted_tree_thread_pool;
-mod rv2;
 mod rv3;
 mod sampling_thread_pool;
-// mod rv4;
+mod weigh_leaves;
 
-use tree::PredictiveTree;
+
+use tree_v2::PredictiveTree;
 use random_forest::Forest;
 use boosted_forest::BoostedForest;
 
@@ -177,11 +178,8 @@ pub fn predict(args: Parameters) {
 
     let dimensions = (counts.get(0).unwrap_or(&vec![]).len(),counts.len());
 
-    let features: Vec<String>;
-    let feature_map: HashMap<String,usize>;
-
-    features = args.feature_names.unwrap_or((0..dimensions.1).map(|x| x.to_string()).collect());
-    feature_map = features.iter().cloned().enumerate().map(|x| (x.1,x.0)).collect();
+    let features: Vec<String> = args.feature_names.unwrap_or((0..dimensions.1).map(|x| x.to_string()).collect());
+    let feature_map: HashMap<String,usize> = features.iter().cloned().enumerate().map(|x| (x.1,x.0)).collect();
 
     let forest = Forest::compact_reconstitute(tree_backups, Some(features), None ,None, "./").expect("Forest reconstitution failed");
 
@@ -1103,6 +1101,18 @@ fn pearsonr(vec1:&Vec<f64>,vec2:&Vec<f64>) -> f64 {
 
     if r.is_nan() {0.} else {r}
 
+}
+
+fn row_echelon(mtx: &Vec<Vec<f64>>) {
+    let mut working = matrix_flip(mtx);
+    let dim = mtx_dim(&working);
+    let mut column_order: Vec<usize> = (0..dim.0).collect();
+    let mut row_order: Vec<usize> = (0..dim.1).collect();
+    for i in 0..working.len() {
+        let column = &working[i];
+        let first_value = column.iter().find(|x| x.abs() > 0.);
+
+    };
 }
 
 mod manual_testing {

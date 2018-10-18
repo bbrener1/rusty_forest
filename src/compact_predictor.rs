@@ -15,7 +15,7 @@ use std::sync::mpsc;
 use std::sync::mpsc::Sender;
 
 use node::StrippedNode;
-use tree::PredictiveTree;
+use tree_v2::PredictiveTree;
 use predict_thread_pool::PredictThreadPool;
 use predict_thread_pool::PredictionMessage;
 
@@ -35,7 +35,7 @@ pub fn compact_predict(trees: &[PredictiveTree], counts: &Vec<Vec<f64>>, feature
         let mut leaves = Vec::with_capacity(trees.len());
         println!("Trees: {}",trees.len());
         for tree in trees {
-            leaves.push(node_predict_leaves(&tree.root,sample,features,&prediction_mode,&drop_mode));
+            leaves.push(tree.predict_leaves(sample,features,&prediction_mode,&drop_mode));
         }
         println!("Leaves: {}", leaves.iter().flat_map(|x| x).collect::<Vec<&&StrippedNode>>().len());
 
@@ -70,66 +70,9 @@ pub fn compact_predict(trees: &[PredictiveTree], counts: &Vec<Vec<f64>>, feature
     predictions
 }
 
-
-pub fn node_predict_leaves<'a>(node: &'a StrippedNode, vector: &Vec<f64>, header: &HashMap<String,usize>, prediction_mode: &PredictionMode, drop_mode: &DropMode) -> Vec<&'a StrippedNode> {
-
-    // println!("Crawling node: {:?},{:?}", node.feature(),node.split());
-
-    let mut leaves: Vec<&StrippedNode> = Vec::new();
-
-    if let (&Some(ref feature),&Some(ref split)) = (node.feature(),node.split()) {
-        if *vector.get(*header.get(feature).unwrap_or(&(vector.len()+1))).unwrap_or(&drop_mode.cmp()) != drop_mode.cmp() {
-            // println!("Observing: {}", vector[header[feature]]);
-            if vector[header[feature]] > *split {
-                // println!("More than split, going right???");
-                leaves.append(&mut node_predict_leaves(&node.children[1], vector, header, prediction_mode, drop_mode));
-            }
-            else {
-                // println!("Less than split, going left???");
-                leaves.append(&mut node_predict_leaves(&node.children[0], vector, header, prediction_mode, drop_mode));
-            }
-        }
-        else {
-            // println!("Split");
-            // println!("Observing: {}", vector[header[feature]]);
-
-            match prediction_mode {
-                &PredictionMode::Branch => {
-                    // println!("Mode is branching");
-                    leaves.append(&mut node_predict_leaves(&node.children[0], vector, header, prediction_mode, drop_mode));
-                    leaves.append(&mut node_predict_leaves(&node.children[1], vector, header, prediction_mode, drop_mode));
-                    // println!("{}", leaves.len());
-                },
-                &PredictionMode::Truncate => {
-                    leaves.push(&node)
-                },
-                &PredictionMode::Abort => {},
-                &PredictionMode::Auto => {
-                    leaves.append(&mut node_predict_leaves(&node, vector, header, &PredictionMode::Branch, drop_mode));
-                }
-            }
-        }
-    }
-    else {
-        // println!("Found a leaf");
-        leaves.push(&node);
-    }
-
-    return leaves
-
-}
-
 pub fn average_leaves_squared_gain(nodes: Vec<Vec<&StrippedNode>>,features:&HashMap<String,usize>) -> Vec<f64> {
 
-    let flat_nodes: Vec<&StrippedNode> = nodes.into_iter().flat_map(|x| x).collect();
-
-    let mut predictions: HashMap<&String,Vec<(f64,f64)>> = HashMap::new();
-
-    for node in flat_nodes {
-        for (feature,(median,gain)) in node.features().iter().zip(node.medians().iter().zip(node.absolute_gains().as_ref().unwrap_or(&vec![]).iter())) {
-            predictions.entry(feature).or_insert(Vec::new()).push((*median,*gain));
-        }
-    }
+    let predictions = raw_median_gain(nodes);
 
     let mut agg_predictions = vec![0.;features.len()];
 
@@ -148,15 +91,7 @@ pub fn average_leaves_squared_gain(nodes: Vec<Vec<&StrippedNode>>,features:&Hash
 
 pub fn average_leaves_flat(nodes: Vec<Vec<&StrippedNode>>,features:&HashMap<String,usize>) -> Vec<f64> {
 
-    let flat_nodes: Vec<&StrippedNode> = nodes.into_iter().flat_map(|x| x).collect();
-
-    let mut predictions: HashMap<&String,Vec<(f64,f64)>> = HashMap::new();
-
-    for node in flat_nodes {
-        for (feature,(median,gain)) in node.features().iter().zip(node.medians().iter().zip(node.absolute_gains().as_ref().unwrap_or(&vec![]).iter())) {
-            predictions.entry(feature).or_insert(Vec::new()).push((*median,*gain));
-        }
-    }
+    let predictions = raw_median_gain(nodes);
 
     let mut agg_predictions = vec![0.;features.len()];
 
@@ -174,15 +109,7 @@ pub fn average_leaves_flat(nodes: Vec<Vec<&StrippedNode>>,features:&HashMap<Stri
 
 pub fn average_leaves_gain(nodes: Vec<Vec<&StrippedNode>>,features:&HashMap<String,usize>) -> Vec<f64> {
 
-    let flat_nodes: Vec<&StrippedNode> = nodes.into_iter().flat_map(|x| x).collect();
-
-    let mut predictions: HashMap<&String,Vec<(f64,f64)>> = HashMap::new();
-
-    for node in flat_nodes {
-        for (feature,(median,gain)) in node.features().iter().zip(node.medians().iter().zip(node.absolute_gains().as_ref().unwrap_or(&vec![]).iter())) {
-            predictions.entry(feature).or_insert(Vec::new()).push((*median,*gain));
-        }
-    }
+    let predictions = raw_median_gain(nodes);
 
     let mut agg_predictions = vec![0.;features.len()];
 
@@ -201,15 +128,7 @@ pub fn average_leaves_gain(nodes: Vec<Vec<&StrippedNode>>,features:&HashMap<Stri
 
 pub fn average_leaves_cov(nodes: Vec<Vec<&StrippedNode>>,features:&HashMap<String,usize>) -> Vec<f64> {
 
-    let flat_nodes: Vec<&StrippedNode> = nodes.into_iter().flat_map(|x| x).collect();
-
-    let mut predictions: HashMap<&String,Vec<(f64,f64)>> = HashMap::new();
-
-    for node in flat_nodes {
-        for (feature,(median,cov)) in node.features().iter().zip(node.medians().iter().zip(node.covs())) {
-            predictions.entry(feature).or_insert(Vec::new()).push((*median,cov));
-        }
-    }
+    let predictions = raw_median_cov(nodes);
 
     let mut agg_predictions = vec![0.;features.len()];
 
@@ -228,15 +147,7 @@ pub fn average_leaves_cov(nodes: Vec<Vec<&StrippedNode>>,features:&HashMap<Strin
 
 pub fn average_leaves_cov_squared(nodes: Vec<Vec<&StrippedNode>>,features:&HashMap<String,usize>) -> Vec<f64> {
 
-    let flat_nodes: Vec<&StrippedNode> = nodes.into_iter().flat_map(|x| x).collect();
-
-    let mut predictions: HashMap<&String,Vec<(f64,f64)>> = HashMap::new();
-
-    for node in flat_nodes {
-        for (feature,(median,cov)) in node.features().iter().zip(node.medians().iter().zip(node.covs())) {
-            predictions.entry(feature).or_insert(Vec::new()).push((*median,cov));
-        }
-    }
+    let predictions = raw_median_cov(nodes);
 
     let mut agg_predictions = vec![0.;features.len()];
 
@@ -253,6 +164,54 @@ pub fn average_leaves_cov_squared(nodes: Vec<Vec<&StrippedNode>>,features:&HashM
 
 }
 
+
+pub fn raw_median_gain(nodes: Vec<Vec<&StrippedNode>>) -> HashMap<&String,Vec<(f64,f64)>> {
+
+    let flat_nodes: Vec<&StrippedNode> = nodes.into_iter().flat_map(|x| x).collect();
+
+    let mut predictions: HashMap<&String,Vec<(f64,f64)>> = HashMap::new();
+
+    for node in flat_nodes {
+        for (feature,(median,gain)) in node.features().iter().zip(node.medians().iter().zip(node.absolute_gains().as_ref().unwrap_or(&vec![]).iter())) {
+            predictions.entry(feature).or_insert(Vec::new()).push((*median,*gain));
+        }
+    }
+
+    predictions
+
+}
+
+pub fn raw_median_cov(nodes: Vec<Vec<&StrippedNode>>) -> HashMap<&String,Vec<(f64,f64)>> {
+
+    let flat_nodes: Vec<&StrippedNode> = nodes.into_iter().flat_map(|x| x).collect();
+
+    let mut predictions: HashMap<&String,Vec<(f64,f64)>> = HashMap::new();
+
+    for node in flat_nodes {
+        for (feature,(median,cov)) in node.features().iter().zip(node.medians().iter().zip(node.covs().iter())) {
+            predictions.entry(feature).or_insert(Vec::new()).push((*median,*cov));
+        }
+    }
+
+    predictions
+
+}
+
+pub fn raw_medians(nodes: Vec<Vec<&StrippedNode>>) -> HashMap<&String,Vec<f64>> {
+
+    let flat_nodes: Vec<&StrippedNode> = nodes.into_iter().flat_map(|x| x).collect();
+
+    let mut predictions: HashMap<&String,Vec<f64>> = HashMap::new();
+
+    for node in flat_nodes {
+        for (feature,median) in node.features().iter().zip(node.medians()) {
+            predictions.entry(feature).or_insert(Vec::new()).push(*median);
+        }
+    }
+
+    predictions
+
+}
 
 pub fn intervals<'a>(nodes: Vec<Vec<&'a StrippedNode>>) -> HashMap<&String,Vec<(f64,f64,f64)>> {
 
@@ -322,6 +281,26 @@ pub fn interval_stack(intervals: Vec<(f64,f64,f64)>) -> Vec<(f64,f64,f64)> {
 pub fn max_interval(intervals: Vec<(f64,f64,f64)>) -> f64 {
     let max = intervals.into_iter().max_by(|a,b| a.2.partial_cmp(&b.2).unwrap_or(Ordering::Greater)).unwrap_or((0.,0.,0.));
     return (max.0 + max.1)/2.
+}
+
+pub fn node_sample_encoding(nodes: &Vec<&StrippedNode>,header: &HashMap<String,usize>) -> Vec<Vec<bool>> {
+    let mut encoding = vec![vec![false; nodes.len()]; header.len()];
+    for (node_index,node) in nodes.iter().enumerate() {
+        for sample in node.samples() {
+            if let Some(sample_index) = header.get(sample) {
+                encoding[*sample_index][node_index] = true;
+            }
+        }
+    }
+    encoding
+}
+
+pub fn median_matrix(nodes: &Vec<&StrippedNode>) -> Vec<Vec<f64>> {
+    let mut matrix = Vec::with_capacity(nodes.len());
+    for node in nodes {
+        matrix.push(node.medians().clone())
+    }
+    matrix
 }
 
 #[cfg(test)]
