@@ -13,4 +13,4 @@ num_cpus = "1.8.0"
 smallvec = "0.6.1"
 ndarray = "0.12"
 ndarray-linalg = { version = "0.10" }
-openblas-src = { version = "0.5" , features = ["system"] }
+openblas-src = { version = "0.5", feature = ["system"] }

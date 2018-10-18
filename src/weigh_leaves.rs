@@ -1,6 +1,7 @@
 use ndarray::prelude::*;
 use ndarray_linalg::{Factorize,Inverse};
 use mtx_dim;
+use matrix_flip;
 use node::StrippedNode;
 use compact_predictor::median_matrix;
 
@@ -23,7 +24,11 @@ pub fn array_to_vec_mtx<T: Clone>(source: &Array<T,Ix2>) -> Vec<Vec<T>> {
 
 pub fn weigh_leaves(leaves: &Vec<&StrippedNode>, leaf_encoding:&Vec<Vec<bool>>, truth_vec: &Vec<Vec<f64>>) -> Vec<Vec<f64>> {
     let dim = mtx_dim(leaf_encoding);
-    let array_encoding = Array::from_shape_vec(dim,leaf_encoding.iter().flat_map(|x| x.iter()).map(|y| *y as i8 as f64).collect()).unwrap();
+    let mut array_encoding = Array::from_shape_vec(dim,matrix_flip(&leaf_encoding).iter().flat_map(|x| x.iter()).map(|y| *y as i8 as f64).collect()).unwrap();
+    // let leaves_per_sample = array_encoding.sum_axis(Axis(0));
+    // for (mut column,sum) in array_encoding.axis_iter_mut(Axis(1)).zip(leaves_per_sample.iter()) {
+    //     column /= *sum;
+    // };
     let raw_predictions = vec_mtx_to_array(&median_matrix(leaves));
     let truth = vec_mtx_to_array(truth_vec);
     let weighted_predictions: Option<Array<f64,Ix2>> = None;

@@ -362,6 +362,10 @@ impl PredictiveTree {
         self.root.crawl_leaves()
     }
 
+    pub fn mut_crawl_to_leaves(&mut self) -> Vec<&mut StrippedNode> {
+        self.root.mut_crawl_to_leaves()
+    }
+
     pub fn crawl_nodes(&self) -> Vec<&StrippedNode> {
         self.root.crawl_children()
     }

@@ -458,6 +458,7 @@ impl Node {
 
             medians: self.medians,
             dispersions: self.dispersions,
+            weights: self.feature_weights,
 
             local_gains: self.local_gains,
             absolute_gains: self.absolute_gains,
@@ -485,6 +486,7 @@ impl Node {
 
             medians: self.medians.clone(),
             dispersions: self.dispersions.clone(),
+            weights: self.feature_weights.clone(),
 
             local_gains: self.local_gains.clone(),
             absolute_gains: self.absolute_gains.clone(),
@@ -771,6 +773,7 @@ pub struct StrippedNode {
     samples: Vec<String>,
     medians: Vec<f64>,
     dispersions: Vec<f64>,
+    weights: Vec<f64>,
 
 
     pub local_gains: Option<Vec<f64>>,
@@ -819,6 +822,14 @@ impl StrippedNode {
         &self.local_gains
     }
 
+    pub fn set_weights(&mut self, weights: Vec<f64>) {
+        self.weights = weights;
+    }
+
+    pub fn weights(&self) -> &Vec<f64> {
+        &self.weights
+    }
+
     pub fn dropout(&self) -> DropMode {
         self.dropout
     }
@@ -831,6 +842,19 @@ impl StrippedNode {
         else {
             for child in &self.children {
                 output.extend(child.crawl_leaves());
+            }
+        };
+        output
+    }
+
+    pub fn mut_crawl_to_leaves<'a>(&'a mut self) -> Vec<&'a mut StrippedNode> {
+        let mut output = Vec::new();
+        if self.children.len() < 1 {
+            return vec![self]
+        }
+        else {
+            for child in self.children.iter_mut() {
+                output.extend(child.mut_crawl_to_leaves());
             }
         };
         output

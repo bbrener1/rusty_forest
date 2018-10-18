@@ -83,6 +83,7 @@ impl Forest {
 
             TreeThreadPool::terminate(&mut tree_pool);
 
+
             // let samples_per_tree = parameters.sample_subsample.unwrap_or(1);
             // let input_features = parameters.input_features.unwrap_or(1);
             // let output_features = parameters.output_features.unwrap_or(1);
@@ -103,14 +104,19 @@ impl Forest {
             panic!("Attempted to generate a forest without a prototype tree. Are you trying to do predictions after reloading from compact backups?")
         }
 
+        self.set_leaf_weights();
+
     }
 
     pub fn set_leaf_weights(&mut self) {
+        let truth = self.counts.clone();
         let sample_header = self.sample_map();
-        let leaves = self.leaves();
-        let encoding = node_sample_encoding(&leaves,&sample_header);
-        let truth = &self.counts;
-        let leaf_weights = weigh_leaves(&leaves,&encoding,truth);
+        let mut leaves = self.mut_leaves();
+        let encoding = node_sample_encoding(&{leaves.iter().map(|x| &**x).collect()},&sample_header);
+        let leaf_weights = weigh_leaves(&{leaves.iter().map(|x| &**x).collect()},&encoding,&truth);
+        for (i,weights) in leaf_weights.into_iter().enumerate() {
+            leaves[i].set_weights(weights)
+        }
     }
 
     pub fn compact_reconstitute(tree_locations: TreeBackups, feature_option: Option<Vec<String>>,sample_option:Option<Vec<String>>,processor_option: Option<usize>, report_address:&str) -> Result<Forest,Error> {
@@ -253,6 +259,16 @@ impl Forest {
 
         for tree in &self.predictive_trees {
             leaves.extend(tree.crawl_to_leaves());
+        }
+        leaves
+    }
+
+    pub fn mut_leaves(&mut self) -> Vec<&mut StrippedNode> {
+
+        let mut leaves = vec![];
+
+        for tree in self.predictive_trees.iter_mut() {
+            leaves.extend(tree.mut_crawl_to_leaves());
         }
         leaves
     }
